@@ -1,0 +1,143 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Visita extends Model
+{
+    public const STATUS_AGENDADA = 'agendada';
+
+    public const STATUS_EM_ANDAMENTO = 'em_andamento';
+
+    public const STATUS_CONCLUIDA = 'concluida';
+
+    public const STATUS_CANCELADA = 'cancelada';
+
+    public const STATUSES = [
+        self::STATUS_AGENDADA => 'Agendada',
+        self::STATUS_EM_ANDAMENTO => 'Em andamento',
+        self::STATUS_CONCLUIDA => 'Concluída',
+        self::STATUS_CANCELADA => 'Cancelada',
+    ];
+
+    public const TIPO_VISITA_COMERCIAL = 'comercial';
+
+    public const TIPO_VISITA_TECNICA = 'tecnica';
+
+    public const TIPO_VISITA_DEMONSTRACAO = 'demonstracao';
+
+    public const TIPO_VISITA_EXECUCAO = 'execucao';
+
+    public const TIPOS_VISITA = [
+        self::TIPO_VISITA_COMERCIAL => 'Visita Comercial',
+        self::TIPO_VISITA_TECNICA => 'Visita Técnica',
+        self::TIPO_VISITA_DEMONSTRACAO => 'Demonstração',
+        self::TIPO_VISITA_EXECUCAO => 'Execução de Serviço',
+    ];
+
+    public const TIPO_SERVICO_CONTROLE_PRAGAS = 'controle_pragas';
+
+    public const TIPO_SERVICO_LIMPEZA = 'limpeza';
+
+    public const TIPOS_SERVICO = [
+        self::TIPO_SERVICO_CONTROLE_PRAGAS => 'Controle de Pragas (Dedetização)',
+        self::TIPO_SERVICO_LIMPEZA => 'Higienização e Limpeza',
+    ];
+
+    protected $fillable = [
+        'cliente_id',
+        'tecnico_id',
+        'data_hora',
+        'status',
+        'tipo_visita',
+        'tipo_servico',
+        'tipo_praga',
+        'area_tratada',
+        'observacoes',
+        'proxima_visita',
+        'valor_cobrado',
+        'custo_produtos',
+        'custo_mao_de_obra',
+        'custo_deslocamento',
+        'exige_nota_fiscal',
+        'percentual_imposto',
+        'valor_imposto',
+        'lucro_bruto',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'data_hora' => 'datetime',
+            'proxima_visita' => 'datetime',
+            'valor_cobrado' => 'decimal:2',
+            'custo_produtos' => 'decimal:2',
+            'custo_mao_de_obra' => 'decimal:2',
+            'custo_deslocamento' => 'decimal:2',
+            'exige_nota_fiscal' => 'boolean',
+            'percentual_imposto' => 'decimal:2',
+            'valor_imposto' => 'decimal:2',
+            'lucro_bruto' => 'decimal:2',
+        ];
+    }
+
+    public function cliente(): BelongsTo
+    {
+        return $this->belongsTo(Cliente::class);
+    }
+
+    public function tecnico(): BelongsTo
+    {
+        return $this->belongsTo(Tecnico::class);
+    }
+
+    public function produtos(): BelongsToMany
+    {
+        return $this->belongsToMany(Produto::class, 'visita_produto')
+            ->withPivot('quantidade', 'custo_proporcional');
+    }
+
+    public function movimentacoes(): HasMany
+    {
+        return $this->hasMany(MovimentacaoFinanceira::class);
+    }
+
+    public function statusLabel(): string
+    {
+        return self::STATUSES[$this->status] ?? $this->status;
+    }
+
+    public function tipoVisitaLabel(): string
+    {
+        return self::TIPOS_VISITA[$this->tipo_visita] ?? $this->tipo_visita;
+    }
+
+    public function tipoServicoLabel(): string
+    {
+        return self::TIPOS_SERVICO[$this->tipo_servico] ?? $this->tipo_servico;
+    }
+
+    public function custoOperacionalTotal(): float
+    {
+        return round(
+            (float) $this->custo_produtos +
+            (float) $this->custo_mao_de_obra +
+            (float) $this->custo_deslocamento,
+            2
+        );
+    }
+
+    public function margemPercentual(): float
+    {
+        $cobrado = (float) $this->valor_cobrado;
+        if ($cobrado <= 0) {
+            return 0.0;
+        }
+
+        return round(((float) $this->lucro_bruto / $cobrado) * 100, 1);
+    }
+}
