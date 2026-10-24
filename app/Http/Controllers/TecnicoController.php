@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tecnico;
+use App\Support\MascaraHelper;
 use Illuminate\Http\Request;
 
 class TecnicoController extends Controller
@@ -12,10 +13,16 @@ class TecnicoController extends Controller
         $query = Tecnico::query();
 
         if ($busca = $request->get('busca')) {
-            $query->where(function ($q) use ($busca) {
+            $buscaLimpa = MascaraHelper::apenasNumeros($busca);
+            $query->where(function ($q) use ($busca, $buscaLimpa) {
                 $q->where('nome', 'like', "%{$busca}%")
                     ->orWhere('email', 'like', "%{$busca}%")
-                    ->orWhere('especialidade', 'like', "%{$busca}%");
+                    ->orWhere('especialidade', 'like', "%{$busca}%")
+                    ->orWhere('telefone', 'like', "%{$busca}%");
+
+                if ($buscaLimpa) {
+                    $q->orWhere('telefone', 'like', "%{$buscaLimpa}%");
+                }
             });
         }
 
@@ -31,6 +38,10 @@ class TecnicoController extends Controller
 
     public function store(Request $request)
     {
+        if ($request->has('telefone')) {
+            $request->merge(['telefone' => MascaraHelper::apenasNumeros($request->input('telefone'))]);
+        }
+
         $validated = $request->validate([
             'nome' => 'required|string|max:255',
             'telefone' => 'nullable|string|max:20',
@@ -56,6 +67,10 @@ class TecnicoController extends Controller
 
     public function update(Request $request, Tecnico $tecnico)
     {
+        if ($request->has('telefone')) {
+            $request->merge(['telefone' => MascaraHelper::apenasNumeros($request->input('telefone'))]);
+        }
+
         $validated = $request->validate([
             'nome' => 'required|string|max:255',
             'telefone' => 'nullable|string|max:20',

@@ -27,5 +27,9 @@ class DatabaseSeeder extends Seeder
 
         Configuracao::set('aliquota_imposto_padrao', '14.0', 'Alíquota padrão de acréscimo para Nota Fiscal (%)');
         Configuracao::set('diaria_tecnico_padrao', '50.00', 'Valor padrão de mão de obra/diária por visita (R$)');
+
+        $this->call([
+            NotificationsTestSeeder::class,
+        ]);
     }
 }

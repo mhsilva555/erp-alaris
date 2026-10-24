@@ -43,7 +43,7 @@
                         <tr class="animate-fadeIn">
                             <td class="font-medium text-white">{{ $tecnico->nome }}</td>
                             <td class="hidden sm:table-cell" style="color: var(--color-surface-300);">
-                                {{ $tecnico->telefone ?? '—' }}</td>
+                                {{ $tecnico->telefone_formatado ?? $tecnico->telefone ?? '—' }}</td>
                             <td class="hidden md:table-cell" style="color: var(--color-surface-300);">
                                 {{ $tecnico->email ?? '—' }}</td>
                             <td class="hidden lg:table-cell" style="color: var(--color-surface-300);">

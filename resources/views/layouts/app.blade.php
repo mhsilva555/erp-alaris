@@ -213,25 +213,78 @@
 
                 {{-- Notificações --}}
                 <div class="relative">
-                    <button id="notif-btn" class="relative p-2 rounded-lg transition cursor-pointer"
-                        style="color: var(--color-surface-400);">
+                    <button id="notif-btn" class="relative p-2 rounded-lg transition-colors cursor-pointer hover:bg-surface-800"
+                        style="color: var(--color-surface-400);" title="Central de Notificações">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                         </svg>
                         <span id="notif-badge"
-                            class="hidden absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center preserve-white text-white"
-                            style="background: var(--color-danger);">0</span>
+                            class="hidden absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center text-white preserve-white"
+                            style="background: var(--color-danger); box-shadow: 0 0 0 2px var(--color-surface-900);">0</span>
                     </button>
                     <div id="notif-dropdown"
-                        class="hidden absolute right-0 mt-2 w-72 rounded-lg shadow-xl overflow-hidden z-50"
-                        style="background: var(--color-surface-900); border: 1px solid var(--color-surface-700);">
-                        <div class="px-4 py-2 font-semibold text-sm text-white"
-                            style="border-bottom: 1px solid var(--color-surface-800);">Notificações</div>
-                        <div id="notif-dropdown-content" class="py-1">
-                            <div class="px-4 py-3 text-center" style="color: var(--color-surface-400);">Carregando...
+                        class="hidden absolute right-0 mt-2 notif-dropdown">
+                        {{-- Header --}}
+                        <div class="px-4 py-3 flex items-center justify-between border-b"
+                            style="border-color: var(--color-surface-800); background: var(--color-surface-900);">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-primary-500"></span>
+                                <span class="font-bold text-sm tracking-tight" style="color: var(--color-surface-100);">Notificações</span>
+                                <span id="notif-unread-count" class="hidden badge badge-info text-[10px] font-bold py-0.5 px-2">0 novas</span>
+                            </div>
+                            <button type="button" id="btn-marcar-todas-lidas" onclick="window.marcarTodasNotificacoesLidas && window.marcarTodasNotificacoesLidas()"
+                                class="text-xs font-semibold hover:underline flex items-center gap-1 cursor-pointer transition"
+                                style="color: var(--color-primary-500);">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <span>Marcar lidas</span>
+                            </button>
+                        </div>
+
+                        {{-- Lista de Notificações com scroll suave --}}
+                        <div id="notif-dropdown-content" class="py-2 max-h-88 overflow-y-auto space-y-1">
+                            <div class="px-4 py-6 text-center text-xs" style="color: var(--color-surface-400);">Carregando notificações...</div>
+                        </div>
+
+                        {{-- Footer: Status das Notificações do Navegador / SO --}}
+                        <div id="notif-os-footer" class="p-3 border-t" style="border-color: var(--color-surface-800); background: var(--color-surface-950);">
+                            <div id="notif-os-request-box" class="flex flex-col gap-2">
+                                <div class="flex items-center gap-2 text-xs" style="color: var(--color-surface-300);">
+                                    <svg class="w-4 h-4 text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                    </svg>
+                                    <span class="font-semibold" style="color: var(--color-surface-100);">Alertas no Navegador (PC & Celular)</span>
+                                </div>
+                                <button type="button" id="btn-ativar-notif-so" onclick="window.solicitarNotificacoesSO && window.solicitarNotificacoesSO()"
+                                    class="w-full btn btn-primary btn-sm text-xs justify-center py-2 shadow-sm">
+                                    Ativar Notificações no Dispositivo
+                                </button>
+                            </div>
+                            <div id="notif-os-active-box" class="hidden flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="relative flex h-2 w-2">
+                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                    </span>
+                                    <span class="text-xs font-semibold text-emerald-500">Notificações no Navegador Ativas</span>
+                                </div>
+                                <button type="button" onclick="window.testarNotificacaoSO && window.testarNotificacaoSO()"
+                                    class="btn btn-secondary btn-sm text-xs py-1 px-3">
+                                    Testar
+                                </button>
                             </div>
                         </div>
+
+                        {{-- Link para agenda --}}
+                        <a href="{{ route('agendamentos.index') }}"
+                           class="block text-center py-2.5 text-xs font-semibold border-t transition"
+                           style="border-color: var(--color-surface-800); background: var(--color-surface-900); color: var(--color-primary-500);"
+                           onmouseover="this.style.background='var(--color-surface-800)'"
+                           onmouseout="this.style.background='var(--color-surface-900)'">
+                            Acessar Agenda Geral Completa &rarr;
+                        </a>
                     </div>
                 </div>
 

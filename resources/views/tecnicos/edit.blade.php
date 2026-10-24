@@ -16,7 +16,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="form-label" for="telefone">Telefone</label>
-                    <input type="text" id="telefone" name="telefone" value="{{ old('telefone', $tecnico->telefone) }}" class="form-input">
+                    <input type="text" id="telefone" name="telefone" value="{{ old('telefone', $tecnico->telefone_formatado ?? $tecnico->telefone) }}" class="form-input" data-mask="telefone" placeholder="(00) 00000-0000">
                 </div>
 
                 <div>

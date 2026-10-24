@@ -81,7 +81,7 @@
                                     class="font-medium text-white hover:underline">{{ $cliente->nome }}</a>
                                 <div class="flex items-center gap-2 text-xs mt-0.5"
                                     style="color: var(--color-surface-400);">
-                                    <span>{{ $cliente->telefone ?? 'Sem telefone' }}</span>
+                                    <span>{{ $cliente->telefone_formatado ?? $cliente->telefone ?? 'Sem telefone' }}</span>
                                     @if ($cliente->email)
                                         <span>&bull;</span>
                                         <span>{{ $cliente->email }}</span>

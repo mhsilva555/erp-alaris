@@ -48,6 +48,48 @@
                 </form>
             </div>
 
+            {{-- Barra de Monitoramento Minuto a Minuto & Alertas no SO (oculta quando permissões já concedidas) --}}
+            <div id="banner-notif-agenda" class="mb-6 p-3 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                        style="background: rgba(20,112,245,.15); color: var(--color-primary-400);">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold text-white flex items-center gap-2">
+                            <span>Monitoramento Automático Minuto a Minuto</span>
+                            <span class="badge badge-info text-[10px]">Cron Ativa</span>
+                        </div>
+                        <div class="text-[11px]" style="color: var(--color-surface-400);">
+                            Alertas nativos emitidos no computador (Windows/Mac/Linux) e no celular (Android/iOS PWA) para eventos iminentes.
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button type="button" onclick="window.solicitarNotificacoesSO && window.solicitarNotificacoesSO()"
+                        class="btn btn-primary btn-sm text-xs">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        Ativar Alertas no SO
+                    </button>
+                    <button type="button" onclick="window.testarNotificacaoSO && window.testarNotificacaoSO()"
+                        class="btn btn-secondary btn-sm text-xs" title="Dispara um alerta de teste imediato no dispositivo">
+                        Testar Alerta
+                    </button>
+                </div>
+            </div>
+            <script>
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    document.getElementById('banner-notif-agenda')?.classList.add('hidden');
+                }
+            </script>
+
             {{-- Summary Cards --}}
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div class="stat-card">

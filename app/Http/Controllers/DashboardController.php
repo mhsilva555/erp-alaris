@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Cliente;
 use App\Models\EquipamentoComodato;
+use App\Models\NotificacaoAgendamento;
 use App\Models\Produto;
 use App\Models\Visita;
 use Carbon\Carbon;
@@ -84,6 +85,33 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
+        // 1. Notificações geradas no módulo de Agendamento (visitas, comodatos e follow-ups)
+        $notificacoesQuery = NotificacaoAgendamento::query();
+        if ($user && $user->isTecnico()) {
+            $notificacoesQuery->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                    ->orWhere('tipo_evento', 'visita');
+            });
+        }
+
+        $totalNaoLidas = (clone $notificacoesQuery)->where('lida', false)->count();
+
+        $itens = (clone $notificacoesQuery)
+            ->latest()
+            ->take(8)
+            ->get()
+            ->map(fn (NotificacaoAgendamento $n) => [
+                'id' => $n->id,
+                'tipo_evento' => $n->tipo_evento,
+                'titulo' => $n->titulo,
+                'mensagem' => $n->mensagem,
+                'url' => ($n->url && $n->url !== '#') ? $n->url : route('agendamentos.index'),
+                'lida' => (bool) $n->lida,
+                'tempo_relativo' => $n->created_at?->diffForHumans() ?? '',
+                'data_evento' => $n->data_evento?->format('d/m/Y H:i'),
+            ]);
+
+        // 2. Indicadores gerais do sistema
         $visitasQuery = Visita::where('status', Visita::STATUS_AGENDADA);
         if ($user && $user->isTecnico()) {
             $visitasQuery->where('tecnico_id', $user->tecnico_id);
@@ -105,7 +133,7 @@ class DashboardController extends Controller
             ? Cliente::comFollowupPendente()->where('data_followup', '<=', now()->addDays(2)->toDateString())->count()
             : 0;
 
-        $total = $atrasadas + $proximas + $estoqueBaixo + $comodatos + $followups;
+        $totalGeral = $totalNaoLidas > 0 ? $totalNaoLidas : ($atrasadas + $estoqueBaixo);
 
         return response()->json([
             'atrasadas' => $atrasadas,
@@ -113,7 +141,9 @@ class DashboardController extends Controller
             'estoque_baixo' => $estoqueBaixo,
             'comodatos' => $comodatos,
             'followups' => $followups,
-            'total' => $total,
+            'itens' => $itens,
+            'total_nao_lidas' => $totalNaoLidas,
+            'total' => $totalGeral,
         ]);
     }
 }

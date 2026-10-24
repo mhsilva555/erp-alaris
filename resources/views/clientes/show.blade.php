@@ -37,7 +37,7 @@
                         </span>
                     </div>
                     @if($cliente->documento)
-                        <p class="text-xs" style="color: var(--color-surface-400);">{{ $cliente->documento }}</p>
+                        <p class="text-xs font-mono" style="color: var(--color-surface-400);">{{ $cliente->documento_formatado ?? $cliente->documento }}</p>
                     @endif
                 </div>
             </div>
@@ -60,7 +60,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm pt-4 border-t" style="border-color: var(--color-surface-800);">
             <div>
                 <span class="form-label">Telefone / WhatsApp</span>
-                <p class="text-white">{{ $cliente->telefone ?? '—' }}</p>
+                <p class="text-white">{{ $cliente->telefone_formatado ?? $cliente->telefone ?? '—' }}</p>
             </div>
             <div>
                 <span class="form-label">E-mail</span>
@@ -84,7 +84,7 @@
             </div>
             <div>
                 <span class="form-label">CEP</span>
-                <p class="text-white">{{ $cliente->cep ?? '—' }}</p>
+                <p class="text-white">{{ $cliente->cep_formatado ?? $cliente->cep ?? '—' }}</p>
             </div>
             <div>
                 <span class="form-label">Data de Follow-up (Retorno)</span>

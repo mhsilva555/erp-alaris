@@ -19,12 +19,12 @@
 
                     <div>
                         <label class="form-label" for="documento">Documento (CPF ou CNPJ)</label>
-                        <input type="text" id="documento" name="documento" value="{{ old('documento', $cliente->documento) }}" class="form-input">
+                        <input type="text" id="documento" name="documento" value="{{ old('documento', $cliente->documento_formatado ?? $cliente->documento) }}" class="form-input" data-mask="cpf-cnpj" placeholder="000.000.000-00 ou 00.000.000/0000-00">
                     </div>
 
                     <div>
                         <label class="form-label" for="telefone">Telefone / WhatsApp</label>
-                        <input type="text" id="telefone" name="telefone" value="{{ old('telefone', $cliente->telefone) }}" class="form-input">
+                        <input type="text" id="telefone" name="telefone" value="{{ old('telefone', $cliente->telefone_formatado ?? $cliente->telefone) }}" class="form-input" data-mask="telefone" placeholder="(00) 00000-0000">
                     </div>
 
                     <div class="sm:col-span-2">
@@ -45,7 +45,7 @@
 
                     <div>
                         <label class="form-label" for="cep">CEP</label>
-                        <input type="text" id="cep" name="cep" value="{{ old('cep', $cliente->cep) }}" class="form-input">
+                        <input type="text" id="cep" name="cep" value="{{ old('cep', $cliente->cep_formatado ?? $cliente->cep) }}" class="form-input" data-mask="cep" placeholder="00000-000">
                     </div>
 
                     <div class="sm:col-span-2">

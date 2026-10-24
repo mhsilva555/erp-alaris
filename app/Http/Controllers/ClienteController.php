@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Support\MascaraHelper;
 use Illuminate\Http\Request;
 
 class ClienteController extends Controller
@@ -12,12 +13,19 @@ class ClienteController extends Controller
         $query = Cliente::query();
 
         if ($busca = $request->get('busca')) {
-            $query->where(function ($q) use ($busca) {
+            $buscaLimpa = MascaraHelper::apenasNumeros($busca);
+            $query->where(function ($q) use ($busca, $buscaLimpa) {
                 $q->where('nome', 'like', "%{$busca}%")
                     ->orWhere('documento', 'like', "%{$busca}%")
                     ->orWhere('email', 'like', "%{$busca}%")
                     ->orWhere('telefone', 'like', "%{$busca}%")
                     ->orWhere('cidade', 'like', "%{$busca}%");
+
+                if ($buscaLimpa) {
+                    $q->orWhere('documento', 'like', "%{$buscaLimpa}%")
+                        ->orWhere('telefone', 'like', "%{$buscaLimpa}%")
+                        ->orWhere('cep', 'like', "%{$buscaLimpa}%");
+                }
             });
         }
 
@@ -41,6 +49,16 @@ class ClienteController extends Controller
 
     public function store(Request $request)
     {
+        if ($request->has('documento')) {
+            $request->merge(['documento' => MascaraHelper::apenasNumeros($request->input('documento'))]);
+        }
+        if ($request->has('telefone')) {
+            $request->merge(['telefone' => MascaraHelper::apenasNumeros($request->input('telefone'))]);
+        }
+        if ($request->has('cep')) {
+            $request->merge(['cep' => MascaraHelper::apenasNumeros($request->input('cep'))]);
+        }
+
         $validated = $request->validate([
             'nome' => 'required|string|max:255',
             'documento' => 'nullable|string|max:20',
@@ -86,6 +104,16 @@ class ClienteController extends Controller
 
     public function update(Request $request, Cliente $cliente)
     {
+        if ($request->has('documento')) {
+            $request->merge(['documento' => MascaraHelper::apenasNumeros($request->input('documento'))]);
+        }
+        if ($request->has('telefone')) {
+            $request->merge(['telefone' => MascaraHelper::apenasNumeros($request->input('telefone'))]);
+        }
+        if ($request->has('cep')) {
+            $request->merge(['cep' => MascaraHelper::apenasNumeros($request->input('cep'))]);
+        }
+
         $validated = $request->validate([
             'nome' => 'required|string|max:255',
             'documento' => 'nullable|string|max:20',

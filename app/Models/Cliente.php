@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Support\MascaraHelper;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -41,6 +43,42 @@ class Cliente extends Model
         return [
             'data_followup' => 'date',
         ];
+    }
+
+    protected function documento(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => MascaraHelper::apenasNumeros($value),
+        );
+    }
+
+    protected function telefone(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => MascaraHelper::apenasNumeros($value),
+        );
+    }
+
+    protected function cep(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => MascaraHelper::apenasNumeros($value),
+        );
+    }
+
+    public function getDocumentoFormatadoAttribute(): ?string
+    {
+        return MascaraHelper::formatarDocumento($this->documento);
+    }
+
+    public function getTelefoneFormatadoAttribute(): ?string
+    {
+        return MascaraHelper::formatarTelefone($this->telefone);
+    }
+
+    public function getCepFormatadoAttribute(): ?string
+    {
+        return MascaraHelper::formatarCep($this->cep);
     }
 
     public function visitas(): HasMany

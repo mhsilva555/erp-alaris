@@ -28,10 +28,212 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ── Polling de notificações ──
+// ── Service Worker & Notificações Nativas no Sistema Operacional (PC & Celular) ──
+let swRegistration = null;
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => {
+                swRegistration = reg;
+                atualizarInterfaceNotificacoesSO();
+            })
+            .catch(err => {
+                console.warn('Service Worker não registrado:', err);
+            });
+    });
+}
+
+function atualizarInterfaceNotificacoesSO() {
+    const isGranted = ('Notification' in window) && Notification.permission === 'granted';
+
+    // Banner da Agenda Geral Unificada
+    const bannerAgenda = document.getElementById('banner-notif-agenda');
+    if (bannerAgenda) {
+        if (isGranted) {
+            bannerAgenda.classList.add('hidden');
+        } else {
+            bannerAgenda.classList.remove('hidden');
+        }
+    }
+
+    // Boxes do Dropdown no Header
+    const requestBox = document.getElementById('notif-os-request-box');
+    const activeBox = document.getElementById('notif-os-active-box');
+    if (requestBox && activeBox) {
+        if (!('Notification' in window)) {
+            requestBox.classList.add('hidden');
+            activeBox.classList.add('hidden');
+        } else if (isGranted) {
+            requestBox.classList.add('hidden');
+            activeBox.classList.remove('hidden');
+        } else {
+            requestBox.classList.remove('hidden');
+            activeBox.classList.add('hidden');
+        }
+    }
+}
+
+window.solicitarNotificacoesSO = function () {
+    if (!('Notification' in window)) {
+        alert('Seu navegador ou dispositivo não possui suporte a notificações nativas.');
+        return;
+    }
+
+    Notification.requestPermission().then(permission => {
+        atualizarInterfaceNotificacoesSO();
+        if (permission === 'granted') {
+            window.testarNotificacaoSO();
+        }
+    });
+};
+
+window.testarNotificacaoSO = function () {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        || (document.querySelector('input[name="_token"]')?.value)
+        || '';
+
+    fetch('/notificacoes/agendamentos/testar', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.notificacao) {
+            dispararNotificacaoNativaSO(data.notificacao);
+        }
+    })
+    .catch(err => console.error('Erro ao testar notificação:', err));
+};
+
+function dispararNotificacaoNativaSO(notif) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    const payload = {
+        id: notif.id,
+        titulo: notif.titulo || 'ERP Alaris — Agendamento',
+        mensagem: notif.mensagem || 'Você tem um evento próximo na agenda.',
+        url: notif.url || '/agendamentos'
+    };
+
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+            type: 'SHOW_NOTIFICATION',
+            payload: payload
+        });
+    } else if (swRegistration && swRegistration.showNotification) {
+        swRegistration.showNotification(payload.titulo, {
+            body: payload.mensagem,
+            icon: '/icons/icon-192.png',
+            badge: '/favicon-32x32.png',
+            vibrate: [200, 100, 200, 100, 200],
+            data: { url: payload.url, id: payload.id }
+        });
+    } else {
+        try {
+            new Notification(payload.titulo, {
+                body: payload.mensagem,
+                icon: '/icons/icon-192.png'
+            });
+        } catch (e) {
+            console.warn('Erro ao disparar Notification direta:', e);
+        }
+    }
+}
+
+// ── Polling de notificações de Agendamento para o Sistema Operacional ──
+function verificarNotificacoesSO() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    fetch('/notificacoes/agendamentos/pendentes', {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.sucesso && data.notificacoes && data.notificacoes.length > 0) {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                || (document.querySelector('input[name="_token"]')?.value)
+                || '';
+
+            data.notificacoes.forEach(notif => {
+                dispararNotificacaoNativaSO(notif);
+
+                // Marca como entregue no SO
+                fetch(`/notificacoes/agendamentos/${notif.id}/marcar-exibida`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                }).catch(() => {});
+            });
+        }
+    })
+    .catch(() => {});
+}
+
+// ── Marcar Notificações como Lidas ──
+window.marcarNotificacaoLida = function (id, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        || (document.querySelector('input[name="_token"]')?.value)
+        || '';
+
+    fetch(`/notificacoes/agendamentos/${id}/marcar-lida`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(r => r.json())
+    .then(() => {
+        pollNotificacoes();
+    })
+    .catch(() => {});
+};
+
+window.marcarTodasNotificacoesLidas = function () {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        || (document.querySelector('input[name="_token"]')?.value)
+        || '';
+
+    fetch('/notificacoes/agendamentos/marcar-todas-lidas', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(r => r.json())
+    .then(() => {
+        pollNotificacoes();
+    })
+    .catch(() => {});
+};
+
+// ── Polling de notificações no Header ──
 function pollNotificacoes() {
     const badge = document.getElementById('notif-badge');
     const dropdown = document.getElementById('notif-dropdown-content');
+    const unreadCountBadge = document.getElementById('notif-unread-count');
+    const btnMarcarTodas = document.getElementById('btn-marcar-todas-lidas');
 
     if (!badge && !dropdown) return;
 
@@ -55,26 +257,123 @@ function pollNotificacoes() {
                 }
             }
 
+            if (unreadCountBadge) {
+                if (data.total_nao_lidas > 0) {
+                    unreadCountBadge.textContent = data.total_nao_lidas;
+                    unreadCountBadge.classList.remove('hidden');
+                } else {
+                    unreadCountBadge.classList.add('hidden');
+                }
+            }
+
+            if (btnMarcarTodas) {
+                if (data.total_nao_lidas > 0) {
+                    btnMarcarTodas.classList.remove('hidden');
+                } else {
+                    btnMarcarTodas.classList.add('hidden');
+                }
+            }
+
             if (dropdown) {
                 let html = '';
+
+                // 1. Alertas de Resumo do Sistema (Atrasadas / Estoque Crítico)
                 if (data.atrasadas > 0) {
-                    html += `<div class="flex items-center gap-2 px-4 py-2 text-red-400 text-xs"><svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 110 18 9 9 0 010-18z"/></svg><span>${data.atrasadas} visita(s) atrasada(s)</span></div>`;
-                }
-                if (data.proximas > 0) {
-                    html += `<div class="flex items-center gap-2 px-4 py-2 text-amber-400 text-xs"><svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>${data.proximas} visita(s) próxima(s)</span></div>`;
-                }
-                if (data.comodatos > 0) {
-                    html += `<div class="flex items-center gap-2 px-4 py-2 text-blue-400 text-xs"><svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg><span>${data.comodatos} reposição(ões) de comodato</span></div>`;
-                }
-                if (data.followups > 0) {
-                    html += `<div class="flex items-center gap-2 px-4 py-2 text-purple-400 text-xs"><svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg><span>${data.followups} follow-up(s) de clientes</span></div>`;
+                    html += `
+                        <a href="/visitas?status=agendada" class="alert alert-danger mx-2 my-1 text-xs py-2 px-3 flex items-center justify-between no-underline">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 110 18 9 9 0 010-18z"/></svg>
+                                <span class="font-semibold">${data.atrasadas} visita(s) atrasada(s)</span>
+                            </div>
+                            <span class="text-[10px] uppercase font-bold tracking-wider">Ver &rarr;</span>
+                        </a>
+                    `;
                 }
                 if (data.estoque_baixo > 0) {
-                    html += `<div class="flex items-center gap-2 px-4 py-2 text-orange-400 text-xs"><svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg><span>${data.estoque_baixo} insumo(s) em nível crítico</span></div>`;
+                    html += `
+                        <a href="/produtos" class="alert alert-warning mx-2 my-1 text-xs py-2 px-3 flex items-center justify-between no-underline">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                                <span class="font-semibold">${data.estoque_baixo} insumo(s) em nível crítico</span>
+                            </div>
+                            <span class="text-[10px] uppercase font-bold tracking-wider">Ver &rarr;</span>
+                        </a>
+                    `;
                 }
-                if (data.total === 0) {
-                    html = '<div class="px-4 py-3 text-center text-xs" style="color: var(--color-surface-400);">Tudo em dia! Nenhuma notificação.</div>';
+
+                // 2. Lista de Notificações do Agendamento (NotificacaoAgendamento)
+                if (data.itens && data.itens.length > 0) {
+                    data.itens.forEach(item => {
+                        let iconSvg = '';
+                        let iconBoxStyle = 'background: rgba(43, 143, 255, 0.12); color: var(--color-primary-500);';
+                        let badgeHtml = '<span class="badge badge-info text-[9px] py-0 px-1.5">Visita</span>';
+
+                        if (item.tipo_evento === 'visita') {
+                            iconBoxStyle = 'background: rgba(43, 143, 255, 0.12); color: var(--color-primary-500);';
+                            badgeHtml = '<span class="badge badge-info text-[9px] py-0 px-1.5">OS Agendada</span>';
+                            iconSvg = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
+                        } else if (item.tipo_evento === 'comodato') {
+                            iconBoxStyle = 'background: rgba(14, 165, 233, 0.12); color: #0284c7;';
+                            badgeHtml = '<span class="badge badge-cyan text-[9px] py-0 px-1.5">Comodato</span>';
+                            iconSvg = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>';
+                        } else {
+                            iconBoxStyle = 'background: rgba(168, 85, 247, 0.12); color: #9333ea;';
+                            badgeHtml = '<span class="badge badge-purple text-[9px] py-0 px-1.5">Follow-up</span>';
+                            iconSvg = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>';
+                        }
+
+                        const unreadBar = !item.lida
+                            ? '<div class="notif-unread-bar"></div>'
+                            : '';
+
+                        const unreadDot = !item.lida
+                            ? '<span class="w-1.5 h-1.5 rounded-full bg-primary-500 shrink-0"></span>'
+                            : '';
+
+                        html += `
+                            <a href="${item.url}" onclick="window.marcarNotificacaoLida(${item.id})"
+                               class="notif-item ${!item.lida ? 'is-unread' : ''}">
+                                ${unreadBar}
+                                <div class="notif-icon-box" style="${iconBoxStyle}">
+                                    ${iconSvg}
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between gap-1 mb-1">
+                                        <div class="flex items-center gap-1.5 truncate">
+                                            ${unreadDot}
+                                            ${badgeHtml}
+                                            <p class="text-xs font-semibold truncate" style="color: var(--color-surface-100);">${item.titulo}</p>
+                                        </div>
+                                        <span class="text-[10px] shrink-0 font-medium" style="color: var(--color-surface-400);">${item.tempo_relativo}</span>
+                                    </div>
+                                    <p class="text-[11px] leading-relaxed line-clamp-2" style="color: var(--color-surface-300);">${item.mensagem}</p>
+                                </div>
+                                ${!item.lida ? `
+                                    <button type="button" onclick="window.marcarNotificacaoLida(${item.id}, event)"
+                                            class="notif-action-btn" title="Marcar como lida">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                    </button>
+                                ` : ''}
+                            </a>
+                        `;
+                    });
                 }
+
+                // 3. Estado vazio elegante com Empty State do Design System
+                if (html === '') {
+                    html = `
+                        <div class="empty-state py-8 px-4 text-center">
+                            <div class="empty-state-icon w-10 h-10 mb-2">
+                                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <p class="empty-state-title text-xs font-semibold">Tudo tranquilo por aqui!</p>
+                            <p class="empty-state-desc text-[11px]">Nenhuma notificação pendente no momento.</p>
+                        </div>
+                    `;
+                }
+
                 dropdown.innerHTML = html;
             }
         })
@@ -82,16 +381,21 @@ function pollNotificacoes() {
 }
 
 setInterval(pollNotificacoes, 30000);
-document.addEventListener('DOMContentLoaded', pollNotificacoes);
+setInterval(verificarNotificacoesSO, 30000);
 
-// ── Toggle dropdown de notificações ──
 document.addEventListener('DOMContentLoaded', () => {
+    pollNotificacoes();
+    verificarNotificacoesSO();
+    atualizarInterfaceNotificacoesSO();
+
+    // Toggle dropdown de notificações
     const btn = document.getElementById('notif-btn');
     const dropdown = document.getElementById('notif-dropdown');
     if (btn && dropdown) {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             dropdown.classList.toggle('hidden');
+            atualizarInterfaceNotificacoesSO();
         });
         document.addEventListener('click', () => dropdown.classList.add('hidden'));
     }
@@ -222,4 +526,84 @@ document.addEventListener('keydown', (e) => {
         });
     }
 });
+
+// ── Máscaras de Entrada (CPF/CNPJ, Telefone, CEP) ──
+function formatarCpfCnpj(valor) {
+    if (!valor) return '';
+    const v = valor.replace(/\D/g, '').slice(0, 14);
+    if (v.length <= 11) {
+        // CPF: 000.000.000-00
+        return v
+            .replace(/(\d{3})(\d)/, '$1.$2')
+            .replace(/(\d{3})(\d)/, '$1.$2')
+            .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    }
+    // CNPJ: 00.000.000/0000-00
+    return v
+        .replace(/^(\d{2})(\d)/, '$1.$2')
+        .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+        .replace(/\.(\d{3})(\d)/, '.$1/$2')
+        .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+}
+
+function formatarTelefone(valor) {
+    if (!valor) return '';
+    const v = valor.replace(/\D/g, '').slice(0, 11);
+    if (v.length <= 10) {
+        // Telefone Fixo: (00) 0000-0000
+        return v
+            .replace(/^(\d{2})(\d)/g, '($1) $2')
+            .replace(/(\d{4})(\d{1,4})$/, '$1-$2');
+    }
+    // Celular: (00) 00000-0000
+    return v
+        .replace(/^(\d{2})(\d)/g, '($1) $2')
+        .replace(/(\d{5})(\d{1,4})$/, '$1-$2');
+}
+
+function formatarCep(valor) {
+    if (!valor) return '';
+    const v = valor.replace(/\D/g, '').slice(0, 8);
+    return v.replace(/(\d{5})(\d{1,3})$/, '$1-$2');
+}
+
+window.initMascaras = function () {
+    // 1. CPF / CNPJ
+    const docs = document.querySelectorAll('input[data-mask="cpf-cnpj"], input[name="documento"], #documento');
+    docs.forEach(input => {
+        if (input.value) {
+            input.value = formatarCpfCnpj(input.value);
+        }
+        input.addEventListener('input', () => {
+            input.value = formatarCpfCnpj(input.value);
+        });
+    });
+
+    // 2. Telefone / Celular
+    const tels = document.querySelectorAll('input[data-mask="telefone"], input[name="telefone"], #telefone');
+    tels.forEach(input => {
+        if (input.value) {
+            input.value = formatarTelefone(input.value);
+        }
+        input.addEventListener('input', () => {
+            input.value = formatarTelefone(input.value);
+        });
+    });
+
+    // 3. CEP
+    const ceps = document.querySelectorAll('input[data-mask="cep"], input[name="cep"], #cep');
+    ceps.forEach(input => {
+        if (input.value) {
+            input.value = formatarCep(input.value);
+        }
+        input.addEventListener('input', () => {
+            input.value = formatarCep(input.value);
+        });
+    });
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.initMascaras();
+});
+
 

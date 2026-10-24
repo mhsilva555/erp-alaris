@@ -7,6 +7,7 @@ use App\Http\Controllers\ComodatoController;
 use App\Http\Controllers\ConfiguracaoController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinanceiroController;
+use App\Http\Controllers\NotificacaoAgendamentoController;
 use App\Http\Controllers\ProdutoController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TecnicoController;
@@ -30,6 +31,13 @@ Route::middleware('auth')->group(function () {
     // Dashboard e Notificações Polling
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/notificacoes', [DashboardController::class, 'notificacoes'])->name('notificacoes');
+
+    // Notificações de Agendamento no Sistema Operacional (Desktop & Celular)
+    Route::get('/notificacoes/agendamentos/pendentes', [NotificacaoAgendamentoController::class, 'pendentes'])->name('notificacoes.agendamentos.pendentes');
+    Route::post('/notificacoes/agendamentos/{notificacao}/marcar-exibida', [NotificacaoAgendamentoController::class, 'marcarExibida'])->name('notificacoes.agendamentos.marcar-exibida');
+    Route::post('/notificacoes/agendamentos/{notificacao}/marcar-lida', [NotificacaoAgendamentoController::class, 'marcarLida'])->name('notificacoes.agendamentos.marcar-lida');
+    Route::post('/notificacoes/agendamentos/marcar-todas-lidas', [NotificacaoAgendamentoController::class, 'marcarTodasLidas'])->name('notificacoes.agendamentos.marcar-todas-lidas');
+    Route::post('/notificacoes/agendamentos/testar', [NotificacaoAgendamentoController::class, 'testar'])->name('notificacoes.agendamentos.testar');
 
     // Clientes
     Route::resource('clientes', ClienteController::class);
