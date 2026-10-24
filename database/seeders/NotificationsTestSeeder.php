@@ -12,7 +12,7 @@ class NotificationsTestSeeder extends Seeder
      */
     public function run(): void
     {
-        for ($i = 1; $i < 5; $i++) {
+        for ($i = 1; $i < 3; $i++) {
             NotificacaoAgendamento::create([
                 'tipo_evento' => 'visita',
                 'evento_id' => $i,
