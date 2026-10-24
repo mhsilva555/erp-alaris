@@ -37,6 +37,10 @@ class ClienteController extends Controller
             $query->where('origem', $origem);
         }
 
+        if ($periodicidade = $request->get('periodicidade')) {
+            $query->where('periodicidade', $periodicidade);
+        }
+
         $clientes = $query->orderBy('nome')->paginate(15)->withQueryString();
 
         return view('clientes.index', compact('clientes'));

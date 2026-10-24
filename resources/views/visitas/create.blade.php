@@ -58,11 +58,16 @@
 
                     <div>
                         <label class="form-label" for="tecnico_id">Técnico Responsável *</label>
-                        <select id="tecnico_id" name="tecnico_id" class="form-select" required>
-                            <option value="">Selecione o profissional...</option>
+                        <select id="tecnico_id" name="tecnico_id" class="form-select" required onchange="atualizarDiariaTecnico()">
+                            <option value="" data-diaria="{{ number_format($diariaPadrao, 2, '.', '') }}">Selecione o profissional...</option>
                             @foreach($tecnicos as $tecnico)
-                                <option value="{{ $tecnico->id }}" {{ old('tecnico_id') == $tecnico->id ? 'selected' : '' }}>
+                                <option value="{{ $tecnico->id }}"
+                                    data-diaria="{{ number_format($tecnico->valor_diaria_padrao > 0 ? $tecnico->valor_diaria_padrao : $diariaPadrao, 2, '.', '') }}"
+                                    {{ old('tecnico_id') == $tecnico->id ? 'selected' : '' }}>
                                     {{ $tecnico->nome }} {{ $tecnico->especialidade ? "({$tecnico->especialidade})" : '' }}
+                                    @if($tecnico->valor_diaria_padrao > 0)
+                                        — Diária: R$ {{ number_format($tecnico->valor_diaria_padrao, 2, ',', '.') }}
+                                    @endif
                                 </option>
                             @endforeach
                         </select>
@@ -137,13 +142,28 @@
                     </div>
 
                     <div>
-                        <label class="form-label" for="custo_mao_de_obra">Diária / Mão de Obra Técnico (R$)</label>
-                        <input type="number" id="custo_mao_de_obra" name="custo_mao_de_obra" value="{{ old('custo_mao_de_obra', $diariaPadrao) }}" step="0.01" min="0" class="form-input" oninput="recalcularFinanceiroVisita()">
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="form-label mb-0" for="custo_mao_de_obra">Diária / Mão de Obra Técnico (R$)</label>
+                            <span id="label-diaria-tecnico" class="text-[11px] text-emerald-400 font-medium"></span>
+                        </div>
+                        <input type="number" id="custo_mao_de_obra" name="custo_mao_de_obra"
+                            value="{{ old('custo_mao_de_obra', ($tecnicos->firstWhere('id', old('tecnico_id'))?->valor_diaria_padrao > 0 ? $tecnicos->firstWhere('id', old('tecnico_id'))->valor_diaria_padrao : $diariaPadrao)) }}"
+                            step="0.01" min="0" class="form-input" oninput="recalcularFinanceiroVisita()">
                     </div>
 
                     <div>
                         <label class="form-label" for="custo_deslocamento">Custo Deslocamento / Transporte (R$)</label>
                         <input type="number" id="custo_deslocamento" name="custo_deslocamento" value="{{ old('custo_deslocamento', '0.00') }}" step="0.01" min="0" class="form-input" oninput="recalcularFinanceiroVisita()">
+                    </div>
+
+                    <div>
+                        <label class="form-label" for="gastos_adicionais">Gastos Adicionais (R$)</label>
+                        <input type="number" id="gastos_adicionais" name="gastos_adicionais" value="{{ old('gastos_adicionais', '0.00') }}" step="0.01" min="0" class="form-input" oninput="recalcularFinanceiroVisita()">
+                    </div>
+
+                    <div>
+                        <label class="form-label" for="motivo_gastos_adicionais">Motivo dos Gastos Adicionais</label>
+                        <input type="text" id="motivo_gastos_adicionais" name="motivo_gastos_adicionais" value="{{ old('motivo_gastos_adicionais') }}" class="form-input" placeholder="Ex: Pedágio, compras extras">
                     </div>
                 </div>
 
@@ -201,5 +221,16 @@
         @endforeach
     };
     window.__produtosOptions = `@foreach($produtos as $p)<option value="{{ $p->id }}">{{ $p->nome }} (Saldo: {{ number_format($p->quantidade_estoque, 2, ',', '.') }} {{ $p->unidade_armazenamento ?? $p->unidade }} &bull; Dose: {{ $p->unidade_aplicacao ?? 'mL' }})</option>@endforeach`;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const sel = document.getElementById('tecnico_id');
+        if (sel && sel.value) {
+            const opt = sel.options[sel.selectedIndex];
+            const labelDiaria = document.getElementById('label-diaria-tecnico');
+            if (opt && opt.dataset.diaria && labelDiaria) {
+                labelDiaria.textContent = 'Diária padrão do técnico: R$ ' + parseFloat(opt.dataset.diaria).toFixed(2).replace('.', ',');
+            }
+        }
+    });
 </script>
 @endsection

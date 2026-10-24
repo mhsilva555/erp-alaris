@@ -41,7 +41,9 @@ class AgendamentoController extends Controller
         $comodatos = collect();
         if (! $user || $user->isAdmin()) {
             $comodatos = EquipamentoComodato::with(['cliente', 'produto'])
-                ->whereBetween('data_proxima_reposicao', [$dataInicio->toDateString(), $dataFim->toDateString()])
+                ->whereNotNull('data_proxima_reposicao')
+                ->whereDate('data_proxima_reposicao', '>=', $dataInicio->toDateString())
+                ->whereDate('data_proxima_reposicao', '<=', $dataFim->toDateString())
                 ->orderBy('data_proxima_reposicao')
                 ->get();
         }
@@ -50,7 +52,8 @@ class AgendamentoController extends Controller
         $followups = collect();
         if (! $user || $user->isAdmin()) {
             $followups = Cliente::whereNotNull('data_followup')
-                ->whereBetween('data_followup', [$dataInicio->toDateString(), $dataFim->toDateString()])
+                ->whereDate('data_followup', '>=', $dataInicio->toDateString())
+                ->whereDate('data_followup', '<=', $dataFim->toDateString())
                 ->orderBy('data_followup')
                 ->get();
         }
@@ -125,5 +128,50 @@ class AgendamentoController extends Controller
             'tecnicos',
             'tecnicoId'
         ));
+    }
+
+    /**
+     * Remove um evento da agenda (Visita/OS, Reposição de Comodato ou Follow-up CRM).
+     */
+    public function destroy(Request $request, string $tipo, int $id)
+    {
+        $user = $request->user();
+
+        if ($tipo === 'visita') {
+            $visita = Visita::findOrFail($id);
+            if ($user && $user->isTecnico() && $visita->tecnico_id !== $user->tecnico_id) {
+                abort(403, 'Acesso restrito. Você só pode remover seus próprios agendamentos.');
+            }
+
+            if ($visita->status === Visita::STATUS_CONCLUIDA) {
+                $visita->update(['status' => Visita::STATUS_CANCELADA]);
+            } else {
+                $visita->delete();
+            }
+
+            return back()->with('sucesso', "Agendamento da OS #{$id} removido com sucesso da agenda.");
+        }
+
+        if ($tipo === 'comodato') {
+            if ($user && $user->isTecnico()) {
+                abort(403, 'Acesso restrito a administradores.');
+            }
+            $comodato = EquipamentoComodato::findOrFail($id);
+            $comodato->update(['data_proxima_reposicao' => null]);
+
+            return back()->with('sucesso', "Alerta de reposição do equipamento '{$comodato->nome_equipamento}' removido da agenda.");
+        }
+
+        if ($tipo === 'followup') {
+            if ($user && $user->isTecnico()) {
+                abort(403, 'Acesso restrito a administradores.');
+            }
+            $cliente = Cliente::findOrFail($id);
+            $cliente->update(['data_followup' => null]);
+
+            return back()->with('sucesso', "Follow-up do cliente '{$cliente->nome}' removido da agenda.");
+        }
+
+        abort(404, 'Tipo de agendamento inválido.');
     }
 }

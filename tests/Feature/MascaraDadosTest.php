@@ -128,3 +128,26 @@ test('busca de clientes localiza registros tanto com pontuacao quanto com digito
     $resLimpo->assertOk();
     $resLimpo->assertSee('Cliente Busca Fácil');
 });
+
+test('filtro de periodicidade retorna apenas clientes com a periodicidade selecionada', function () {
+    $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+
+    Cliente::create([
+        'nome' => 'Cliente Mensal Exclusivo',
+        'cidade' => 'São Paulo',
+        'estado' => 'SP',
+        'periodicidade' => 'mensal',
+    ]);
+
+    Cliente::create([
+        'nome' => 'Cliente Avulso Oculto',
+        'cidade' => 'São Paulo',
+        'estado' => 'SP',
+        'periodicidade' => 'avulso',
+    ]);
+
+    $response = $this->actingAs($admin)->get(route('clientes.index', ['periodicidade' => 'mensal']));
+    $response->assertOk();
+    $response->assertSee('Cliente Mensal Exclusivo');
+    $response->assertDontSee('Cliente Avulso Oculto');
+});

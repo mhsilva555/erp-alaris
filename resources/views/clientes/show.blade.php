@@ -147,9 +147,13 @@
                                 <td>{{ $c->produto?->nome ?? '—' }}</td>
                                 <td>A cada {{ $c->periodicidade_dias }} dias</td>
                                 <td>
-                                    <span class="font-semibold {{ $c->data_proxima_reposicao->isPast() ? 'text-red-400' : ($c->data_proxima_reposicao->diffInDays(now()) <= 2 ? 'text-amber-400' : 'text-emerald-400') }}">
-                                        {{ $c->data_proxima_reposicao->format('d/m/Y') }}
-                                    </span>
+                                    @if ($c->data_proxima_reposicao)
+                                        <span class="font-semibold {{ $c->data_proxima_reposicao->isPast() ? 'text-red-400' : ($c->data_proxima_reposicao->diffInDays(now()) <= 2 ? 'text-amber-400' : 'text-emerald-400') }}">
+                                            {{ $c->data_proxima_reposicao->format('d/m/Y') }}
+                                        </span>
+                                    @else
+                                        <span class="text-xs" style="color: var(--color-surface-400);">Não agendada</span>
+                                    @endif
                                 </td>
                                 <td class="text-right">
                                     <form action="{{ route('comodatos.reposicao', $c) }}" method="POST" class="inline">

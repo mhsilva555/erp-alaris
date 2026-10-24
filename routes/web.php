@@ -2,10 +2,12 @@
 
 use App\Http\Controllers\AgendamentoController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CategoriaEquipamentoController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\ComodatoController;
 use App\Http\Controllers\ConfiguracaoController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EquipamentoController;
 use App\Http\Controllers\FinanceiroController;
 use App\Http\Controllers\NotificacaoAgendamentoController;
 use App\Http\Controllers\ProdutoController;
@@ -42,6 +44,14 @@ Route::middleware('auth')->group(function () {
     // Clientes
     Route::resource('clientes', ClienteController::class);
 
+    // Categorias de Equipamentos
+    Route::get('/equipamentos/categorias', [CategoriaEquipamentoController::class, 'index'])->name('equipamentos.categorias.index');
+    Route::post('/equipamentos/categorias', [CategoriaEquipamentoController::class, 'store'])->name('equipamentos.categorias.store');
+    Route::delete('/equipamentos/categorias/{categoria}', [CategoriaEquipamentoController::class, 'destroy'])->name('equipamentos.categorias.destroy');
+
+    // Gestão de Equipamentos do Inventário
+    Route::resource('equipamentos', EquipamentoController::class);
+
     // Equipamentos em Comodato
     Route::resource('comodatos', ComodatoController::class);
     Route::post('/comodatos/{comodato}/reposicao', [ComodatoController::class, 'registrarReposicao'])->name('comodatos.reposicao');
@@ -53,9 +63,11 @@ Route::middleware('auth')->group(function () {
     Route::resource('visitas', VisitaController::class);
     Route::get('/visitas/{visita}/os', [VisitaController::class, 'ordemServico'])->name('visitas.os');
     Route::get('/visitas/{visita}/proposta', [VisitaController::class, 'propostaCliente'])->name('visitas.proposta');
+    Route::post('/visitas/{visita}/finalizar', [VisitaController::class, 'finalizar'])->name('visitas.finalizar');
 
     // Agenda Geral Unificada
     Route::get('/agendamentos', [AgendamentoController::class, 'index'])->name('agendamentos.index');
+    Route::delete('/agendamentos/{tipo}/{id}', [AgendamentoController::class, 'destroy'])->name('agendamentos.destroy');
 
     // Rotas Restritas a Administradores (Financeiro, Usuários, Configurações)
     Route::middleware('admin')->group(function () {

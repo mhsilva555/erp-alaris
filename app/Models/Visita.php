@@ -63,6 +63,8 @@ class Visita extends Model
         'custo_produtos',
         'custo_mao_de_obra',
         'custo_deslocamento',
+        'gastos_adicionais',
+        'motivo_gastos_adicionais',
         'exige_nota_fiscal',
         'percentual_imposto',
         'valor_imposto',
@@ -78,6 +80,7 @@ class Visita extends Model
             'custo_produtos' => 'decimal:2',
             'custo_mao_de_obra' => 'decimal:2',
             'custo_deslocamento' => 'decimal:2',
+            'gastos_adicionais' => 'decimal:2',
             'exige_nota_fiscal' => 'boolean',
             'percentual_imposto' => 'decimal:2',
             'valor_imposto' => 'decimal:2',
@@ -126,7 +129,8 @@ class Visita extends Model
         return round(
             (float) $this->custo_produtos +
             (float) $this->custo_mao_de_obra +
-            (float) $this->custo_deslocamento,
+            (float) $this->custo_deslocamento +
+            (float) $this->gastos_adicionais,
             2
         );
     }

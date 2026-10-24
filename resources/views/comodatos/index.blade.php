@@ -52,7 +52,12 @@
                     @forelse($comodatos as $c)
                         <tr class="animate-fadeIn">
                             <td>
-                                <span class="font-medium text-white">{{ $c->nome_equipamento }}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-medium text-white">{{ $c->nome_equipamento }}</span>
+                                    @if($c->equipamento)
+                                        <span class="badge badge-neutral text-[10px]">{{ $c->equipamento->tipo_formatado }}</span>
+                                    @endif
+                                </div>
                                 @if ($c->observacoes)
                                     <p class="text-xs mt-0.5 truncate max-w-xs" style="color: var(--color-surface-400);">
                                         {{ $c->observacoes }}</p>
@@ -81,26 +86,30 @@
                                 A cada {{ $c->periodicidade_dias }} dias
                             </td>
                             <td>
-                                @php
-                                    $diasRestantes = now()
-                                        ->startOfDay()
-                                        ->diffInDays($c->data_proxima_reposicao->startOfDay(), false);
-                                @endphp
-                                <div>
-                                    <span
-                                        class="font-bold text-xs {{ $diasRestantes < 0 ? 'text-red-400' : ($diasRestantes <= 2 ? 'text-amber-400' : 'text-emerald-400') }}">
-                                        {{ $c->data_proxima_reposicao->format('d/m/Y') }}
-                                    </span>
-                                    <span class="block text-[10px]" style="color: var(--color-surface-400);">
-                                        @if ($diasRestantes < 0)
-                                            Atrasada há {{ abs($diasRestantes) }} dia(s)
-                                        @elseif($diasRestantes == 0)
-                                            Hoje
-                                        @else
-                                            Em {{ $diasRestantes }} dia(s)
-                                        @endif
-                                    </span>
-                                </div>
+                                @if ($c->data_proxima_reposicao)
+                                    @php
+                                        $diasRestantes = now()
+                                            ->startOfDay()
+                                            ->diffInDays($c->data_proxima_reposicao->startOfDay(), false);
+                                    @endphp
+                                    <div>
+                                        <span
+                                            class="font-bold text-xs {{ $diasRestantes < 0 ? 'text-red-400' : ($diasRestantes <= 2 ? 'text-amber-400' : 'text-emerald-400') }}">
+                                            {{ $c->data_proxima_reposicao->format('d/m/Y') }}
+                                        </span>
+                                        <span class="block text-[10px]" style="color: var(--color-surface-400);">
+                                            @if ($diasRestantes < 0)
+                                                Atrasada há {{ abs($diasRestantes) }} dia(s)
+                                            @elseif($diasRestantes == 0)
+                                                Hoje
+                                            @else
+                                                Em {{ $diasRestantes }} dia(s)
+                                            @endif
+                                        </span>
+                                    </div>
+                                @else
+                                    <span class="text-xs" style="color: var(--color-surface-400);">Não agendada</span>
+                                @endif
                             </td>
                             <td class="text-right">
                                 <div class="flex items-center justify-end gap-1">

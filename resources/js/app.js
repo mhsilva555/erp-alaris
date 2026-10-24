@@ -102,13 +102,13 @@ window.testarNotificacaoSO = function () {
             'X-Requested-With': 'XMLHttpRequest'
         }
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.notificacao) {
-            dispararNotificacaoNativaSO(data.notificacao);
-        }
-    })
-    .catch(err => console.error('Erro ao testar notificação:', err));
+        .then(r => r.json())
+        .then(data => {
+            if (data.notificacao) {
+                dispararNotificacaoNativaSO(data.notificacao);
+            }
+        })
+        .catch(err => console.error('Erro ao testar notificação:', err));
 };
 
 function dispararNotificacaoNativaSO(notif) {
@@ -156,30 +156,30 @@ function verificarNotificacoesSO() {
             'X-Requested-With': 'XMLHttpRequest'
         }
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.sucesso && data.notificacoes && data.notificacoes.length > 0) {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-                || (document.querySelector('input[name="_token"]')?.value)
-                || '';
+        .then(r => r.json())
+        .then(data => {
+            if (data.sucesso && data.notificacoes && data.notificacoes.length > 0) {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                    || (document.querySelector('input[name="_token"]')?.value)
+                    || '';
 
-            data.notificacoes.forEach(notif => {
-                dispararNotificacaoNativaSO(notif);
+                data.notificacoes.forEach(notif => {
+                    dispararNotificacaoNativaSO(notif);
 
-                // Marca como entregue no SO
-                fetch(`/notificacoes/agendamentos/${notif.id}/marcar-exibida`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                }).catch(() => {});
-            });
-        }
-    })
-    .catch(() => {});
+                    // Marca como entregue no SO
+                    fetch(`/notificacoes/agendamentos/${notif.id}/marcar-exibida`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    }).catch(() => { });
+                });
+            }
+        })
+        .catch(() => { });
 }
 
 // ── Marcar Notificações como Lidas ──
@@ -200,11 +200,11 @@ window.marcarNotificacaoLida = function (id, event) {
             'X-Requested-With': 'XMLHttpRequest'
         }
     })
-    .then(r => r.json())
-    .then(() => {
-        pollNotificacoes();
-    })
-    .catch(() => {});
+        .then(r => r.json())
+        .then(() => {
+            pollNotificacoes();
+        })
+        .catch(() => { });
 };
 
 window.marcarTodasNotificacoesLidas = function () {
@@ -221,11 +221,11 @@ window.marcarTodasNotificacoesLidas = function () {
             'X-Requested-With': 'XMLHttpRequest'
         }
     })
-    .then(r => r.json())
-    .then(() => {
-        pollNotificacoes();
-    })
-    .catch(() => {});
+        .then(r => r.json())
+        .then(() => {
+            pollNotificacoes();
+        })
+        .catch(() => { });
 };
 
 // ── Polling de notificações no Header ──
@@ -377,7 +377,7 @@ function pollNotificacoes() {
                 dropdown.innerHTML = html;
             }
         })
-        .catch(() => {});
+        .catch(() => { });
 }
 
 setInterval(pollNotificacoes, 30000);
@@ -429,11 +429,34 @@ window.addProdutoRow = function () {
     }
 };
 
+// ── Preenchimento automático da diária do técnico selecionado ──
+window.atualizarDiariaTecnico = function () {
+    const sel = document.getElementById('tecnico_id');
+    const inputMaoDeObra = document.getElementById('custo_mao_de_obra');
+    const labelDiaria = document.getElementById('label-diaria-tecnico');
+    if (!sel || !inputMaoDeObra) return;
+
+    const opt = sel.options[sel.selectedIndex];
+    if (opt && opt.dataset.diaria !== undefined && opt.value !== '') {
+        inputMaoDeObra.value = parseFloat(opt.dataset.diaria).toFixed(2);
+        if (labelDiaria) {
+            // labelDiaria.textContent = 'Diária padrão do técnico: R$ ' + parseFloat(opt.dataset.diaria).toFixed(2).replace('.', ',');
+        }
+    } else {
+        if (labelDiaria) labelDiaria.textContent = '';
+    }
+
+    if (typeof window.recalcularFinanceiroVisita === 'function') {
+        window.recalcularFinanceiroVisita();
+    }
+};
+
 // ── Cálculo financeiro em tempo real no formulário da visita ──
 window.recalcularFinanceiroVisita = function () {
     const valorCobradoEl = document.getElementById('valor_cobrado');
     const custoMaoDeObraEl = document.getElementById('custo_mao_de_obra');
     const custoDeslocamentoEl = document.getElementById('custo_deslocamento');
+    const gastosAdicionaisEl = document.getElementById('gastos_adicionais');
     const exigeNfEl = document.getElementById('exige_nota_fiscal');
 
     if (!valorCobradoEl) return;
@@ -441,6 +464,7 @@ window.recalcularFinanceiroVisita = function () {
     const valorCobrado = parseFloat(valorCobradoEl.value) || 0;
     const custoMaoDeObra = parseFloat(custoMaoDeObraEl ? custoMaoDeObraEl.value : 0) || 0;
     const custoDeslocamento = parseFloat(custoDeslocamentoEl ? custoDeslocamentoEl.value : 0) || 0;
+    const gastosAdicionais = parseFloat(gastosAdicionaisEl ? gastosAdicionaisEl.value : 0) || 0;
     const exigeNf = exigeNfEl ? exigeNfEl.checked : false;
 
     // Calcular custo de insumos
@@ -465,7 +489,7 @@ window.recalcularFinanceiroVisita = function () {
     const aliquotaPadrao = window.__aliquotaImpostoPadrao || 14.0;
     const aliquota = exigeNf ? aliquotaPadrao : 0.0;
     const valorImposto = (valorCobrado * aliquota) / 100;
-    const custoOperacionalTotal = custoProdutosTotal + custoMaoDeObra + custoDeslocamento;
+    const custoOperacionalTotal = custoProdutosTotal + custoMaoDeObra + custoDeslocamento + gastosAdicionais;
     const lucroBruto = valorCobrado - (custoOperacionalTotal + valorImposto);
     const margem = valorCobrado > 0 ? (lucroBruto / valorCobrado) * 100 : 0;
 

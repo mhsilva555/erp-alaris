@@ -56,10 +56,29 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
   - Quando preenchida (ex.: nos casos de retorno futuro ou vencimento do concorrente), injeta automaticamente uma entrada de lembrete na **Agenda Geral Unificada**.
 - **Dossiê do Cliente (`clientes.show`)**:
   - Painel com histórico completo: visitas realizadas, equipamentos em comodato ativos, histórico de orçamentos e linha do tempo de interações.
+- **Filtros da Listagem (`clientes.index`)**:
+  - Busca textual (nome, CPF/CNPJ, telefone, cidade), filtro por `status_prospeccao`, filtro por `periodicidade` (avulso, quinzenal, mensal, bimestral, trimestral, semestral, anual) e filtro por `origem`, com botão de limpeza rápida de filtros.
 
-### 2.3. Módulo Técnico: Equipamentos em Comodato e O.S.
+### 2.3. Módulo Técnico: Gestão de Equipamentos, Comodato e O.S.
+- **Catálogo & Gestão de Equipamentos (`equipamentos`)**:
+  - Cadastro de ativos físicos do patrimônio da empresa (ex.: *Porta-Iscas Túnel*, *Armadilha Luminosa 30W*, *Pulverizador Manual/Motorizado*, *Atomizador Costal*).
+  - **Categorias Dinâmicas (`categoria_equipamentos`)**:
+    - Gerenciamento direto através do botão "Categorias" no cabeçalho do módulo, abrindo modal interativo.
+    - Listagem das categorias cadastradas com contador de equipamentos vinculados.
+    - Adição instantânea de novas categorias sem necessidade de recarregar a página.
+    - Exclusão permitida apenas para categorias sem equipamentos vinculados.
+  - Controle de estoque duplo:
+    - **Quantidade Total (`quantidade_total`)**: Estoque patrimonial total adquirido.
+    - **Quantidade Disponível (`quantidade_disponivel`)**: Saldo pronto no almoxarifado/depósito para novas alocações.
+  - Indicadores no topo do módulo: Total de Modelos, Estoque Físico Total, Quantidade em Comodato (instalados em clientes) e Saldo Disponível para novas alocações.
+  - Bloqueio de exclusão quando o equipamento possui contratos de comodato ativos vinculados.
 - **Gestão de Comodato (`equipamentos_comodato`)**:
-  - Controle de ativos alocados no endereço do cliente (ex.: *Porta-Iscas modelo túnel*, *Armadilha Luminosa com placa adesiva*, *Gaiola de Captura*).
+  - Alocação de ativos no endereço do cliente com vínculo obrigatório ou opcional ao catálogo de `equipamentos`.
+  - **Validação de Saldo Disponível**: Na criação de um novo comodato, o sistema lista os equipamentos ativos disponíveis e valida tanto no frontend (UX em tempo real com `max` e aviso visual) quanto no backend (`ValidationException`) se a quantidade solicitada não excede a `quantidade_disponivel`.
+  - **Baixa e Restituição Atômica no Estoque (`DB::transaction`)**:
+    - Ao cadastrar um comodato, a quantidade é deduzida de `quantidade_disponivel`.
+    - Ao atualizar a quantidade ou trocar o equipamento do comodato, os saldos são recalculados e ajustados.
+    - Ao excluir um comodato, o saldo é restituído integralmente para `quantidade_disponivel`.
   - Vínculo direto ao insumo químico do estoque: Cada equipamento possui um `produto_id` associado (ex.: *Raticida Bloco Parafinado 20g* associado ao *Porta-Iscas*).
   - **Periodicidade de Reposição (`periodicidade_dias`)**: Campo editável que define a frequência de inspeção e substituição das iscas (ex.: a cada 15 dias, a cada 30 dias).
   - Cálculo automático da **Próxima Reposição**: Data da última troca + periodicidade em dias, gerando alerta de reabastecimento na agenda.
@@ -129,6 +148,36 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
   - Relatório semanal e mensal consolidado:
     $$\text{Lucro Líquido Operacional} = \sum \text{Faturamento Recebido} - \sum (\text{Produtos} + \text{Mão de Obra} + \text{Deslocamento} + \text{Impostos} + \text{Despesas Gerais})$$
 
+### 2.8. Módulo de Notificações, Monitoramento em Tempo Real & Cron
+- **Monitoramento Automático Minuto a Minuto**:
+  - Comando `php artisan agendamentos:verificar-notificacoes` agendado no Laravel Scheduler (`routes/console.php`) para execução contínua `everyMinute()->withoutOverlapping()->runInBackground()`.
+  - Instalador automatizado multiplataforma: `php artisan cron:install` instala a entrada correspondente no crontab (Linux/WSL) ou no Agendador de Tarefas do Windows (`schtasks`).
+  - Suporte às opções `--status` para diagnóstico e `--uninstall` para desativação limpa.
+- **Tríplice Pilar de Monitoramento do Agendamento**:
+  1. **Visitas Iminentes**: Visitas agendadas para os próximos 60 minutos (atribuição direta ao técnico ou aviso global aos gestores).
+  2. **Reposições de Comodato**: Equipamentos com vencimento de reposição de iscas programado para hoje ou já em atraso.
+  3. **Follow-ups Comerciais**: Leads e clientes com data de retorno programada para a data corrente.
+  - **Deduplicação Inteligente**: Registros gerados possuem chave de unicidade diária por evento para evitar notificações duplicadas.
+- **Emissão Exclusiva via Navegador Web (Desktop & Mobile)**:
+  - Notificações nativas no Sistema Operacional (Windows, macOS, Linux, Android e iOS PWA) emitidas estritamente através da **Web Notifications API** e **Service Worker** (`public/sw.js`).
+  - O sistema **não utiliza** popups locais do servidor (PowerShell / Windows Forms); a emissão respeita a arquitetura web padrão através de navegadores modernos (Google Chrome, Firefox, Safari e Edge).
+- **Central de Notificações no Header**:
+  - Dropdown interativo totalmente integrado ao **Design System ERP Alaris** (suporte aos modos Light e Dark com variáveis `var(--color-surface-*)`).
+  - Indicador numérico em tempo real de não-lidas, marcação individual de leitura (`POST /notificacoes/agendamentos/{id}/marcar-lida`) e marcação em lote (`POST /notificacoes/agendamentos/marcar-todas-lidas`).
+  - **Ocultação Inteligente de Permissão**: Banners e avisos de solicitação de permissão de notificação são ocultados automaticamente no frontend assim que o usuário concede acesso (`Notification.permission === 'granted'`).
+
+### 2.9. Usabilidade de Entrada: Máscaras de Dados e Persistência Limpa
+- **Máscaras Dinâmicas no Frontend**:
+  - Enriquecimento progressivo sem dependências pesadas, acionado por atributos `data-mask`:
+    - `data-mask="documento"`: Alterna automaticamente entre CPF (`000.000.000-00`) e CNPJ (`00.000.000/0000-00`) de acordo com o comprimento inserido.
+    - `data-mask="telefone"`: Alterna entre telefone fixo (`(00) 0000-0000`) e celular (`(00) 00000-0000`) com 9 dígitos.
+    - `data-mask="cep"`: Formata automaticamente para `00000-000`.
+- **Persistência Backend Limpa (Regra Invariante)**:
+  - Todos os campos mascaráveis (`documento`, `telefone`, `cep`) são **estritamente limpos** antes de gravar no banco de dados, mantendo apenas dígitos numéricos (`MascaraHelper::apenasNumeros()`).
+  - Garantia dupla através de Mutators nos modelos (`Cliente`, `Tecnico`) e sanitização explícita nos formulários de criação/edição.
+  - **Accessors Formatados**: Disponibilização de propriedades calculadas (`$cliente->documento_formatado`, `$cliente->telefone_formatado`, `$cliente->cep_formatado`, `$tecnico->telefone_formatado`) para renderização formatada nas views e relatórios.
+  - **Busca Híbrida**: O mecanismo de pesquisa permite localizar registros pesquisando tanto pela string formatada quanto apenas pelos dígitos numéricos.
+
 ---
 
 ## 3. Modelo de Dados (Data Dictionary Expandido)
@@ -191,11 +240,35 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `descricao` | TEXT | Sim | NULL | Princípio ativo / registro ANVISA |
 | `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
 
-### 3.5. Tabela `equipamentos_comodato`
+### 3.5. Tabela `categoria_equipamentos`
+| Coluna | Tipo | Nulo | Default | Descrição |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único da categoria |
+| `nome` | VARCHAR(100) | Não | - | Nome exibido (ex.: Porta-Iscas / Túnel, Gaiolas) |
+| `slug` | VARCHAR(100) | Não | - | Slug único para identificação técnica |
+| `ativo` | BOOLEAN | Não | `true` | Categoria ativa para seleção |
+| `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
+
+### 3.6. Tabela `equipamentos`
+| Coluna | Tipo | Nulo | Default | Descrição |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único do equipamento |
+| `nome` | VARCHAR(255) | Não | - | Nome comercial (ex.: Porta-Iscas Túnel) |
+| `modelo` | VARCHAR(255) | Sim | NULL | Modelo / Fabricante |
+| `tipo` | VARCHAR(50) | Não | `'porta_iscas'` | Slug da categoria (`categoria_equipamentos.slug`) |
+| `quantidade_total` | INT UNSIGNED | Não | `0` | Quantidade total física do patrimônio |
+| `quantidade_disponivel` | INT UNSIGNED | Não | `0` | Saldo disponível no almoxarifado para comodato |
+| `valor_unitario` | DECIMAL(10,2) | Sim | `0.00` | Custo patrimonial unitário |
+| `descricao` | TEXT | Sim | NULL | Especificações técnicas do equipamento |
+| `ativo` | BOOLEAN | Não | `true` | Disponível para novos comodatos |
+| `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
+
+### 3.7. Tabela `equipamentos_comodato`
 | Coluna | Tipo | Nulo | Default | Descrição |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador do comodato |
 | `cliente_id` | BIGINT UNSIGNED | Não | - | FK -> `clientes.id` (cascade) |
+| `equipamento_id` | BIGINT UNSIGNED | Sim | NULL | FK -> `equipamentos.id` (null on delete / restringe se ativo) |
 | `produto_id` | BIGINT UNSIGNED | Sim | NULL | FK -> `produtos.id` (insumo químico atrelado à reposição) |
 | `nome_equipamento` | VARCHAR(255) | Não | - | Ex.: Porta-Isca Externo Modelo Túnel |
 | `quantidade` | INT UNSIGNED | Não | `1` | Número de unidades instaladas |
@@ -223,6 +296,8 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `custo_produtos` | DECIMAL(10,2) | Não | `0.00` | Custo somado dos insumos aplicados |
 | `custo_mao_de_obra`| DECIMAL(10,2) | Não | `0.00` | Diária/remuneração do técnico |
 | `custo_deslocamento`| DECIMAL(10,2)| Não | `0.00` | Combustível e transporte |
+| `gastos_adicionais` | DECIMAL(10,2)| Não | `0.00` | Gastos operacionais imprevistos/adicionais da visita |
+| `motivo_gastos_adicionais` | VARCHAR(255) | Sim | NULL | Descrição/motivo dos gastos adicionais (pedágio, etc.) |
 | `exige_nota_fiscal`| BOOLEAN | Não | `false` | Se cliente exige NF |
 | `percentual_imposto`| DECIMAL(5,2) | Não | `0.00` | Alíquota de imposto aplicada (ex.: 12.00%) |
 | `valor_imposto` | DECIMAL(10,2) | Não | `0.00` | Valor calculado de imposto |
@@ -262,6 +337,22 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `descricao` | VARCHAR(255) | Sim | NULL | Explicação do parâmetro |
 | `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
 
+### 3.10. Tabela `notificacoes_agendamentos`
+| Coluna | Tipo | Nulo | Default | Descrição |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único da notificação |
+| `tipo_evento` | VARCHAR(30) | Não | - | Categoria: `visita`, `comodato`, `followup` |
+| `evento_id` | BIGINT UNSIGNED | Não | - | ID do registro associado (`visitas.id`, `equipamentos_comodato.id`, etc.) |
+| `titulo` | VARCHAR(255) | Não | - | Título curto do alerta (ex.: "Visita Agendada: OS #10") |
+| `mensagem` | TEXT | Não | - | Detalhamento da notificação |
+| `url` | VARCHAR(255) | Sim | NULL | Link de redirecionamento ao clicar no alerta |
+| `data_evento` | DATETIME | Não | - | Momento previsto da ocorrência |
+| `data_notificacao` | DATETIME | Não | `now()` | Momento em que o alerta foi processado |
+| `enviada_so` | BOOLEAN | Não | `false` | Se já foi emitida ao Sistema Operacional via navegador |
+| `lida` | BOOLEAN | Não | `false` | Se foi marcada como lida pelo usuário |
+| `user_id` | BIGINT UNSIGNED | Sim | NULL | Usuário destinatário (null = notificação global) |
+| `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
+
 ---
 
 ## 4. Matriz de Rotas e Endpoints
@@ -273,6 +364,11 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `POST` | `/logout` | `logout` | `AuthController@logout` | Autenticado |
 | `GET` | `/` | `dashboard` | `DashboardController@index` | Autenticado (visão adaptada por perfil) |
 | `GET` | `/notificacoes` | `notificacoes` | `DashboardController@notificacoes` | Autenticado |
+| `GET` | `/notificacoes/agendamentos/pendentes` | `notificacoes.agendamentos.pendentes` | `NotificacaoAgendamentoController@pendentes` | Autenticado |
+| `POST`| `/notificacoes/agendamentos/{id}/marcar-exibida` | `notificacoes.agendamentos.marcar-exibida` | `NotificacaoAgendamentoController@marcarExibida` | Autenticado |
+| `POST`| `/notificacoes/agendamentos/{id}/marcar-lida` | `notificacoes.agendamentos.marcar-lida` | `NotificacaoAgendamentoController@marcarLida` | Autenticado |
+| `POST`| `/notificacoes/agendamentos/marcar-todas-lidas` | `notificacoes.agendamentos.marcar-todas-lidas` | `NotificacaoAgendamentoController@marcarTodasLidas` | Autenticado |
+| `POST`| `/notificacoes/agendamentos/testar` | `notificacoes.agendamentos.testar` | `NotificacaoAgendamentoController@testar` | Autenticado |
 | `GET` | `/agendamentos` | `agendamentos.index` | `AgendamentoController@index` | Autenticado (Agenda Unificada) |
 | `RESOURCE` | `/clientes` | `clientes.*` | `ClienteController` | Admin / Técnico (somente leitura de clientes) |
 | `RESOURCE` | `/comodatos` | `comodatos.*` | `ComodatoController` | Admin / Técnico |
@@ -299,5 +395,10 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
    - Campos de estoque e doses utilizam `DECIMAL(12,4)` ou `DECIMAL(10,2)` para suportar fracionamento exato em mililitros e gramas sem arredondamentos distorcidos.
 3. **Consistência em Banco de Dados**:
    - Toda alteração de estoque, reposição de comodato e encerramento de visitas com baixa de produtos deve ser executada obrigatoriamente sob `DB::transaction()`.
-4. **Desempenho e Responsividade**:
+4. **Tratamento de Datas e Compatibilidade SQLite / MySQL**:
+   - Consultas filtrando colunas de datas (`data_followup`, `data_proxima_reposicao`, `data_hora`) devem empregar **obrigatoriamente** o helper `whereDate('coluna', '>=', $data)` e `whereDate('coluna', '<=', $data)`.
+   - **Proibição**: Nunca utilizar `where('coluna', '<=', 'YYYY-MM-DD')` ou `whereBetween()` com strings puras em colunas que armazenam datetime/timestamp, pois a comparação lexicográfica em SQLite omite registros no último dia do mês (ex.: 31/10).
+5. **Concorrência e Locks em SQLite**:
+   - Configuração de `busy_timeout` de no mínimo 5000ms (`config/database.php`) para evitar erros de `database is locked` em sistemas de arquivos compartilhados ou no ambiente de desenvolvimento WSL 2.
+6. **Desempenho e Responsividade**:
    - Layout 100% responsivo para operação mobile por técnicos no campo via smartphone.

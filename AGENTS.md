@@ -80,6 +80,29 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
   - Acessa unicamente a sua própria escala de visitas e ordens de serviço.
   - Não possui acesso a rotas de faturamento global, fluxo de caixa, relatórios de Lucro Bruto ou custos de aquisição de insumos.
 
+### 3.7. Notificações Nativas no Navegador e Monitoramento Minuto a Minuto
+- O sistema executa monitoramento minuto a minuto via Laravel Scheduler e crontab/Task Scheduler (`php artisan cron:install`).
+- A rotina monitora:
+  1. Visitas agendadas para os próximos 60 minutos.
+  2. Reposições de comodato vencendo hoje ou atrasadas.
+  3. Follow-ups de prospecção agendados para a data atual.
+- **Emissão Estrita via Navegador Web**:
+  - Alertas ao Sistema Operacional (Desktop e Mobile) são gerados **exclusivamente via Web Notifications API e Service Worker** (`public/sw.js`).
+  - É expressamente proibido disparar scripts locais do servidor (PowerShell/Windows Forms) para emitir notificações na máquina.
+
+### 3.8. Máscaras no Frontend & Persistência Limpa no Banco
+- Os campos `documento` (CPF/CNPJ), `telefone` e `cep` possuem máscaras dinâmicas no frontend via atributos `data-mask`.
+- **Regra de Armazenamento**: Os dados **devem ser persistidos limpos** (apenas números, sem pontuação, traços ou barras), utilizando `MascaraHelper::apenasNumeros()` e Mutators nos modelos.
+- Para exibição formatada, utilize os accessors (`$cliente->documento_formatado`, etc.).
+
+### 3.9. Invariante de Consultas de Data no SQLite/MySQL
+- Em todas as consultas que filtram datas (`data_followup`, `data_proxima_reposicao`, `data_hora`), **deve-se utilizar obrigatoriamente `whereDate()`**:
+  ```php
+  $query->whereDate('data_followup', '>=', $inicio)
+        ->whereDate('data_followup', '<=', $fim);
+  ```
+- **Proibição**: Nunca utilizar comparações diretas de strings (`where('data', '<=', $dataStr)`) ou `whereBetween()` com strings puras em colunas que armazenam timestamp/datetime, sob risco de omitir registros no último dia do mês (ex.: 31/10).
+
 ---
 
 ## 4. Diretrizes de Codificação e Estilo
@@ -107,6 +130,9 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 | **Lint e Formatação** | `vendor/bin/pint` |
 | **Executar Migrações** | `php artisan migrate` |
 | **Compilar Assets** | `npm run build` |
+| **Instalar Cron no SO** | `php artisan cron:install` |
+| **Status da Cron** | `php artisan cron:install --status` |
+| **Verificar Notificações Manuais** | `php artisan agendamentos:verificar-notificacoes` |
 
 ---
 
@@ -114,5 +140,8 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 
 1. **Nunca quebrar a Regra de Sigilo Comercial**: Jamais insira detalhamento de doses, custos internos ou diárias técnicas em views ou impressos de proposta destinados ao cliente final.
 2. **Preservar Baixa Atômica Fracionada**: Sempre utilize o fator de conversão ao abater produtos do estoque.
-3. **Links Clicáveis em Respostas**: Sempre cite arquivos com sintaxe markdown clicável `file:///` (ex: [VisitaController.php](file:///d:/projetos/sistema-alaris/app/Http/Controllers/VisitaController.php)).
-4. **Segurança de Rotas**: Todas as rotas financeiras e de configurações devem exigir validação do papel `admin`.
+3. **Persistência Limpa de Documentos**: Ao manipular `documento`, `telefone` ou `cep`, garanta que o salvamento no banco remova toda a pontuação através de `MascaraHelper::apenasNumeros()`.
+4. **Uso Mandatório de `whereDate`**: Nunca compare datas usando strings em SQLite/MySQL; utilize sempre `whereDate()`.
+5. **Notificações Exclusivas via Navegador**: Alertas de agendamento são emitidos apenas pela API Web (`Notification` e Service Worker), sem chamadas locais de servidor.
+6. **Links Clicáveis em Respostas**: Sempre cite arquivos com sintaxe markdown clicável `file:///` (ex: [VisitaController.php](file:///z:/home/mh/projetos/erp-alaris/app/Http/Controllers/VisitaController.php)).
+7. **Segurança de Rotas**: Todas as rotas financeiras e de configurações devem exigir validação do papel `admin`.

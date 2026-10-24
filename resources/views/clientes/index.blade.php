@@ -7,8 +7,8 @@
         {{-- Header e Filtros --}}
         <div class="card p-4">
             <form method="GET" action="{{ route('clientes.index') }}"
-                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-center">
-                <div class="relative sm:col-span-2">
+                class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
+                <div class="relative sm:col-span-2 lg:col-span-4">
                     <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style="color: var(--color-surface-400);"
                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -17,43 +17,50 @@
                     <input type="text" name="busca" value="{{ request('busca') }}"
                         placeholder="Buscar por nome, CPF/CNPJ, telefone ou cidade..." class="form-input !pl-10">
                 </div>
-                <div>
+                <div class="lg:col-span-2">
                     <select name="status_prospeccao" class="form-select" onchange="this.form.submit()">
-                        <option value="">Todos os status do funil...</option>
-                        <option value="ativo" {{ request('status_prospeccao') === 'ativo' ? 'selected' : '' }}>Cliente
-                            Ativo</option>
-                        <option value="em_negociacao"
-                            {{ request('status_prospeccao') === 'em_negociacao' ? 'selected' : '' }}>Em Negociação</option>
-                        <option value="prospeccao" {{ request('status_prospeccao') === 'prospeccao' ? 'selected' : '' }}>
-                            Prospecção Ativa</option>
-                        <option value="retornar_3_meses"
-                            {{ request('status_prospeccao') === 'retornar_3_meses' ? 'selected' : '' }}>Retornar em 3 Meses
-                        </option>
-                        <option value="contrato_concorrente"
-                            {{ request('status_prospeccao') === 'contrato_concorrente' ? 'selected' : '' }}>Contrato
-                            Concorrente</option>
-                        <option value="inativo" {{ request('status_prospeccao') === 'inativo' ? 'selected' : '' }}>Inativo
-                        </option>
+                        <option value="">Todos os status...</option>
+                        <option value="ativo" {{ request('status_prospeccao') === 'ativo' ? 'selected' : '' }}>Cliente Ativo</option>
+                        <option value="em_negociacao" {{ request('status_prospeccao') === 'em_negociacao' ? 'selected' : '' }}>Em Negociação</option>
+                        <option value="prospeccao" {{ request('status_prospeccao') === 'prospeccao' ? 'selected' : '' }}>Prospecção Ativa</option>
+                        <option value="retornar_3_meses" {{ request('status_prospeccao') === 'retornar_3_meses' ? 'selected' : '' }}>Retornar em 3 Meses</option>
+                        <option value="contrato_concorrente" {{ request('status_prospeccao') === 'contrato_concorrente' ? 'selected' : '' }}>Contrato Concorrente</option>
+                        <option value="inativo" {{ request('status_prospeccao') === 'inativo' ? 'selected' : '' }}>Inativo</option>
                     </select>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="lg:col-span-2">
+                    <select name="periodicidade" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todas as periodicidades...</option>
+                        <option value="avulso" {{ request('periodicidade') === 'avulso' ? 'selected' : '' }}>Avulso / Pontual</option>
+                        <option value="quinzenal" {{ request('periodicidade') === 'quinzenal' ? 'selected' : '' }}>Quinzenal</option>
+                        <option value="mensal" {{ request('periodicidade') === 'mensal' ? 'selected' : '' }}>Mensal</option>
+                        <option value="bimestral" {{ request('periodicidade') === 'bimestral' ? 'selected' : '' }}>Bimestral</option>
+                        <option value="trimestral" {{ request('periodicidade') === 'trimestral' ? 'selected' : '' }}>Trimestral</option>
+                        <option value="semestral" {{ request('periodicidade') === 'semestral' ? 'selected' : '' }}>Semestral</option>
+                        <option value="anual" {{ request('periodicidade') === 'anual' ? 'selected' : '' }}>Anual</option>
+                    </select>
+                </div>
+                <div class="lg:col-span-2">
                     <select name="origem" class="form-select" onchange="this.form.submit()">
                         <option value="">Todas as origens...</option>
-                        <option value="Trafego Pago" {{ request('origem') === 'Trafego Pago' ? 'selected' : '' }}>Tráfego
-                            Pago</option>
-                        <option value="Indicacao" {{ request('origem') === 'Indicacao' ? 'selected' : '' }}>Indicação
-                        </option>
-                        <option value="Prospeccao Ativa" {{ request('origem') === 'Prospeccao Ativa' ? 'selected' : '' }}>
-                            Prospecção Ativa</option>
-                        <option value="Redes Sociais" {{ request('origem') === 'Redes Sociais' ? 'selected' : '' }}>Redes
-                            Sociais</option>
+                        <option value="Trafego Pago" {{ request('origem') === 'Trafego Pago' ? 'selected' : '' }}>Tráfego Pago</option>
+                        <option value="Indicacao" {{ request('origem') === 'Indicacao' ? 'selected' : '' }}>Indicação</option>
+                        <option value="Prospeccao Ativa" {{ request('origem') === 'Prospeccao Ativa' ? 'selected' : '' }}>Prospecção Ativa</option>
+                        <option value="Redes Sociais" {{ request('origem') === 'Redes Sociais' ? 'selected' : '' }}>Redes Sociais</option>
                         <option value="outros" {{ request('origem') === 'outros' ? 'selected' : '' }}>Outros</option>
                     </select>
-                    <a href="{{ route('clientes.create') }}" class="btn btn-primary shrink-0">
+                </div>
+                <div class="lg:col-span-2 flex items-center gap-2">
+                    @if (request()->hasAny(['busca', 'status_prospeccao', 'periodicidade', 'origem']))
+                        <a href="{{ route('clientes.index') }}" class="btn btn-outline btn-sm py-2 px-2.5 text-xs shrink-0" title="Limpar todos os filtros">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </a>
+                    @endif
+                    <a href="{{ route('clientes.create') }}" class="btn btn-primary flex-1 justify-center shrink-0">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
-                        Novo
+                        <span>Novo</span>
                     </a>
                 </div>
             </form>

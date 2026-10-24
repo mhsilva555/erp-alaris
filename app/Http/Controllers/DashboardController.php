@@ -56,7 +56,7 @@ class DashboardController extends Controller
             ->get();
 
         $followupsProximos = Cliente::comFollowupPendente()
-            ->where('data_followup', '<=', now()->addDays(3)->toDateString())
+            ->whereDate('data_followup', '<=', now()->addDays(3)->toDateString())
             ->orderBy('data_followup')
             ->limit(10)
             ->get();
@@ -130,7 +130,7 @@ class DashboardController extends Controller
             : 0;
 
         $followups = ($user && $user->isAdmin())
-            ? Cliente::comFollowupPendente()->where('data_followup', '<=', now()->addDays(2)->toDateString())->count()
+            ? Cliente::comFollowupPendente()->whereDate('data_followup', '<=', now()->addDays(2)->toDateString())->count()
             : 0;
 
         $totalGeral = $totalNaoLidas > 0 ? $totalNaoLidas : ($atrasadas + $estoqueBaixo);

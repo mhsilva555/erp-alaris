@@ -13,6 +13,7 @@ class EquipamentoComodato extends Model
 
     protected $fillable = [
         'cliente_id',
+        'equipamento_id',
         'produto_id',
         'nome_equipamento',
         'quantidade',
@@ -39,6 +40,11 @@ class EquipamentoComodato extends Model
         return $this->belongsTo(Cliente::class);
     }
 
+    public function equipamento(): BelongsTo
+    {
+        return $this->belongsTo(Equipamento::class);
+    }
+
     public function produto(): BelongsTo
     {
         return $this->belongsTo(Produto::class);
@@ -46,7 +52,7 @@ class EquipamentoComodato extends Model
 
     public function scopeReposicaoProxima(Builder $query, int $dias = 2): Builder
     {
-        return $query->where('data_proxima_reposicao', '<=', now()->addDays($dias)->toDateString());
+        return $query->whereNotNull('data_proxima_reposicao')->whereDate('data_proxima_reposicao', '<=', now()->addDays($dias)->toDateString());
     }
 
     public function estaAtrasado(): bool

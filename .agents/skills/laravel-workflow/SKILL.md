@@ -17,12 +17,15 @@ This skill contains the operational runbook for development, testing, styling, a
 | Task | Command | Notes |
 | :--- | :--- | :--- |
 | **Start Dev Environment** | `composer run dev` | Runs Artisan server, queue worker, and Vite concurrently |
-| **Run Pest Tests** | `composer run test` or `php artisan test` | Runs Pest suite with clear config |
+| **Run Pest Tests** | `composer run test` ou `php artisan test` | Executar dentro do WSL (`wsl -d Ubuntu-24.04`) para performance nativa sem lock |
 | **Format Code** | `vendor/bin/pint` | Fixes code style to PSR-12 / Laravel standards |
 | **Run Migrations** | `php artisan migrate` | Executes pending migrations |
 | **Re-seed Database** | `php artisan migrate:fresh --seed` | Re-creates database and executes `DatabaseSeeder` |
 | **Build Frontend** | `npm run build` | Compiles CSS and JS into `public/build` |
 | **Clear App Caches** | `php artisan optimize:clear` | Clears route, view, and config caches |
+| **Install Scheduler Cron**| `php artisan cron:install` | Configures minute-by-minute cron in crontab or Windows Task Scheduler |
+| **Check Cron Status** | `php artisan cron:install --status` | Verifies active cron schedule status |
+| **Run Agenda Notifications** | `php artisan agendamentos:verificar-notificacoes` | Manually triggers upcoming events scan |
 
 ---
 

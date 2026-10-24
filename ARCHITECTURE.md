@@ -106,9 +106,33 @@ erDiagram
         timestamp updated_at
     }
 
+    CATEGORIA_EQUIPAMENTOS {
+        bigint id PK
+        string nome "Ex: Porta-Iscas / Túnel"
+        string slug "porta_iscas"
+        boolean ativo
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    EQUIPAMENTOS {
+        bigint id PK
+        string nome
+        string modelo
+        string tipo "FK lógica / slug -> categoria_equipamentos.slug"
+        int quantidade_total "Estoque patrimonial"
+        int quantidade_disponivel "Saldo no depósito"
+        decimal valor_unitario
+        text descricao
+        boolean ativo
+        timestamp created_at
+        timestamp updated_at
+    }
+
     EQUIPAMENTOS_COMODATO {
         bigint id PK
         bigint cliente_id FK
+        bigint equipamento_id FK "nullable"
         bigint produto_id FK "Insumo atrelado à reposição"
         string nome_equipamento "Ex: Porta-iscas"
         int quantidade
@@ -136,6 +160,8 @@ erDiagram
         decimal custo_produtos "Soma das frações aplicadas"
         decimal custo_mao_de_obra "Diária / Mão de obra"
         decimal custo_deslocamento "Transporte / Combustível"
+        decimal gastos_adicionais "Despesas adicionais da visita"
+        string motivo_gastos_adicionais "Motivo das despesas extras"
         boolean exige_nota_fiscal "Aplica acréscimo de imposto"
         decimal percentual_imposto "Alíquota configurada"
         decimal valor_imposto "Calculado sobre valor bruto"
@@ -176,14 +202,33 @@ erDiagram
         timestamp updated_at
     }
 
+    NOTIFICACOES_AGENDAMENTOS {
+        bigint id PK
+        string tipo_evento "visita | comodato | followup"
+        bigint evento_id
+        string titulo
+        text mensagem
+        string url
+        datetime data_evento
+        datetime data_notificacao
+        boolean enviada_so
+        boolean lida
+        bigint user_id FK "nullable"
+        timestamp created_at
+        timestamp updated_at
+    }
+
     CLIENTES ||--o{ VISITAS : "possui (1:N)"
     CLIENTES ||--o{ EQUIPAMENTOS_COMODATO : "aloca (1:N)"
+    CATEGORIA_EQUIPAMENTOS ||--o{ EQUIPAMENTOS : "classifica (1:N)"
+    EQUIPAMENTOS ||--o{ EQUIPAMENTOS_COMODATO : "alocado_em (1:N)"
     TECNICOS ||--o{ VISITAS : "executa (1:N)"
     TECNICOS ||--o| USERS : "login_vinculado (1:1)"
     PRODUTOS ||--o{ EQUIPAMENTOS_COMODATO : "reabastece (1:N)"
     PRODUTOS ||--|{ VISITA_PRODUTO : "utilizado_em (1:N)"
     VISITAS ||--|{ VISITA_PRODUTO : "consome (1:N)"
     VISITAS ||--o{ MOVIMENTACOES_FINANCEIRAS : "gera (1:N)"
+    USERS ||--o{ NOTIFICACOES_AGENDAMENTOS : "recebe (1:N)"
 ```
 
 ---
@@ -284,6 +329,59 @@ Para garantir proteção comercial e conformidade com as diretrizes da Alaris Se
 
 ---
 
+### 3.4. Fluxo de Monitoramento via Cron e Notificações no Navegador
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Cron as Crontab / Task Scheduler
+    participant Artisan as artisan agendamentos:verificar-notificacoes
+    participant Service as AgendamentoNotificacaoService
+    participant DB as Banco de Dados
+    participant Browser as Google Chrome / Navegador Web
+    participant SW as Service Worker (sw.js)
+    participant OS as Sistema Operacional (Desktop/Mobile)
+
+    loop A cada minuto
+        Cron->>Artisan: Executa rotina agendada (routes/console.php)
+        Artisan->>Service: verificarTodas()
+        Service->>DB: Busca visitas iminentes (whereBetween 60m)
+        Service->>DB: Busca reposições de comodato (whereDate <= hoje)
+        Service->>DB: Busca follow-ups comerciais (whereDate <= hoje)
+        Service->>DB: Cria NotificacaoAgendamento (deduplicada por dia)
+    end
+
+    Note over Browser,SW: Polling de Notificações Pendentes a cada 30 segundos
+    Browser->>DB: GET /notificacoes/agendamentos/pendentes
+    DB-->>Browser: Lista de notificações com enviada_so == false
+
+    loop Para cada notificação recebida
+        Browser->>SW: postMessage({ type: 'SHOW_NOTIFICATION', payload })
+        SW->>OS: showNotification(titulo, { body, icon, badge, actions })
+        OS-->>Operador: Exibe banner nativo no SO (Windows/Mac/Android/iOS)
+        Browser->>DB: POST /notificacoes/agendamentos/{id}/marcar-exibida
+    end
+```
+
+---
+
+### 3.5. Fluxo de Máscaras no Frontend e Sanitização Limpa no Backend
+
+```mermaid
+graph LR
+    A[Usuário digita no Formulário] --> B[JS Dynamic Mask Handler]
+    B -->|data-mask="documento"| C[Máscara CPF ou CNPJ]
+    B -->|data-mask="telefone"| D[Máscara Fixo ou Celular]
+    B -->|data-mask="cep"| E[Máscara CEP]
+    C & D & E --> F[Submissão do Formulário]
+    F --> G[MascaraHelper::apenasNumeros]
+    G --> H[Mutators Eloquent Cliente/Tecnico]
+    H --> I[(Persistência: Apenas Dígitos)]
+    I --> J[Accessors Formatados nas Views]
+```
+
+---
+
 ## 4. Arquitetura Frontend: Temas, Polling e Reatividade
 
 ```
@@ -297,14 +395,22 @@ Para garantir proteção comercial e conformidade com as diretrizes da Alaris Se
 │  │    • Alterna ícones de Sol e Lua                       │  │
 │  └────────────────────────────────────────────────────────┘  │
 │  ┌────────────────────────────────────────────────────────┐  │
-│  │ 2. Polling de Notificações (30s)                       │  │
-│  │    • GET /notificacoes                                 │  │
-│  │    • Recebe contagens { atrasadas, proximas, estoque,  │  │
-│  │      comodato_reposicao, followups_pendentes }         │  │
-│  │    • Alimenta badge no header e dropdown contextual    │  │
+│  │ 2. Web Notifications & Central de Notificações         │  │
+│  │    • Registra Service Worker (sw.js)                   │  │
+│  │    • Solicita permissão da Web Notifications API       │  │
+│  │    • Polling /notificacoes/agendamentos/pendentes      │  │
+│  │    • Dispara alertas nativos no SO via Chrome/Edge...  │  │
+│  │    • Renderiza dropdown com design system e badges     │  │
+│  │    • Oculta avisos quando permission === 'granted'     │  │
 │  └────────────────────────────────────────────────────────┘  │
 │  ┌────────────────────────────────────────────────────────┐  │
-│  │ 3. Gerenciador Dinâmico de Produtos e Custos           │  │
+│  │ 3. Gerenciador Dinâmico de Máscaras                    │  │
+│  │    • data-mask="documento" (CPF/CNPJ dinâmico)         │  │
+│  │    • data-mask="telefone" (Fixo/Celular dinâmico)      │  │
+│  │    • data-mask="cep" (CEP)                             │  │
+│  └────────────────────────────────────────────────────────┘  │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │ 4. Gerenciador Dinâmico de Produtos e Custos           │  │
 │  │    • addProdutoRow() injeta linha de produto e dose    │  │
 │  │    • Atualiza subtotal estimado de custos em tela      │  │
 │  │    • Calcula acréscimo imediato ao marcar [x] Exige NF │  │
@@ -323,3 +429,20 @@ Para garantir proteção comercial e conformidade com as diretrizes da Alaris Se
    - **Camada de Rotas**: Middleware `EnsureUserHasRole('admin')` bloqueia acesso a rotas `/financeiro/*`, `/relatorios/*`, `/configuracoes/*`.
    - **Camada de Model/Query Scope**: Métodos de busca de visitas aplicam automaticamente `where('tecnico_id', auth()->user()->tecnico_id)` quando o usuário logado for técnico.
    - **Camada de View**: Blade directives `@can('admin')` e checagem de papel omitem colunas de custo, diárias e lucros em tabelas e modais.
+
+---
+
+## 6. Invariante de Manipulação de Datas e Concorrência de Banco
+
+1. **Invariante de Consultas de Data (`whereDate`)**:
+   - O SQLite armazena campos do tipo `date` serializados pelo Laravel com hora (`YYYY-MM-DD 00:00:00`).
+   - Consultas com `whereBetween('data', [$inicioStr, $fimStr])` ou `where('data', '<=', $dataStr)` executam comparação lexicográfica de strings, fazendo com que `'2026-10-31 00:00:00' > '2026-10-31'` seja avaliado como verdadeiro e omitindo registros no último dia do mês.
+   - **Padrão Obrigatório**:
+     ```php
+     $query->whereDate('data_followup', '>=', $inicio->toDateString())
+           ->whereDate('data_followup', '<=', $fim->toDateString());
+     ```
+2. **Concorrência e Locks no SQLite (WSL / Filesystem 9P)**:
+   - Em desenvolvimento sobre WSL 2 com diretórios montados no Windows, concorrência rápida de I/O em banco SQLite pode resultar em erro `database is locked`.
+   - Para prevenir o problema, o arquivo `config/database.php` define `'busy_timeout' => env('DB_BUSY_TIMEOUT', 5000)`.
+   - Comandos Artisan e testes de unidade com concorrência devem ser executados no ambiente nativo WSL Linux.

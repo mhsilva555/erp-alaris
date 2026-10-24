@@ -15,6 +15,15 @@
             </a>
 
             <div class="flex flex-wrap items-center gap-2">
+                @if ($visita->status !== 'concluida')
+                    <button type="button" onclick="openFinalizarModal()" class="btn btn-success text-sm font-semibold">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Finalizar Visita
+                    </button>
+                @endif
+
                 {{-- OS button --}}
                 <a href="{{ route('visitas.os', $visita) }}" target="_blank" class="btn btn-secondary text-sm">
                     <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -149,7 +158,7 @@
                     </span>
                 </div>
 
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                <div class="grid grid-cols-2 {{ $visita->gastos_adicionais > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4' }} gap-4 mb-4">
                     <div class="p-3 rounded-lg"
                         style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                         <span class="text-xs block" style="color: var(--color-surface-400);">Custo Insumos</span>
@@ -168,6 +177,19 @@
                         <span class="text-base font-bold text-white ">R$
                             {{ number_format($visita->custo_deslocamento, 2, ',', '.') }}</span>
                     </div>
+                    @if ($visita->gastos_adicionais > 0)
+                        <div class="p-3 rounded-lg"
+                            style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
+                            <span class="text-xs block" style="color: var(--color-surface-400);">Gastos Adicionais</span>
+                            <span class="text-base font-bold text-amber-300">R$
+                                {{ number_format($visita->gastos_adicionais, 2, ',', '.') }}</span>
+                            @if ($visita->motivo_gastos_adicionais)
+                                <span class="text-[11px] block truncate" style="color: var(--color-surface-400);" title="{{ $visita->motivo_gastos_adicionais }}">
+                                    {{ $visita->motivo_gastos_adicionais }}
+                                </span>
+                            @endif
+                        </div>
+                    @endif
                     <div class="p-3 rounded-lg"
                         style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                         <span class="text-xs block" style="color: var(--color-surface-400);">Imposto NF</span>
@@ -262,4 +284,127 @@
             </div>
         @endif
     </div>
+
+    @if ($visita->status !== 'concluida')
+        {{-- Modal Finalizar Visita --}}
+        <div id="modal-finalizar-visita" class="modal-backdrop hidden"
+            onclick="if(event.target === this) this.classList.add('hidden')">
+            <div class="modal-card max-w-lg">
+                <div class="card-header">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-white">Finalizar Visita / Concluir OS #{{ $visita->id }}</h3>
+                            <p class="text-xs" style="color: var(--color-surface-400);">{{ $visita->cliente->nome }}</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="document.getElementById('modal-finalizar-visita').classList.add('hidden')"
+                        class="btn btn-ghost btn-sm p-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <form action="{{ route('visitas.finalizar', $visita) }}" method="POST" class="p-6 space-y-4">
+                    @csrf
+
+                    {{-- Resumo da Conclusão --}}
+                    <div class="p-3.5 rounded-lg border text-xs space-y-1.5" style="background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.2);">
+                        <div class="flex items-center gap-1.5 font-semibold text-emerald-400">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Rotinas automáticas ao confirmar:
+                        </div>
+                        <ul class="list-disc list-inside space-y-0.5" style="color: var(--color-surface-300);">
+                            <li>O status da visita será atualizado para <strong class="text-emerald-400">Concluída</strong>.</li>
+                            @if ($visita->produtos->isNotEmpty())
+                                <li>Será efetuada a <strong>baixa fracionada de estoque</strong> dos {{ $visita->produtos->count() }} insumo(s) cadastrados.</li>
+                            @endif
+                            @if ($visita->valor_cobrado > 0)
+                                <li>Lançará o contas a receber de <strong class="text-white">R$ {{ number_format($visita->valor_cobrado, 2, ',', '.') }}</strong> no financeiro.</li>
+                            @endif
+                        </ul>
+                    </div>
+
+                    {{-- Observação da Execução --}}
+                    <div>
+                        <label class="form-label" for="finalizar_observacoes">Observações Técnicas da Execução</label>
+                        <textarea name="observacoes" id="finalizar_observacoes" rows="3" class="form-input"
+                            placeholder="Ex: Serviço concluído com sucesso. Áreas críticas inspecionadas e tratadas conforme procedimento padrão."></textarea>
+                        <span class="text-[11px] block mt-1" style="color: var(--color-surface-400);">Opcional. Será registrado nas observações técnicas da visita.</span>
+                    </div>
+
+                    {{-- Gastos Adicionais --}}
+                    <div class="pt-3 border-t" style="border-color: var(--color-surface-800);">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-xs font-semibold text-white flex items-center gap-1.5">
+                                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                Gastos Adicionais da Visita (se existiram)
+                            </label>
+                            <span class="text-[11px]" style="color: var(--color-surface-400);">Opcional</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="form-label text-xs" for="gastos_adicionais">Valor Adicional (R$)</label>
+                                <input type="number" name="gastos_adicionais" id="gastos_adicionais"
+                                    step="0.01" min="0" value="{{ old('gastos_adicionais', '0.00') }}"
+                                    class="form-input" placeholder="0,00">
+                            </div>
+                            <div>
+                                <label class="form-label text-xs" for="motivo_gastos_adicionais">Motivo / Descrição</label>
+                                <input type="text" name="motivo_gastos_adicionais" id="motivo_gastos_adicionais"
+                                    value="{{ old('motivo_gastos_adicionais') }}"
+                                    class="form-input" placeholder="Ex: Pedágio extra, estacionamento...">
+                            </div>
+                        </div>
+                        <p class="text-[11px] mt-1.5" style="color: var(--color-surface-400);">
+                            Caso informado, este valor será somado ao custo operacional da visita e lançado como despesa no fluxo de caixa.
+                        </p>
+                    </div>
+
+                    {{-- Botões de Ação --}}
+                    <div class="flex items-center justify-end gap-3 pt-4 border-t" style="border-color: var(--color-surface-800);">
+                        <button type="button" onclick="document.getElementById('modal-finalizar-visita').classList.add('hidden')"
+                            class="btn btn-secondary text-sm">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-success text-sm font-semibold">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Confirmar e Concluir Visita
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            function openFinalizarModal() {
+                const modal = document.getElementById('modal-finalizar-visita');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    const obsInput = document.getElementById('finalizar_observacoes');
+                    if (obsInput) obsInput.focus();
+                }
+            }
+
+            // Auto-abertura se parâmetro finalizar=1 vier na URL
+            document.addEventListener('DOMContentLoaded', function() {
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('finalizar') === '1') {
+                    openFinalizarModal();
+                }
+            });
+        </script>
+    @endif
 @endsection

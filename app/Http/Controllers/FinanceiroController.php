@@ -157,9 +157,10 @@ class FinanceiroController extends Controller
         $custoProdutos = (float) $visitas->sum('custo_produtos');
         $custoMaoDeObra = (float) $visitas->sum('custo_mao_de_obra');
         $custoDeslocamento = (float) $visitas->sum('custo_deslocamento');
+        $gastosAdicionais = (float) $visitas->sum('gastos_adicionais');
         $valorImpostos = (float) $visitas->sum('valor_imposto');
 
-        $custoOperacionalVisitas = $custoProdutos + $custoMaoDeObra + $custoDeslocamento;
+        $custoOperacionalVisitas = $custoProdutos + $custoMaoDeObra + $custoDeslocamento + $gastosAdicionais;
         $lucroBrutoVisitas = $faturamentoVisitas - ($custoOperacionalVisitas + $valorImpostos);
 
         // Despesas operacionais avulsas no período
@@ -177,6 +178,7 @@ class FinanceiroController extends Controller
         $totalCustoProdutos = $custoProdutos;
         $totalCustoMaoDeObra = $custoMaoDeObra;
         $totalCustoDeslocamento = $custoDeslocamento;
+        $totalGastosAdicionais = $gastosAdicionais;
         $totalImpostos = $valorImpostos;
         $totalCustoOperacional = $custoOperacionalVisitas + $valorImpostos;
         $lucroBrutoTotal = $lucroBrutoVisitas;

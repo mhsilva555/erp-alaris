@@ -127,6 +127,15 @@
                                         title="Proposta do Cliente (Sem custos)">
                                         Proposta
                                     </a>
+                                    @if ($visita->status !== 'concluida')
+                                        <a href="{{ route('visitas.show', $visita) }}?finalizar=1"
+                                            class="btn btn-secondary btn-sm text-emerald-400 hover:text-emerald-300"
+                                            title="Finalizar Visita (Adicionar observação e gastos extras)">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </a>
+                                    @endif
                                     <a href="{{ route('visitas.show', $visita) }}" class="btn btn-secondary btn-sm"
                                         title="Ver Detalhes">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

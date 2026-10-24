@@ -43,6 +43,11 @@ This skill documents the core domain logic, data models, and business operations
    - Cash flow ledger entries: revenues and operational expenses.
    - Fields: `visita_id` (nullable), `tipo` (`receita`, `despesa`), `categoria`, `descricao`, `valor`, `data_competencia`, `data_pagamento`, `status`.
 
+7. **NotificacaoAgendamento (`App\Models\NotificacaoAgendamento`)**:
+   - Notification records generated for upcoming visits, comodato refills, and prospecting follow-ups.
+   - Fields: `tipo_evento` (`visita`, `comodato`, `followup`), `evento_id`, `titulo`, `mensagem`, `url`, `data_evento`, `data_notificacao`, `enviada_so`, `lida`, `user_id`.
+   - Scopes: `scopePendentesSo()`, `scopeNaoLidas()`.
+
 ---
 
 ## 2. Business Workflows & Invariants
@@ -115,11 +120,21 @@ DB::transaction(function () use ($visita, $validated, $statusAnterior) {
   - **Visible to Client**: Service type, customer details, area in m², warranty term, payment terms, and **Final Total Price**.
   - **Strictly Hidden**: Never include chemical amounts (mL/g), chemical wholesale costs, technician per diem, transit cost, tax breakdown, or gross margin.
 
-### 2.3. Unified Agenda Aggregation
-The agenda query consolidates:
+### 2.3. Unified Agenda Aggregation & Date Queries
+Always use `whereDate()` for date boundaries to avoid string comparison truncation on SQLite/MySQL:
 1. **Visitas**: `Visita::with(['cliente', 'tecnico'])->whereBetween('data_hora', [$start, $end])`
-2. **Comodato Refills**: `EquipamentoComodato::with(['cliente', 'produto'])->whereBetween('data_proxima_reposicao', [$start, $end])`
-3. **Prospecting Follow-ups**: `Cliente::whereNotNull('data_followup')->whereBetween('data_followup', [$start, $end])`
+2. **Comodato Refills**: `EquipamentoComodato::with(['cliente', 'produto'])->whereDate('data_proxima_reposicao', '>=', $start)->whereDate('data_proxima_reposicao', '<=', $end)`
+3. **Prospecting Follow-ups**: `Cliente::whereNotNull('data_followup')->whereDate('data_followup', '>=', $start)->whereDate('data_followup', '<=', $end)`
+
+### 2.4. Clean Data Persistence & Masks
+- Dynamic frontend masks via `data-mask="documento"`, `data-mask="telefone"`, `data-mask="cep"`.
+- Backend persistence MUST store numbers only (`MascaraHelper::apenasNumeros()`).
+- Presentation uses accessors (`documento_formatado`, `telefone_formatado`, `cep_formatado`).
+
+### 2.5. Minute-by-Minute Cron & Native Web Notifications
+- `php artisan cron:install` manages crontab / Windows Task Scheduler.
+- `php artisan agendamentos:verificar-notificacoes` scans for imminent visits (<= 60 min), comodato refills due today, and follow-ups due today.
+- Notifications are emitted to OS exclusively via **Web Notifications API** and Service Worker (`sw.js`). No server-side PowerShell/Windows Forms popups.
 
 ---
 
