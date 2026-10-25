@@ -354,27 +354,36 @@
                                 <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                                 </svg>
-                                Gastos Adicionais da Visita (se existiram)
+                                Gastos Extras / Adicionais da Visita
                             </label>
                             <span class="text-[11px]" style="color: var(--color-surface-400);">Opcional</span>
                         </div>
 
+                        @if ($visita->gastos_adicionais > 0)
+                            <div class="mb-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Gastos extras já registrados na abertura da OS: <strong>R$ {{ number_format($visita->gastos_adicionais, 2, ',', '.') }}</strong>@if ($visita->motivo_gastos_adicionais) ({{ $visita->motivo_gastos_adicionais }})@endif. Deixe como está para manter, ou altere se necessário.</span>
+                            </div>
+                        @endif
+
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                                <label class="form-label text-xs" for="gastos_adicionais">Valor Adicional (R$)</label>
+                                <label class="form-label text-xs" for="gastos_adicionais">Valor Extra / Adicional (R$)</label>
                                 <input type="number" name="gastos_adicionais" id="gastos_adicionais"
-                                    step="0.01" min="0" value="{{ old('gastos_adicionais', '0.00') }}"
+                                    step="0.01" min="0" value="{{ old('gastos_adicionais', $visita->gastos_adicionais > 0 ? number_format($visita->gastos_adicionais, 2, '.', '') : '0.00') }}"
                                     class="form-input" placeholder="0,00">
                             </div>
                             <div>
                                 <label class="form-label text-xs" for="motivo_gastos_adicionais">Motivo / Descrição</label>
                                 <input type="text" name="motivo_gastos_adicionais" id="motivo_gastos_adicionais"
-                                    value="{{ old('motivo_gastos_adicionais') }}"
-                                    class="form-input" placeholder="Ex: Pedágio extra, estacionamento...">
+                                    value="{{ old('motivo_gastos_adicionais', $visita->motivo_gastos_adicionais) }}"
+                                    class="form-input" placeholder="Ex: Pedágio extra, estacionamento, compras...">
                             </div>
                         </div>
                         <p class="text-[11px] mt-1.5" style="color: var(--color-surface-400);">
-                            Caso informado, este valor será somado ao custo operacional da visita e lançado como despesa no fluxo de caixa.
+                            Este valor será somado ao custo operacional da visita, lançado no fluxo de caixa e exibido na coluna Gastos Extras do DRE.
                         </p>
                     </div>
 

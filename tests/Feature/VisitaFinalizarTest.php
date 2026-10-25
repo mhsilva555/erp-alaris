@@ -130,3 +130,88 @@ test('impede refinalizar uma visita que ja esta concluida', function () {
     $response->assertRedirect(route('visitas.show', $visita));
     $response->assertSessionHas('alerta');
 });
+
+test('preserva gastos adicionais registrados na abertura da OS quando modal e enviado com zero ou vazio', function () {
+    $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+    $cliente = Cliente::create(['nome' => 'Farmácia Central', 'cidade' => 'Imperatriz', 'estado' => 'MA']);
+    $tecnico = Tecnico::create(['nome' => 'Flávio Veras', 'valor_diaria_padrao' => 80.00, 'ativo' => true]);
+
+    // Visita criada com gastos adicionais na abertura
+    $visita = Visita::create([
+        'cliente_id' => $cliente->id,
+        'tecnico_id' => $tecnico->id,
+        'data_hora' => now()->addHour(),
+        'status' => Visita::STATUS_AGENDADA,
+        'tipo_visita' => Visita::TIPO_VISITA_EXECUCAO,
+        'tipo_servico' => Visita::TIPO_SERVICO_CONTROLE_PRAGAS,
+        'valor_cobrado' => 1500.00,
+        'custo_mao_de_obra' => 80.00,
+        'custo_deslocamento' => 50.00,
+        'gastos_adicionais' => 120.00,
+        'motivo_gastos_adicionais' => 'Compra de tela protetora e silicone',
+        'lucro_bruto' => 1250.00,
+    ]);
+
+    // Submete finalização enviando gastos_adicionais como 0.00 (valor default do modal antigo)
+    $response = $this->actingAs($admin)->post(route('visitas.finalizar', $visita), [
+        'observacoes' => 'Serviço finalizado sem gastos extras adicionais no momento da conclusão.',
+        'gastos_adicionais' => '0.00',
+    ]);
+
+    $response->assertRedirect(route('visitas.show', $visita));
+    $visita->refresh();
+
+    // Deve preservar os gastos da abertura
+    expect($visita->status)->toBe(Visita::STATUS_CONCLUIDA);
+    expect((float) $visita->gastos_adicionais)->toBe(120.00);
+    expect($visita->motivo_gastos_adicionais)->toBe('Compra de tela protetora e silicone');
+
+    // Movimentação financeira de gastos adicionais deve existir com 120.00
+    $movGastos = MovimentacaoFinanceira::where('visita_id', $visita->id)
+        ->where('tipo', MovimentacaoFinanceira::TIPO_DESPESA)
+        ->where('categoria', 'gastos_adicionais')
+        ->first();
+
+    expect($movGastos)->not->toBeNull();
+    expect((float) $movGastos->valor)->toBe(120.00);
+    expect($movGastos->descricao)->toContain('Compra de tela protetora e silicone');
+});
+
+test('aceita gastos adicionais e campos monetarios no padrao brasileiro com virgula', function () {
+    $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+    $cliente = Cliente::create(['nome' => 'Padaria Pão Quente', 'cidade' => 'Imperatriz', 'estado' => 'MA']);
+    $tecnico = Tecnico::create(['nome' => 'Flávio Veras', 'valor_diaria_padrao' => 80.00, 'ativo' => true]);
+
+    $visita = Visita::create([
+        'cliente_id' => $cliente->id,
+        'tecnico_id' => $tecnico->id,
+        'data_hora' => now()->addHour(),
+        'status' => Visita::STATUS_AGENDADA,
+        'tipo_visita' => Visita::TIPO_VISITA_EXECUCAO,
+        'tipo_servico' => Visita::TIPO_SERVICO_CONTROLE_PRAGAS,
+        'valor_cobrado' => 800.00,
+        'custo_mao_de_obra' => 80.00,
+        'custo_deslocamento' => 0.00,
+        'gastos_adicionais' => 0.00,
+        'lucro_bruto' => 720.00,
+    ]);
+
+    $response = $this->actingAs($admin)->post(route('visitas.finalizar', $visita), [
+        'observacoes' => 'Concluído com despesa em reais formatada com vírgula',
+        'gastos_adicionais' => '75,50',
+        'motivo_gastos_adicionais' => 'Reembolso combustível emergencial',
+    ]);
+
+    $response->assertRedirect(route('visitas.show', $visita));
+    $visita->refresh();
+
+    expect((float) $visita->gastos_adicionais)->toBe(75.50);
+    expect($visita->motivo_gastos_adicionais)->toBe('Reembolso combustível emergencial');
+
+    $movGastos = MovimentacaoFinanceira::where('visita_id', $visita->id)
+        ->where('categoria', 'gastos_adicionais')
+        ->first();
+
+    expect($movGastos)->not->toBeNull();
+    expect((float) $movGastos->valor)->toBe(75.50);
+});

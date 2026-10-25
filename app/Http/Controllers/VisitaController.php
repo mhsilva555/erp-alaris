@@ -64,6 +64,8 @@ class VisitaController extends Controller
 
     public function store(Request $request)
     {
+        $this->normalizarCamposMonetarios($request);
+
         $validated = $request->validate([
             'cliente_id' => 'required|exists:clientes,id',
             'comodato_id' => 'nullable|exists:equipamentos_comodato,id',
@@ -196,6 +198,7 @@ class VisitaController extends Controller
     public function update(Request $request, Visita $visita)
     {
         $this->autorizarAcessoVisita($visita);
+        $this->normalizarCamposMonetarios($request);
 
         $validated = $request->validate([
             'cliente_id' => 'required|exists:clientes,id',
@@ -317,15 +320,36 @@ class VisitaController extends Controller
                 ->with('alerta', 'Esta visita já está marcada como concluída.');
         }
 
+        $this->normalizarCamposMonetarios($request);
+
         $validated = $request->validate([
             'observacoes' => 'nullable|string',
             'gastos_adicionais' => 'nullable|numeric|min:0',
             'motivo_gastos_adicionais' => 'nullable|string|max:255',
         ]);
 
-        $gastosAdicionais = (float) ($validated['gastos_adicionais'] ?? 0);
-        $motivoGastos = $validated['motivo_gastos_adicionais'] ?? null;
         $novasObservacoes = trim($validated['observacoes'] ?? '');
+
+        // Preservação inteligente de gastos adicionais da abertura da OS
+        $valorModalInformado = isset($validated['gastos_adicionais']) && $validated['gastos_adicionais'] !== '' && $validated['gastos_adicionais'] !== null
+            ? (float) $validated['gastos_adicionais']
+            : null;
+
+        if ($valorModalInformado !== null && $valorModalInformado > 0) {
+            $gastosAdicionais = $valorModalInformado;
+            $motivoGastos = ! empty($validated['motivo_gastos_adicionais'])
+                ? $validated['motivo_gastos_adicionais']
+                : $visita->motivo_gastos_adicionais;
+        } elseif ((float) $visita->gastos_adicionais > 0 && ($valorModalInformado === null || $valorModalInformado === 0.0)) {
+            // Preserva o valor e motivo já registrados na abertura da OS caso o modal venha zerado/vazio
+            $gastosAdicionais = (float) $visita->gastos_adicionais;
+            $motivoGastos = ! empty($validated['motivo_gastos_adicionais'])
+                ? $validated['motivo_gastos_adicionais']
+                : $visita->motivo_gastos_adicionais;
+        } else {
+            $gastosAdicionais = $valorModalInformado ?? 0.0;
+            $motivoGastos = $validated['motivo_gastos_adicionais'] ?? null;
+        }
 
         DB::transaction(function () use ($visita, $novasObservacoes, $gastosAdicionais, $motivoGastos) {
             // Atualiza ou anexa observações
@@ -492,6 +516,7 @@ class VisitaController extends Controller
             $descricaoGastos = "Gastos adicionais OS #{$visita->id}".($visita->motivo_gastos_adicionais ? " - {$visita->motivo_gastos_adicionais}" : " - {$visita->cliente->nome}");
 
             if ($movGastos) {
+                $movGastos->categoria = 'gastos_adicionais';
                 $movGastos->valor = $gastosAdicionais;
                 $movGastos->descricao = $descricaoGastos;
                 $movGastos->data_competencia = $dataCompetencia;
@@ -500,7 +525,7 @@ class VisitaController extends Controller
                 MovimentacaoFinanceira::create([
                     'visita_id' => $visita->id,
                     'tipo' => MovimentacaoFinanceira::TIPO_DESPESA,
-                    'categoria' => 'outros',
+                    'categoria' => 'gastos_adicionais',
                     'descricao' => $descricaoGastos,
                     'valor' => $gastosAdicionais,
                     'data_competencia' => $dataCompetencia,
@@ -511,8 +536,10 @@ class VisitaController extends Controller
         } else {
             MovimentacaoFinanceira::where('visita_id', $visita->id)
                 ->where('tipo', MovimentacaoFinanceira::TIPO_DESPESA)
-                ->where('descricao', 'like', 'Gastos adicionais OS #%')
-                ->where('status', MovimentacaoFinanceira::STATUS_PENDENTE)
+                ->where(function ($q) {
+                    $q->where('categoria', 'gastos_adicionais')
+                        ->orWhere('descricao', 'like', 'Gastos adicionais OS #%');
+                })
                 ->delete();
         }
 
@@ -547,6 +574,24 @@ class VisitaController extends Controller
                 ->whereIn('categoria', ['mao_de_obra', 'diaria_tecnico'])
                 ->where('status', MovimentacaoFinanceira::STATUS_PENDENTE)
                 ->delete();
+        }
+    }
+
+    /**
+     * Sanitiza campos numéricos/monetários que venham formatados com vírgula (padrão pt-BR)
+     * convertendo-os para o formato decimal com ponto antes da validação.
+     */
+    private function normalizarCamposMonetarios(Request $request): void
+    {
+        $campos = ['valor_cobrado', 'custo_mao_de_obra', 'custo_deslocamento', 'gastos_adicionais'];
+        $substituicoes = [];
+        foreach ($campos as $campo) {
+            if ($request->has($campo) && is_string($request->$campo)) {
+                $substituicoes[$campo] = str_replace(',', '.', trim($request->$campo));
+            }
+        }
+        if (! empty($substituicoes)) {
+            $request->merge($substituicoes);
         }
     }
 }

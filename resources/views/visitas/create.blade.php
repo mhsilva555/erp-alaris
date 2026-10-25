@@ -222,14 +222,14 @@
                         </div>
 
                         <div>
-                            <label class="form-label" for="gastos_adicionais">Gastos Adicionais (R$)</label>
+                            <label class="form-label" for="gastos_adicionais">Gastos Extras / Adicionais (R$)</label>
                             <input type="number" id="gastos_adicionais" name="gastos_adicionais"
                                 value="{{ old('gastos_adicionais', '0.00') }}" step="0.01" min="0"
                                 class="form-input" oninput="recalcularFinanceiroVisita()">
                         </div>
 
                         <div class="sm:col-span-2">
-                            <label class="form-label" for="motivo_gastos_adicionais">Motivo dos Gastos Adicionais</label>
+                            <label class="form-label" for="motivo_gastos_adicionais">Motivo dos Gastos Extras / Adicionais</label>
                             <input type="text" id="motivo_gastos_adicionais" name="motivo_gastos_adicionais"
                                 value="{{ old('motivo_gastos_adicionais') }}" class="form-input"
                                 placeholder="Ex: Pedágio, compras extras, estacionamento">
