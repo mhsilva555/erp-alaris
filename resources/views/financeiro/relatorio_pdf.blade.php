@@ -331,7 +331,7 @@
                     <td>
                         <strong>#{{ $v->id }}</strong>
                         @if ($v->comodato)
-                            <div style="font-size: 7px; color: #0284c7;">[COMODATO]</div>
+                            <div style="font-size: 7px; color: #23b4eb;">[COMODATO]</div>
                         @endif
                     </td>
                     <td>{{ $v->data_hora ? $v->data_hora->format('d/m/Y') : '—' }}</td>

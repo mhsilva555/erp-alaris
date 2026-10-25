@@ -57,7 +57,7 @@
                 display: flex !important;
                 align-items: center;
                 justify-content: space-between;
-                border-bottom: 2px solid #0284c7;
+                border-bottom: 2px solid #23b4eb;
                 padding-bottom: 14px;
                 margin-bottom: 20px;
             }
@@ -78,7 +78,7 @@
     <div class="print-header">
         <img src="{{ asset('images/logo.png') }}" alt="Alaris Service" style="height: 44px; width: auto; object-fit: contain;">
         <div style="text-align: right; font-size: 11px; color: #6b7280;">
-            <strong style="font-size: 13px; color: #0284c7;">Relatório de Rentabilidade & Lucro Bruto</strong><br>
+            <strong style="font-size: 13px; color: #23b4eb;">Relatório de Rentabilidade & Lucro Bruto</strong><br>
             Emissão: {{ now()->format('d/m/Y H:i') }}
         </div>
     </div>

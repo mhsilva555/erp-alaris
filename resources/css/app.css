@@ -7,17 +7,17 @@
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-display: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
-    /* Primary Cobalt Palette */
-    --color-primary-50: #edf4ff;
-    --color-primary-100: #d6e4ff;
-    --color-primary-200: #b3ccff;
-    --color-primary-300: #80a8ff;
-    --color-primary-400: #4d85ff;
-    --color-primary-500: #2970ff;
-    --color-primary-600: #1e5eff;
-    --color-primary-700: #1245d9;
-    --color-primary-800: #0b32a6;
-    --color-primary-900: #072173;
+    /* Primary Brand Palette (#23b4eb) */
+    --color-primary-50: #eff9fd;
+    --color-primary-100: #d7f1fb;
+    --color-primary-200: #b5e6f8;
+    --color-primary-300: #81d6f4;
+    --color-primary-400: #44c2ee;
+    --color-primary-500: #23b4eb;
+    --color-primary-600: #1499cc;
+    --color-primary-700: #127ba6;
+    --color-primary-800: #136688;
+    --color-primary-900: #155571;
 
     /* Ink & Slate Neutrals */
     --color-ink-900: #172033;
@@ -49,7 +49,7 @@
     --color-success: #079669;
     --color-warning: #e89b16;
     --color-danger: #e05b75;
-    --color-info: #1e5eff;
+    --color-info: #23b4eb;
 }
 
 /* ==========================================================================
@@ -59,9 +59,10 @@
 /* ── Light Theme (Default: SaaS B2B Premium) ── */
 :root {
     /* Direct design tokens */
-    --color-primary-600: #1e5eff;
-    --color-primary-700: #1245d9;
-    --color-primary-50: #edf4ff;
+    --color-primary-500: #23b4eb;
+    --color-primary-600: #1499cc;
+    --color-primary-700: #127ba6;
+    --color-primary-50: #eff9fd;
 
     --color-ink-900: #172033;
     --color-ink-700: #344054;
@@ -118,9 +119,10 @@
     --color-slate-500: #94a3b8;
     --color-slate-400: #64748b;
 
-    --color-primary-600: #2970ff;
-    --color-primary-700: #1e5eff;
-    --color-primary-50: rgba(41, 112, 255, 0.12);
+    --color-primary-500: #23b4eb;
+    --color-primary-600: #23b4eb;
+    --color-primary-700: #1499cc;
+    --color-primary-50: rgba(35, 180, 235, 0.15);
 
     --color-success-600: #10b981;
     --color-success-50: rgba(16, 185, 129, 0.12);
@@ -156,11 +158,28 @@
 }
 
 /* ── Typography & Global Legibility ── */
+html, body {
+    -webkit-tap-highlight-color: transparent;
+}
+
 body {
     font-family: var(--font-sans);
     letter-spacing: -0.01em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+}
+
+@media (max-width: 1023px) {
+    body {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #mobile-bottom-nav,
+    #sidebar-toggle,
+    .mobile-sidebar-toggle {
+        -webkit-user-select: none;
+        user-select: none;
+    }
 }
 
 h1,
@@ -337,7 +356,7 @@ h3,
 .form-select:focus,
 .form-textarea:focus {
     border-color: var(--color-primary-600);
-    box-shadow: 0 0 0 3px rgba(30, 94, 255, 0.15);
+    box-shadow: 0 0 0 3px rgba(35, 180, 235, 0.2);
 }
 
 .form-input::placeholder,
@@ -423,7 +442,7 @@ h3,
     background: var(--color-primary-700);
     border-color: var(--color-primary-700);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(30, 94, 255, 0.25);
+    box-shadow: 0 4px 12px rgba(35, 180, 235, 0.3);
 }
 
 .btn-secondary {
@@ -486,11 +505,11 @@ h3,
 .btn-info-soft {
     background: var(--color-primary-50);
     color: var(--color-primary-600);
-    border-color: rgba(30, 94, 255, 0.25);
+    border-color: rgba(35, 180, 235, 0.25);
 }
 
 .btn-info-soft:hover {
-    background: #ddeaff;
+    background: #d8f2fb;
 }
 
 .btn-purple-soft {
@@ -587,7 +606,7 @@ h3,
 .badge-primary {
     background: var(--color-primary-50);
     color: var(--color-primary-600);
-    border: 1px solid rgba(30, 94, 255, 0.25);
+    border: 1px solid rgba(35, 180, 235, 0.25);
 }
 
 .badge-purple {
@@ -699,7 +718,7 @@ h3,
     background: var(--color-primary-600) !important;
     color: #ffffff !important;
     font-weight: 600;
-    box-shadow: 0 2px 6px rgba(30, 94, 255, 0.25);
+    box-shadow: 0 2px 6px rgba(35, 180, 235, 0.3);
 }
 
 .sidebar-link.active svg {
@@ -736,7 +755,7 @@ h3,
 
 .alert-info {
     background: var(--color-primary-50);
-    border: 1px solid rgba(30, 94, 255, 0.25);
+    border: 1px solid rgba(35, 180, 235, 0.25);
     color: var(--color-primary-600);
 }
 
@@ -771,7 +790,7 @@ h3,
 .tab-pill.active {
     background: var(--color-primary-600);
     color: #ffffff !important;
-    box-shadow: 0 1px 3px rgba(30, 94, 255, 0.2);
+    box-shadow: 0 1px 3px rgba(35, 180, 235, 0.25);
 }
 
 /* ── Modals & Dialogs ── */
@@ -817,6 +836,22 @@ h3,
     z-index: 50;
 }
 
+@media (max-width: 639px) {
+    .notif-dropdown {
+        position: fixed !important;
+        top: 3.75rem !important;
+        left: 0.75rem !important;
+        right: 0.75rem !important;
+        width: auto !important;
+        max-width: calc(100vw - 1.5rem) !important;
+        max-height: calc(100dvh - 5rem) !important;
+        margin: 0 !important;
+        border-radius: 1rem !important;
+        box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--color-border) !important;
+        z-index: 60 !important;
+    }
+}
+
 .notif-item {
     display: flex;
     align-items: flex-start;
@@ -839,12 +874,12 @@ h3,
 
 .notif-item.is-unread {
     background: var(--color-primary-50);
-    border-color: rgba(30, 94, 255, 0.2);
+    border-color: rgba(35, 180, 235, 0.25);
 }
 
 .notif-item.is-unread:hover {
-    background: #e4eeff;
-    border-color: rgba(30, 94, 255, 0.35);
+    background: #dff4fc;
+    border-color: rgba(35, 180, 235, 0.4);
 }
 
 .notif-unread-bar {

@@ -72,7 +72,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 2px solid #0284c7;
+            border-bottom: 2px solid #23b4eb;
             padding-bottom: 20px;
             margin-bottom: 24px;
         }
@@ -318,7 +318,7 @@
                     <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">
                         Data: {{ now()->format('d/m/Y') }}
                     </div>
-                    <div style="font-size: 11px; color: #0284c7; font-weight: 600;">
+                    <div style="font-size: 11px; color: #23b4eb; font-weight: 600;">
                         Validade: 15 dias corridos
                     </div>
                 </div>

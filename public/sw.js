@@ -1,5 +1,5 @@
 // ERP Alaris — Service Worker para Notificações Nativas no Sistema Operacional (Desktop & Celular)
-const CACHE_NAME = 'alaris-sw-v1';
+const CACHE_NAME = 'alaris-sw-v2';
 
 self.addEventListener('install', (event) => {
     self.skipWaiting();
@@ -25,11 +25,7 @@ self.addEventListener('message', (event) => {
             data: {
                 url: payload.url || '/agendamentos',
                 id: payload.id
-            },
-            actions: [
-                { action: 'open', title: 'Visualizar' },
-                { action: 'close', title: 'Fechar' }
-            ]
+            }
         };
 
         event.waitUntil(

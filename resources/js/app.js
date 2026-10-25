@@ -31,17 +31,116 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── Service Worker & Notificações Nativas no Sistema Operacional (PC & Celular) ──
 let swRegistration = null;
 
+function registrarServiceWorker() {
+    if (!('serviceWorker' in navigator)) return Promise.resolve(null);
+    return navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .then(reg => {
+            swRegistration = reg;
+            atualizarInterfaceNotificacoesSO();
+            return reg;
+        })
+        .catch(err => {
+            console.warn('Service Worker não registrado:', err);
+            return null;
+        });
+}
+
+// Inicia registro imediatamente sem depender do window.load
 if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-            .then(reg => {
-                swRegistration = reg;
-                atualizarInterfaceNotificacoesSO();
-            })
-            .catch(err => {
-                console.warn('Service Worker não registrado:', err);
-            });
+    registrarServiceWorker();
+}
+
+async function obterServiceWorkerRegistration() {
+    if (!('serviceWorker' in navigator)) return null;
+    if (swRegistration) return swRegistration;
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        swRegistration = reg;
+        return reg;
+    } catch (e) {
+        return null;
+    }
+}
+
+// Síntese de áudio cristalino de alerta (sem arquivos externos ou latência)
+function tocarSomNotificacao() {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const now = ctx.currentTime;
+
+        // Tom 1: 587 Hz (D5)
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(587.33, now);
+        gain1.gain.setValueAtTime(0.12, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.15);
+
+        // Tom 2: 880 Hz (A5)
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(880.00, now + 0.12);
+        gain2.gain.setValueAtTime(0.18, now + 0.12);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(now + 0.12);
+        osc2.stop(now + 0.35);
+    } catch (e) { }
+}
+
+// Banner In-App Heads-up (Toast nativo flutuante para quando o app está aberto no celular)
+function exibirToastNotificacao(notif) {
+    const containerId = 'alaris-toast-container';
+    let container = document.getElementById(containerId);
+    if (!container) {
+        container = document.createElement('div');
+        container.id = containerId;
+        container.className = 'fixed top-3 left-3 right-3 sm:left-auto sm:right-4 sm:w-96 z-50 flex flex-col gap-2 pointer-events-none';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'pointer-events-auto p-3.5 rounded-xl border shadow-xl flex items-start gap-3 animate-fadeIn cursor-pointer transition transform hover:-translate-y-0.5';
+    toast.style.background = 'var(--color-surface)';
+    toast.style.borderColor = 'var(--color-border-strong)';
+    toast.style.boxShadow = '0 12px 32px -4px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--color-border)';
+
+    toast.innerHTML = `
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(35, 180, 235, 0.15); color: #23b4eb;">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-1 mb-0.5">
+                <span class="text-xs font-bold truncate" style="color: var(--color-surface-100);">${notif.titulo}</span>
+                <span class="text-[10px] shrink-0" style="color: var(--color-surface-400);">Agora</span>
+            </div>
+            <p class="text-xs line-clamp-2" style="color: var(--color-surface-300);">${notif.mensagem}</p>
+        </div>
+        <button type="button" class="text-surface-400 hover:text-surface-200 p-1 -mr-1" onclick="this.parentElement.remove();">&times;</button>
+    `;
+
+    toast.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'BUTTON') {
+            if (notif.url) window.location.href = notif.url;
+            toast.remove();
+        }
     });
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 6000);
 }
 
 function atualizarInterfaceNotificacoesSO() {
@@ -80,12 +179,22 @@ window.solicitarNotificacoesSO = function () {
         return;
     }
 
-    Notification.requestPermission().then(permission => {
+    const processarPermissao = (permission) => {
         atualizarInterfaceNotificacoesSO();
         if (permission === 'granted') {
+            tocarSomNotificacao();
             window.testarNotificacaoSO();
         }
-    });
+    };
+
+    try {
+        const p = Notification.requestPermission(processarPermissao);
+        if (p && typeof p.then === 'function') {
+            p.then(processarPermissao);
+        }
+    } catch (e) {
+        Notification.requestPermission(processarPermissao);
+    }
 };
 
 window.testarNotificacaoSO = function () {
@@ -111,8 +220,22 @@ window.testarNotificacaoSO = function () {
         .catch(err => console.error('Erro ao testar notificação:', err));
 };
 
-function dispararNotificacaoNativaSO(notif) {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+async function dispararNotificacaoNativaSO(notif) {
+    // 1. Sempre vibra e toca o áudio no aparelho
+    try {
+        if ('vibrate' in navigator) {
+            navigator.vibrate([200, 100, 200]);
+        }
+    } catch (e) { }
+
+    tocarSomNotificacao();
+
+    // 2. Sempre renderiza o banner Heads-up na tela
+    exibirToastNotificacao(notif);
+
+    if (!('Notification' in window) || Notification.permission !== 'granted') {
+        return true;
+    }
 
     const payload = {
         id: notif.id,
@@ -121,29 +244,40 @@ function dispararNotificacaoNativaSO(notif) {
         url: notif.url || '/agendamentos'
     };
 
-    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-            type: 'SHOW_NOTIFICATION',
-            payload: payload
-        });
-    } else if (swRegistration && swRegistration.showNotification) {
-        swRegistration.showNotification(payload.titulo, {
-            body: payload.mensagem,
-            icon: '/icons/icon-192.png',
-            badge: '/favicon-32x32.png',
-            vibrate: [200, 100, 200, 100, 200],
-            data: { url: payload.url, id: payload.id }
-        });
-    } else {
+    const options = {
+        body: payload.mensagem,
+        icon: '/icons/icon-192.png',
+        badge: '/favicon-32x32.png',
+        tag: 'alaris-event-' + (payload.id || Date.now()),
+        renotify: true,
+        vibrate: [200, 100, 200],
+        requireInteraction: false,
+        data: {
+            url: payload.url,
+            id: payload.id
+        }
+    };
+
+    // 3. Emissão via ServiceWorker (mandatório no Android Chrome e iOS PWA)
+    const reg = await obterServiceWorkerRegistration();
+    if (reg && typeof reg.showNotification === 'function') {
         try {
-            new Notification(payload.titulo, {
-                body: payload.mensagem,
-                icon: '/icons/icon-192.png'
-            });
-        } catch (e) {
-            console.warn('Erro ao disparar Notification direta:', e);
+            await reg.showNotification(payload.titulo, options);
+            return true;
+        } catch (swErr) {
+            console.warn('showNotification via Service Worker falhou, tentando fallback:', swErr);
         }
     }
+
+    // 4. Fallback direto via construtor Notification (Desktop)
+    try {
+        new Notification(payload.titulo, options);
+        return true;
+    } catch (notifErr) {
+        console.warn('Erro ao disparar Notification direta:', notifErr);
+    }
+
+    return true;
 }
 
 // ── Helpers para atualização automática da listagem de Visitas & O.S ──
@@ -165,54 +299,52 @@ function recarregarPaginaVisitas() {
 }
 
 // ── Polling de notificações de Agendamento para o Sistema Operacional ──
-function verificarNotificacoesSO() {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-
-    fetch('/notificacoes/agendamentos/pendentes', {
-        headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-        .then(r => r.json())
-        .then(data => {
-            if (data.sucesso && data.notificacoes && data.notificacoes.length > 0) {
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-                    || (document.querySelector('input[name="_token"]')?.value)
-                    || '';
-
-                let temNotificacaoVisita = false;
-
-                data.notificacoes.forEach(notif => {
-                    dispararNotificacaoNativaSO(notif);
-                    if (notif.tipo_evento === 'visita') {
-                        temNotificacaoVisita = true;
-                    }
-
-                    // Marca como entregue no SO
-                    fetch(`/notificacoes/agendamentos/${notif.id}/marcar-exibida`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': csrfToken,
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    }).catch(() => { });
-                });
-
-                // Atualiza o badge e dropdown do header imediatamente
-                if (typeof pollNotificacoes === 'function') {
-                    pollNotificacoes();
-                }
-
-                // Se o técnico estiver na página de Visitas e O.S e recebeu notificação de OS, recarrega a página
-                if (temNotificacaoVisita && estaNaPaginaVisitas()) {
-                    recarregarPaginaVisitas();
-                }
+async function verificarNotificacoesSO() {
+    try {
+        const r = await fetch('/notificacoes/agendamentos/pendentes', {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
             }
-        })
-        .catch(() => { });
+        });
+        const data = await r.json();
+
+        if (data.sucesso && data.notificacoes && data.notificacoes.length > 0) {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                || (document.querySelector('input[name="_token"]')?.value)
+                || '';
+
+            let temNotificacaoVisita = false;
+
+            for (const notif of data.notificacoes) {
+                await dispararNotificacaoNativaSO(notif);
+                if (notif.tipo_evento === 'visita') {
+                    temNotificacaoVisita = true;
+                }
+
+                // Marca como entregue no SO
+                fetch(`/notificacoes/agendamentos/${notif.id}/marcar-exibida`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                }).catch(() => { });
+            }
+
+            // Atualiza o badge e dropdown do header imediatamente
+            if (typeof pollNotificacoes === 'function') {
+                pollNotificacoes();
+            }
+
+            // Se o técnico estiver na página de Visitas e O.S e recebeu notificação de OS, recarrega a página
+            if (temNotificacaoVisita && estaNaPaginaVisitas()) {
+                recarregarPaginaVisitas();
+            }
+        }
+    } catch (e) { }
 }
 
 // ── Marcar Notificações como Lidas ──
@@ -357,15 +489,15 @@ function pollNotificacoes() {
                 if (data.itens && data.itens.length > 0) {
                     data.itens.forEach(item => {
                         let iconSvg = '';
-                        let iconBoxStyle = 'background: rgba(43, 143, 255, 0.12); color: var(--color-primary-500);';
+                        let iconBoxStyle = 'background: rgba(35, 180, 235, 0.12); color: var(--color-primary-500);';
                         let badgeHtml = '<span class="badge badge-info text-[9px] py-0 px-1.5">Visita</span>';
 
                         if (item.tipo_evento === 'visita') {
-                            iconBoxStyle = 'background: rgba(43, 143, 255, 0.12); color: var(--color-primary-500);';
+                            iconBoxStyle = 'background: rgba(35, 180, 235, 0.12); color: var(--color-primary-500);';
                             badgeHtml = '<span class="badge badge-info text-[9px] py-0 px-1.5">OS Agendada</span>';
                             iconSvg = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
                         } else if (item.tipo_evento === 'comodato') {
-                            iconBoxStyle = 'background: rgba(14, 165, 233, 0.12); color: #0284c7;';
+                            iconBoxStyle = 'background: rgba(35, 180, 235, 0.12); color: #23b4eb;';
                             badgeHtml = '<span class="badge badge-cyan text-[9px] py-0 px-1.5">Comodato</span>';
                             iconSvg = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>';
                         } else {
@@ -432,9 +564,22 @@ function pollNotificacoes() {
         .catch(() => { });
 }
 
-const intervaloPollingNotificacoes = estaNaPaginaVisitas() ? 10000 : 25000;
+const intervaloPollingNotificacoes = estaNaPaginaVisitas() ? 8000 : 15000;
 setInterval(pollNotificacoes, intervaloPollingNotificacoes);
 setInterval(verificarNotificacoesSO, intervaloPollingNotificacoes);
+
+// Despertar instantâneo ao reabrir a aba, desbloquear o smartphone ou voltar ao aplicativo
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        pollNotificacoes();
+        verificarNotificacoesSO();
+    }
+});
+
+window.addEventListener('focus', () => {
+    pollNotificacoes();
+    verificarNotificacoesSO();
+});
 
 document.addEventListener('DOMContentLoaded', () => {
     pollNotificacoes();
@@ -449,6 +594,9 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             dropdown.classList.toggle('hidden');
             atualizarInterfaceNotificacoesSO();
+        });
+        dropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
         });
         document.addEventListener('click', () => dropdown.classList.add('hidden'));
     }
@@ -644,14 +792,17 @@ window.confirmDelete = function (formId) {
 
 // ── Toggle sidebar mobile ──
 document.addEventListener('DOMContentLoaded', () => {
-    const toggle = document.getElementById('sidebar-toggle');
+    const toggles = document.querySelectorAll('#sidebar-toggle, .mobile-sidebar-toggle');
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
 
-    if (toggle && sidebar) {
-        toggle.addEventListener('click', () => {
-            sidebar.classList.toggle('-translate-x-full');
-            overlay?.classList.toggle('hidden');
+    if (sidebar) {
+        toggles.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sidebar.classList.toggle('-translate-x-full');
+                overlay?.classList.toggle('hidden');
+            });
         });
         overlay?.addEventListener('click', () => {
             sidebar.classList.add('-translate-x-full');

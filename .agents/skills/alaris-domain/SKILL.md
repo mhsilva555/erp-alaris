@@ -138,6 +138,20 @@ Always use `whereDate()` for date boundaries to avoid string comparison truncati
 - `php artisan agendamentos:verificar-notificacoes` scans for imminent visits (<= 60 min), comodato refills due today, and follow-ups due today.
 - Notifications are emitted to OS exclusively via **Web Notifications API** and Service Worker (`sw.js`). No server-side PowerShell/Windows Forms popups.
 
+### 2.6. Mass Cash Flow Operations (Ações em Massa)
+- Endpoint: `POST /financeiro/movimentacoes/acoes-em-massa` (`financeiro.acoes-massa`).
+- Supported actions: `liquidar` (marks selected as paid), `reabrir` (marks selected as pending), `excluir` (deletes selected records atomically).
+- Restricted to users with financial write permissions (`admin`).
+
+### 2.7. Mobile-First App UX & PWA Color Standard (#23b4eb)
+- The brand primary color and PWA theme color is strictly `#23b4eb` (Alaris Cyan).
+- Mobile layout operates with native app ergonomics:
+  - Responsive topbar with `truncate min-w-0 whitespace-nowrap` on module titles to prevent multi-line overlapping.
+  - Native Mobile Bottom Navigation Bar (`#mobile-bottom-nav`) with 5 core tabs, glassmorphic backdrop blur, and safe area inset support (`env(safe-area-inset-bottom)`).
+  - Main scroll area has `pb-24 lg:pb-8` offset.
+  - Notification dropdown is bound to viewport edges on mobile (`left: 0.75rem; right: 0.75rem; width: auto; max-width: calc(100vw - 1.5rem)`).
+- Orders of service with status `agendada` and `em_andamento` have operational precedence at the top of the visits list.
+
 ---
 
 ## 3. Step-by-Step Runbooks

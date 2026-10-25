@@ -72,7 +72,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 2px solid #0284c7;
+            border-bottom: 2px solid #23b4eb;
             padding-bottom: 16px;
             margin-bottom: 24px;
         }
@@ -281,7 +281,7 @@
                     <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">
                         Emissão: {{ now()->format('d/m/Y H:i') }}
                     </div>
-                    <div style="font-size: 11px; font-weight: 600; color: #0284c7;">
+                    <div style="font-size: 11px; font-weight: 600; color: #23b4eb;">
                         Status: {{ strtoupper($visita->statusLabel()) }}
                     </div>
                 </div>

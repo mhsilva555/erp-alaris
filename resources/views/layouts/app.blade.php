@@ -3,7 +3,8 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="description" content="ERP Alaris — Gestão de Controle de Pragas">
     <title>@yield('title', 'Dashboard') — ERP Alaris</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,7 +18,7 @@
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('apple-touch-icon.png') }}">
     <link rel="manifest" href="{{ asset('manifest.json') }}">
-    <meta name="theme-color" content="#1E5EFF">
+    <meta name="theme-color" content="#23b4eb">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Alaris">
@@ -231,22 +232,24 @@
     {{-- Main --}}
     <div class="lg:ml-64 min-h-full flex flex-col min-w-0">
         {{-- Topbar --}}
-        <header class="sticky top-0 z-20 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-6 xl:px-8"
+        <header class="sticky top-0 z-20 h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 lg:px-6 xl:px-8"
             style="background: var(--topbar-bg); backdrop-filter: blur(12px); border-bottom: 1px solid var(--color-surface-800);">
-            <div class="flex items-center gap-3">
-                <button id="sidebar-toggle" class="lg:hidden p-2 rounded-lg"
-                    style="color: var(--color-surface-400);">
+            <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 mr-2">
+                <button id="sidebar-toggle" class="lg:hidden p-2 rounded-lg shrink-0 touch-manipulation active:scale-95 transition"
+                    style="color: var(--color-surface-400);" aria-label="Abrir menu lateral">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
                 </button>
                 <img src="{{ asset('images/logo.png') }}" alt="Alaris Service"
-                    class="h-6 w-auto object-contain lg:hidden">
-                <h1 class="text-lg font-semibold text-white">@yield('title', 'Dashboard')</h1>
+                    class="h-5 sm:h-6 w-auto object-contain shrink-0 hidden min-[440px]:block lg:hidden">
+                <h1 class="text-sm sm:text-base lg:text-lg font-bold text-white truncate min-w-0 whitespace-nowrap" title="@yield('title', 'Dashboard')">
+                    @yield('title', 'Dashboard')
+                </h1>
             </div>
 
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1 sm:gap-2 shrink-0">
                 {{-- Theme toggle --}}
                 <button id="theme-toggle" class="p-2 rounded-lg transition cursor-pointer"
                     style="color: var(--color-surface-400);" title="Alternar tema">
@@ -361,17 +364,17 @@
                 @endpermissao
 
                 {{-- User Profile & Logout --}}
-                <div class="flex items-center gap-2 pl-2 border-l" style="border-color: var(--color-surface-800);">
-                    <a href="{{ route('perfil.edit') }}" class="flex items-center gap-2 p-1 rounded-lg transition"
+                <div class="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 border-l" style="border-color: var(--color-surface-800);">
+                    <a href="{{ route('perfil.edit') }}" class="flex items-center gap-2 p-1 rounded-lg transition touch-manipulation active:scale-95"
                         title="Perfil & Acessos">
-                        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold !text-white preserve-white"
-                            style="background: linear-gradient(135deg, var(--color-primary-700), var(--color-primary-500));">
+                        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold !text-white preserve-white shadow-sm"
+                            style="background: linear-gradient(135deg, #1499cc, #23b4eb);">
                             {{ mb_substr(auth()->user()->name ?? 'A', 0, 1) }}
                         </div>
                         <span
                             class="text-xs font-medium text-white hidden sm:inline">{{ auth()->user()->name ?? 'Admin' }}</span>
                     </a>
-                    <form method="POST" action="{{ route('logout') }}" class="inline">
+                    <form method="POST" action="{{ route('logout') }}" class="hidden sm:inline">
                         @csrf
                         <button type="submit"
                             class="p-2 rounded-lg transition text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
@@ -411,11 +414,138 @@
         @endif
 
         {{-- Content --}}
-        <main class="flex-1 p-4 sm:p-5 lg:p-6 xl:p-8 min-w-0">
+        <main class="flex-1 p-3 sm:p-5 lg:p-6 xl:p-8 min-w-0 pb-24 lg:pb-8">
             @yield('content')
         </main>
     </div>
 
+    {{-- Bottom Navigation Bar Mobile (Native App Experience) --}}
+    <nav id="mobile-bottom-nav" class="fixed bottom-0 left-0 right-0 z-30 lg:hidden border-t select-none"
+        style="background: var(--topbar-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-color: var(--color-surface-800); padding-bottom: max(env(safe-area-inset-bottom), 0.375rem); box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.35);">
+        <div class="grid grid-cols-5 h-14 items-center">
+            {{-- 1. Início / Dashboard --}}
+            <a href="{{ route('dashboard') }}"
+                class="flex flex-col items-center justify-center h-full px-1 py-1 touch-manipulation transition-colors {{ request()->routeIs('dashboard') ? 'font-semibold' : 'hover:text-surface-200' }}"
+                style="{{ request()->routeIs('dashboard') ? 'color: #23b4eb;' : 'color: var(--color-surface-400);' }}">
+                <div class="relative flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="{{ request()->routeIs('dashboard') ? '2.5' : '2' }}"
+                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                    @if(request()->routeIs('dashboard'))
+                        <span class="absolute -bottom-1 w-1 h-1 rounded-full" style="background-color: #23b4eb;"></span>
+                    @endif
+                </div>
+                <span class="text-[10px] tracking-tight mt-1 truncate">Início</span>
+            </a>
+
+            {{-- 2. Agenda --}}
+            @permissao('agendamentos.ver')
+                <a href="{{ route('agendamentos.index') }}"
+                    class="flex flex-col items-center justify-center h-full px-1 py-1 touch-manipulation transition-colors {{ request()->routeIs('agendamentos.*') ? 'font-semibold' : 'hover:text-surface-200' }}"
+                    style="{{ request()->routeIs('agendamentos.*') ? 'color: #23b4eb;' : 'color: var(--color-surface-400);' }}">
+                    <div class="relative flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="{{ request()->routeIs('agendamentos.*') ? '2.5' : '2' }}"
+                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        @if(request()->routeIs('agendamentos.*'))
+                            <span class="absolute -bottom-1 w-1 h-1 rounded-full" style="background-color: #23b4eb;"></span>
+                        @endif
+                    </div>
+                    <span class="text-[10px] tracking-tight mt-1 truncate">Agenda</span>
+                </a>
+            @else
+                <div class="flex flex-col items-center justify-center h-full px-1 py-1 opacity-30 select-none" style="color: var(--color-surface-400);">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span class="text-[10px] tracking-tight mt-1 truncate">Agenda</span>
+                </div>
+            @endpermissao
+
+            {{-- 3. Visitas & OS --}}
+            @permissao('visitas.ver')
+                <a href="{{ route('visitas.index') }}"
+                    class="flex flex-col items-center justify-center h-full px-1 py-1 touch-manipulation transition-colors {{ request()->routeIs('visitas.*') ? 'font-semibold' : 'hover:text-surface-200' }}"
+                    style="{{ request()->routeIs('visitas.*') ? 'color: #23b4eb;' : 'color: var(--color-surface-400);' }}">
+                    <div class="relative flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="{{ request()->routeIs('visitas.*') ? '2.5' : '2' }}"
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                        @if(request()->routeIs('visitas.*'))
+                            <span class="absolute -bottom-1 w-1 h-1 rounded-full" style="background-color: #23b4eb;"></span>
+                        @endif
+                    </div>
+                    <span class="text-[10px] tracking-tight mt-1 truncate">Visitas & OS</span>
+                </a>
+            @else
+                <div class="flex flex-col items-center justify-center h-full px-1 py-1 opacity-30 select-none" style="color: var(--color-surface-400);">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                    </svg>
+                    <span class="text-[10px] tracking-tight mt-1 truncate">Visitas</span>
+                </div>
+            @endpermissao
+
+            {{-- 4. Clientes ou Comodato --}}
+            @permissao('clientes.ver')
+                <a href="{{ route('clientes.index') }}"
+                    class="flex flex-col items-center justify-center h-full px-1 py-1 touch-manipulation transition-colors {{ request()->routeIs('clientes.*') ? 'font-semibold' : 'hover:text-surface-200' }}"
+                    style="{{ request()->routeIs('clientes.*') ? 'color: #23b4eb;' : 'color: var(--color-surface-400);' }}">
+                    <div class="relative flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="{{ request()->routeIs('clientes.*') ? '2.5' : '2' }}"
+                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        @if(request()->routeIs('clientes.*'))
+                            <span class="absolute -bottom-1 w-1 h-1 rounded-full" style="background-color: #23b4eb;"></span>
+                        @endif
+                    </div>
+                    <span class="text-[10px] tracking-tight mt-1 truncate">Clientes</span>
+                </a>
+            @else
+                @permissao('comodatos.ver')
+                    <a href="{{ route('comodatos.index') }}"
+                        class="flex flex-col items-center justify-center h-full px-1 py-1 touch-manipulation transition-colors {{ request()->routeIs('comodatos.*') ? 'font-semibold' : 'hover:text-surface-200' }}"
+                        style="{{ request()->routeIs('comodatos.*') ? 'color: #23b4eb;' : 'color: var(--color-surface-400);' }}">
+                        <div class="relative flex items-center justify-center">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="{{ request()->routeIs('comodatos.*') ? '2.5' : '2' }}"
+                                    d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            @if(request()->routeIs('comodatos.*'))
+                                <span class="absolute -bottom-1 w-1 h-1 rounded-full" style="background-color: #23b4eb;"></span>
+                            @endif
+                        </div>
+                        <span class="text-[10px] tracking-tight mt-1 truncate">Comodatos</span>
+                    </a>
+                @else
+                    <a href="{{ route('perfil.edit') }}"
+                        class="flex flex-col items-center justify-center h-full px-1 py-1 touch-manipulation transition-colors"
+                        style="color: var(--color-surface-400);">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span class="text-[10px] tracking-tight mt-1 truncate">Perfil</span>
+                    </a>
+                @endpermissao
+            @endpermissao
+
+            {{-- 5. Mais / Gaveta de Menu Completo --}}
+            <button type="button" class="mobile-sidebar-toggle flex flex-col items-center justify-center h-full px-1 py-1 touch-manipulation transition-colors cursor-pointer"
+                style="color: var(--color-surface-400);" title="Abrir menu completo">
+                <div class="relative flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </div>
+                <span class="text-[10px] tracking-tight mt-1 truncate">Mais</span>
+            </button>
+        </div>
+    </nav>
 </body>
 
 </html>

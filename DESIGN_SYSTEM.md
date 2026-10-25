@@ -15,17 +15,17 @@ O **Design System do ERP Alaris** documenta os padrões visuais, tokens, compone
 
 ## 2. Tokens de Design (Design Tokens)
 
-### 2.1. Cores Primárias (Brand Blue)
+### 2.1. Cores Primárias (Brand Blue & PWA — #23b4eb)
 
 | Token | Hex | Aplicação |
 | :--- | :--- | :--- |
-| `--color-primary-50` | `#eef7ff` | Fundo suave / destaque sutil |
-| `--color-primary-100` | `#d9edff` | Fundo de hover claro |
-| `--color-primary-300` | `#8ecdff` | Destaque e bordas ativas |
-| `--color-primary-500` | `#2b8fff` | Foco de formulário e elementos interativos |
-| `--color-primary-600` | `#1470f5` | **Cor Principal da Marca** (botões primários, itens ativos da sidebar) |
-| `--color-primary-700` | `#0d5ae1` | Hover de botões primários e gradientes |
-| `--color-primary-900` | `#143f8f` | Textos e acentos em fundos claros |
+| `--color-primary-50` | `rgba(35, 180, 235, 0.12)` | Fundo suave / destaque sutil |
+| `--color-primary-100` | `#b8ebfb` | Fundo de hover claro |
+| `--color-primary-300` | `#67d1f5` | Destaque e bordas ativas |
+| `--color-primary-500` | `#23b4eb` | **Cor Principal da Marca** (botões primários, itens ativos, PWA e badges) |
+| `--color-primary-600` | `#1499cc` | Hover no Light Theme / ênfase de botões |
+| `--color-primary-700` | `#0e7ca8` | Hover aprofundado e gradientes |
+| `--color-primary-900` | `#0b506b` | Textos e acentos em fundos claros |
 
 ### 2.2. Superfícies & Temas (Surface Inverted Scale)
 
@@ -260,6 +260,27 @@ Janelas modais padronizadas com fundo translúcido e foco central:
     </div>
 </div>
 ```
+
+### 3.10. Experiência Mobile Nativa (PWA & App-Like UX)
+
+O ERP Alaris conta com componentes e comportamentos otimizados para operar como aplicativo móvel nativo em smartphones (iOS e Android):
+
+1. **Header Mobile Compacto & Anti-Overlap**:
+   - Título com `truncate min-w-0 whitespace-nowrap` em linha única, impedindo quebra de texto que sobreponha ícones do topo.
+   - Ocultação inteligente do logo em larguras ultraestreitas (`hidden min-[440px]:block lg:hidden`) para priorizar o título do módulo.
+   - Ocultação de botão de logout redundante no header em telas `< 640px` (`hidden sm:inline`).
+2. **Barra de Navegação Inferior Nativa (`#mobile-bottom-nav`)**:
+   - Fixada na base da tela (`lg:hidden`) com efeito de vidro fosco (`backdrop-filter: blur(16px)`).
+   - 5 destinos táticos: Início, Agenda, Visitas & OS, Clientes/Comodatos e Mais (menu lateral).
+   - Indicador ativo com dot iluminado e destaque na cor da marca `#23b4eb`.
+   - Compensação de área segura de entalhes gestuais via `padding-bottom: max(env(safe-area-inset-bottom), 0.375rem);`.
+   - Margem de rolagem compensada no conteúdo principal (`pb-24 lg:pb-8`).
+3. **Central de Notificações Responsiva (`.notif-dropdown`)**:
+   - No mobile, abre com margens seguras e simétricas fixadas na viewport (`left: 0.75rem; right: 0.75rem; width: auto; max-width: calc(100vw - 1.5rem)`), prevenindo qualquer corte fora da tela.
+   - Scroll suave com `max-height: calc(100dvh - 5rem)`.
+4. **Ergonomia e Resposta Tátil**:
+   - Desativação de atraso de toque e destaque cinza (`-webkit-tap-highlight-color: transparent; touch-action: manipulation;`).
+   - Bloqueio de seleção acidental de texto durante toques rápidos nos itens de navegação (`user-select: none`).
 
 ---
 

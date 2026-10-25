@@ -38,6 +38,7 @@ O **ERP Alaris** (anteriormente Biosp) é uma plataforma desenvolvida para empre
 
 ### 5. Financeiro, Formação de Preço, DRE e Fluxo de Caixa
 - **Formação de Preço por OS**: Custo proporcional de produtos + mão de obra/diária do técnico + custos de deslocamento + gastos adicionais imprevistos com justificativa.
+- **Ações em Massa no Fluxo de Caixa**: Seleção múltipla por checkboxes permitindo liquidar, reabrir ou excluir movimentações em lote em transação atômica.
 - **Sincronização Atômica Contínua**: Espelhamento automático de receitas, diárias e despesas no Caixa com data de competência da OS (`$visita->data_hora`), sem duplicidades em edições e com expurgo de pendências em cancelamentos.
 - **Conciliação Cruzada DRE x Caixa**: Painel executivo confrontando Faturamento Apurado (Competência) vs Recebido Efetivo (Caixa) vs Pendente (A Receber), taxas de liquidação e coluna de status de recebimento por OS.
 - **Exportação em PDF no Backend**: Geração de relatório gerencial completo em PDF A4 Paisagem via DomPDF.
@@ -46,6 +47,13 @@ O **ERP Alaris** (anteriormente Biosp) é uma plataforma desenvolvida para empre
 ### 6. Perfis de Acesso e Segurança (ACL)
 - **Papel Administrador (`admin`)**: Visão irrestrita de faturamento, margens, DRE e configurações globais.
 - **Papel Técnico (`tecnico`)**: Acesso focado exclusivamente à sua própria agenda de trabalho e ordens de serviço, sem visibilidade de dados financeiros da empresa ou avisos de faturamento.
+
+### 7. PWA e Experiência Mobile Nativa (App-Like UI)
+- **Instalação PWA**: Suporte completo a Progressive Web App com manifestos (`manifest.json` e `manifest.webmanifest`), `apple-touch-icon` e favicons operando sob a identidade visual oficial da marca (**`#23b4eb`**).
+- **Navegação Inferior Mobile (`#mobile-bottom-nav`)**: Barra fixa na base com 5 destinos (Início, Agenda, Visitas, Clientes/Comodatos, Mais), efeito glassmorphism e compatibilidade com safe-area insets do iOS e Android.
+- **Header Mobile Otimizado**: Título em linha única com truncamento responsivo (`min-w-0 flex-1 truncate whitespace-nowrap`), prevenindo quebras que sobrepunham ícones.
+- **Central de Notificações Mobile**: Dropdown com dimensões fixadas na viewport (`left: 0.75rem; right: 0.75rem`), impedindo cortes laterais.
+- **Precedência Operacional**: Ordens de serviço agendadas e em andamento são listadas prioritariamente no topo da listagem de Visitas & OS.
 
 ---
 

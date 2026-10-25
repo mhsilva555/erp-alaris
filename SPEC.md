@@ -125,6 +125,8 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
     2. **Manutenção e Reposição de Comodato com Projeção Recorrente**: Projeção dinâmica de todos os ciclos de reposição dentro do mês selecionado com base em `data_proxima_reposicao` e `periodicidade_dias` (ex.: comodato com ciclo de 15 dias exibe tanto a âncora original quanto as recorrências subsequentes do mês com o badge `Previsto (Recorrente)`).
     3. **Visitas Contratuais Recorrentes de Clientes Ativos**: Projeção automática de visitas para clientes com periodicidade contratual (`quinzenal`, `mensal`, `bimestral`, `trimestral`, `semestral`, `anual`) quando ainda não há OS física criada para aquele ciclo, com botão direto `Agendar OS` que pré-preenche o cliente e a data estimada. Ao criar a OS real, o item projetado é substituído imediatamente pela OS física correspondente.
     4. **Follow-ups de Prospecção**: Clientes com retorno agendado (ex.: "Retornar em 3 meses", "Vencimento contrato concorrente").
+- **Precedência Operacional na Listagem de Visitas & OS (`/visitas`)**:
+  - Ordens de serviço e atendimentos com status `agendada` e `em_andamento` possuem ordenação prioritária no topo da listagem de visitas, independentemente da data agendada, garantindo visibilidade imediata das pendências operacionais críticas da equipe.
 - **Filtros e Ações da Agenda**:
   - Filtro por mês/ano, categoria de evento (Todos, Visitas, Comodatos, Follow-ups) e técnico responsável.
   - Botão de remoção individual de eventos e agendamento rápido de recorrências.
@@ -153,6 +155,12 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
   - *Nota*: Nesta fase, o sistema não realiza emissão de NFS-e junto à prefeitura/SEFAZ; a rotina é estritamente de controle gerencial e cálculo de margens.
 - **Margem e Lucro Bruto por Visita**:
   $$\text{Lucro Bruto da OS} = \text{Valor Cobrado} - (\text{Custo Operacional} + \text{Impostos})$$
+- **Ações em Massa no Fluxo de Caixa (`financeiro.acoes-massa`)**:
+  - Tabela financeira com checkboxes de seleção individual e seleção geral.
+  - Barra de ações em lote permitindo que administradores executem em um único clique:
+    - **Liquidar Lançamentos**: Marca todas as movimentações selecionadas como pagas (`status = 'paga'`) com data de pagamento atual.
+    - **Reabrir Lançamentos**: Retorna movimentações para o status pendente (`status = 'pendente'`).
+    - **Excluir Lançamentos**: Remove os registros selecionados em lote sob transação de banco.
 - **Sincronização Atômica entre OS e Fluxo de Caixa (`sincronizarMovimentacoesFinanceiras`)**:
   - Ao criar, editar ou finalizar uma OS concluída:
     1. A movimentação de faturamento (receita) é criada ou atualizada com `data_competencia` idêntica à data de execução da OS (`$visita->data_hora->toDateString()`), prevenindo descasamento entre o mês da OS e o fluxo financeiro.
@@ -431,6 +439,7 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `GET` | `/visitas/{visita}/proposta`| `visitas.proposta`| `VisitaController@propostaCliente` | Admin / Comercial (visão sem custos internos) |
 | `GET` | `/financeiro/fluxo-caixa` | `financeiro.fluxo` | `FinanceiroController@index` | Admin |
 | `POST` | `/financeiro/movimentacoes`| `financeiro.store` | `FinanceiroController@store` | Admin |
+| `POST` | `/financeiro/movimentacoes/acoes-em-massa` | `financeiro.acoes-massa` | `FinanceiroController@acoesEmMassa` | Admin (`financeiro.editar` ou `financeiro.deletar`) |
 | `GET` | `/financeiro/relatorios` | `financeiro.relatorio`| `FinanceiroController@relatorio` | Admin (DRE e Lucro Bruto Web) |
 | `GET` | `/financeiro/relatorios/pdf` | `financeiro.relatorio.pdf` | `FinanceiroController@relatorioPdf` | Admin (Relatório em PDF gerado no Backend) |
 | `GET` | `/configuracoes` | `configuracoes.index` | `ConfiguracaoController@index` | Admin |
@@ -456,3 +465,7 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
    - Configuração de `busy_timeout` de no mínimo 5000ms (`config/database.php`) para evitar erros de `database is locked` em sistemas de arquivos compartilhados ou no ambiente de desenvolvimento WSL 2.
 6. **Desempenho e Responsividade**:
    - Layout 100% responsivo para operação mobile por técnicos no campo via smartphone.
+7. **PWA e Identidade Visual Padronizada (#23b4eb)**:
+   - Sistema opera como Progressive Web App instalável (PWA) com manifestos (`manifest.json` e `manifest.webmanifest`), `<meta name="theme-color">` e tokens primários centrados em `#23b4eb`, além de novos ícones oficiais em formato circular.
+8. **Ergonomia e Layout Nativo Mobile (App-Like UX)**:
+   - Navegação inferior fixa no smartphone (`#mobile-bottom-nav`) com 5 destinos, compensação de área segura de gestos (`env(safe-area-inset-bottom)`), rolagem principal com espaçamento seguro (`pb-24`), cabeçalho anti-quebra em linha única e central de notificações confinada à viewport do aparelho.

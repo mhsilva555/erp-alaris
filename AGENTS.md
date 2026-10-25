@@ -129,6 +129,20 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 ### 3.10. Padronização de Unidades de Medida em Produtos e Insumos
 - Formulários de produtos utilizam `<select>` com `<optgroup>`s pré-definidos (Líquidos: L/mL; Sólidos: Kg/g; Unidades: Un/Un) e cálculo automático do fator de conversão no frontend, impedindo entradas incorretas.
 
+### 3.11. Identidade Visual Oficial, Cor Primária e PWA (#23b4eb)
+- A cor primária e de marca é padronizada estritamente em **`#23b4eb`** (Alaris Cyan).
+- Todos os manifestos PWA (`manifest.json`, `manifest.webmanifest`), `<meta name="theme-color">`, favicons e tokens CSS do `@theme` operam sob essa referência visual.
+- O novo conjunto de ícones PWA e favicons (`/icons/icon-*.png`, `apple-touch-icon.png`, `favicon.ico`) adota o símbolo oficial circular da gota Alaris.
+
+### 3.12. Experiência Mobile Nativa (PWA & Layout de App)
+- **Header Mobile Anti-Overlap**: O título do módulo no header deve manter sempre `min-w-0 flex-1 truncate whitespace-nowrap` em linha única, impedindo quebras que sobreponham o header.
+- **Barra Inferior Nativa (`#mobile-bottom-nav`)**: Aplicação móvel fixa na base com 5 destinos (Início, Agenda, Visitas, Clientes/Comodatos, Mais), suporte a safe area (`env(safe-area-inset-bottom)`) e compensação no container principal (`<main class="... pb-24 lg:pb-8">`).
+- **Central de Notificações Mobile**: A classe `.notif-dropdown` deve manter no mobile posicionamento fixo ancorado nas bordas da viewport (`left: 0.75rem; right: 0.75rem; width: auto; max-width: calc(100vw - 1.5rem)`), prevenindo cortes fora da tela.
+
+### 3.13. Ações em Massa no Fluxo de Caixa e Precedência de Visitas
+- **Ações em Lote**: A listagem financeira conta com checkboxes de seleção múltipla permitindo que administradores liquidem, reabram ou excluam múltiplos lançamentos de forma atômica.
+- **Precedência Operacional**: Na listagem de visitas e ordens de serviço (`/visitas`), atendimentos com status `agendada` e `em_andamento` são exibidos com precedência prioritária no topo da listagem, independente da data agendada.
+
 ---
 
 ## 4. Diretrizes de Codificação e Estilo

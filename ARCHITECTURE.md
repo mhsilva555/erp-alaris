@@ -453,6 +453,20 @@ O sistema opera um modelo de conciliação dupla em tempo real entre o resultado
 │  │    • Atualiza subtotal estimado de custos em tela      │  │
 │  │    • Calcula acréscimo imediato ao marcar [x] Exige NF │  │
 │  └────────────────────────────────────────────────────────┘  │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │ 5. PWA & Experiência Mobile Nativa (App-Like UI)       │  │
+│  │    • Manifestos PWA e theme-color (#23b4eb)            │  │
+│  │    • Barra de Navegação Inferior (#mobile-bottom-nav)  │  │
+│  │    • Safe-area insets e scroll compensado (pb-24)      │  │
+│  │    • Header anti-overlap com truncamento de título     │  │
+│  │    • Central de notificações com margens na viewport   │  │
+│  └────────────────────────────────────────────────────────┘  │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │ 6. Ações em Lote e Operações em Massa                  │  │
+│  │    • Checkboxes individuais e gerais com select all    │  │
+│  │    • Barra de ações flutuante/contextual no financeiro │  │
+│  │    • Liquidação, reabertura e exclusão atômica em lote │  │
+│  └────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
