@@ -27,12 +27,14 @@
                         <option value="unidade" {{ request('natureza') === 'unidade' ? 'selected' : '' }}>Unidades / Peças
                         </option>
                     </select>
+                    @permissao('produtos.criar')
                     <a href="{{ route('produtos.create') }}" class="btn btn-primary shrink-0">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
                         Novo Insumo
                     </a>
+                    @endpermissao
                 </div>
             </form>
         </div>
@@ -45,9 +47,9 @@
                         <th>Insumo / Princípio Ativo</th>
                         <th>Natureza & Conversão</th>
                         <th>Estoque Físico</th>
-                        @if (auth()->user() && auth()->user()->isAdmin())
+                        @permissao('produtos.acessar_dados')
                             <th class="hidden md:table-cell">Custo Base</th>
-                        @endif
+                        @endpermissao
                         <th class="hidden sm:table-cell">Mínimo</th>
                         <th>Nível</th>
                         <th class="text-right">Ações</th>
@@ -84,11 +86,11 @@
                             </td>
                             <td class=" text-sm">
                                 <span
-                                    class="font-bold text-white">{{ number_format($produto->quantidade_estoque, 2, ',', '.') }}</span>
+                                    class="font-bold text-white">{{ $produto->quantidade_estoque_formatada }}</span>
                                 <span class="text-xs"
                                     style="color: var(--color-surface-400);">{{ $produto->unidade_armazenamento ?? $produto->unidade }}</span>
                             </td>
-                            @if (auth()->user() && auth()->user()->isAdmin())
+                            @permissao('produtos.acessar_dados')
                                 <td class="hidden md:table-cell text-xs ">
                                     <span class="text-white font-medium">R$
                                         {{ number_format($produto->preco_custo_unitario, 2, ',', '.') }}</span>
@@ -96,9 +98,9 @@
                                         por {{ $produto->unidade_armazenamento ?? $produto->unidade }}
                                     </span>
                                 </td>
-                            @endif
+                            @endpermissao
                             <td class="hidden sm:table-cell  text-xs" style="color: var(--color-surface-400);">
-                                {{ number_format($produto->estoque_minimo, 2, ',', '.') }}
+                                {{ $produto->estoque_minimo_formatado }}
                                 {{ $produto->unidade_armazenamento ?? $produto->unidade }}
                             </td>
                             <td>
@@ -116,14 +118,16 @@
                             </td>
                             <td class="text-right">
                                 <div class="flex items-center justify-end gap-1">
-                                    <a href="{{ route('produtos.edit', $produto) }}" class="btn btn-secondary btn-sm"
-                                        title="Editar">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
-                                    </a>
-                                    @if (auth()->user() && auth()->user()->isAdmin())
+                                    @permissao('produtos.editar')
+                                        <a href="{{ route('produtos.edit', $produto) }}" class="btn btn-secondary btn-sm"
+                                            title="Editar">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                        </a>
+                                    @endpermissao
+                                    @permissao('produtos.deletar')
                                         <form id="delete-produto-{{ $produto->id }}"
                                             action="{{ route('produtos.destroy', $produto) }}" method="POST"
                                             class="inline">
@@ -139,13 +143,13 @@
                                                 </svg>
                                             </button>
                                         </form>
-                                    @endif
+                                    @endpermissao
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ auth()->user() && auth()->user()->isAdmin() ? 7 : 6 }}"
+                            <td colspan="{{ auth()->user() && auth()->user()->temPermissao('produtos.acessar_dados') ? 7 : 6 }}"
                                 class="text-center py-12">
                                 <div class="empty-state">
                                     <div class="empty-state-icon">
@@ -157,8 +161,10 @@
                                     <h4 class="empty-state-title">Nenhum insumo encontrado</h4>
                                     <p class="empty-state-desc">Cadastre produtos e defensivos para controlar estoque e
                                         doses aplicadas em OS.</p>
-                                    <a href="{{ route('produtos.create') }}"
-                                        class="btn btn-primary btn-sm mt-3">Cadastrar Insumo</a>
+                                    @permissao('produtos.criar')
+                                        <a href="{{ route('produtos.create') }}"
+                                            class="btn btn-primary btn-sm mt-3">Cadastrar Insumo</a>
+                                    @endpermissao
                                 </div>
                             </td>
                         </tr>

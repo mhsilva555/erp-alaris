@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Perfil;
 use App\Models\Tecnico;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -16,9 +17,10 @@ class ProfileController extends Controller
     {
         $user = Auth::user();
         $tecnicos = Tecnico::where('ativo', true)->orderBy('nome')->get();
-        $usuarios = $user->isAdmin() ? User::with('tecnico')->orderBy('name')->get() : collect();
+        $perfis = Perfil::orderBy('nome')->get();
+        $usuarios = $user->isAdmin() ? User::with(['tecnico', 'perfil'])->orderBy('name')->get() : collect();
 
-        return view('perfil.edit', compact('user', 'tecnicos', 'usuarios'));
+        return view('perfil.edit', compact('user', 'tecnicos', 'usuarios', 'perfis'));
     }
 
     public function update(Request $request)
@@ -63,16 +65,28 @@ class ProfileController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
-            'role' => ['required', 'in:admin,tecnico'],
-            'tecnico_id' => ['nullable', 'required_if:role,tecnico', 'exists:tecnicos,id'],
+            'perfil_id' => ['nullable', 'exists:perfis,id'],
+            'role' => ['nullable', 'string'],
+            'tecnico_id' => ['nullable', 'exists:tecnicos,id'],
         ]);
+
+        // Resolve Perfil e Role
+        $perfil = null;
+        if (! empty($validated['perfil_id'])) {
+            $perfil = Perfil::find($validated['perfil_id']);
+        } elseif (! empty($validated['role'])) {
+            $perfil = Perfil::where('slug', $validated['role'])->first();
+        }
+
+        $role = $perfil ? ($perfil->slug === 'tecnico' ? User::ROLE_TECNICO : ($perfil->slug === 'admin' ? User::ROLE_ADMIN : $perfil->slug)) : ($validated['role'] ?? User::ROLE_ADMIN);
 
         User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'role' => $validated['role'],
-            'tecnico_id' => $validated['role'] === User::ROLE_TECNICO ? $validated['tecnico_id'] : null,
+            'role' => $role,
+            'perfil_id' => $perfil?->id,
+            'tecnico_id' => ($role === User::ROLE_TECNICO || ($perfil && $perfil->slug === 'tecnico')) ? ($validated['tecnico_id'] ?? null) : null,
         ]);
 
         return redirect()->route('perfil.edit')->with('sucesso', 'Novo usuário criado com sucesso.');

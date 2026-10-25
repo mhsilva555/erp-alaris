@@ -35,14 +35,22 @@ class ProdutoController extends Controller
         $validated = $request->validate([
             'nome' => 'required|string|max:255',
             'natureza' => 'required|string|in:liquido,solido,unidade',
-            'unidade_armazenamento' => 'required|string|max:10',
-            'unidade_aplicacao' => 'required|string|max:10',
-            'fator_conversao' => 'required|numeric|min:0.0001',
+            'unidade_armazenamento' => 'required|string|max:20',
+            'unidade_aplicacao' => 'required|string|max:20',
+            'fator_conversao' => 'nullable|numeric|min:0.0001',
             'quantidade_estoque' => 'required|numeric|min:0',
             'estoque_minimo' => 'required|numeric|min:0',
             'preco_custo_unitario' => 'required|numeric|min:0',
             'descricao' => 'nullable|string',
         ]);
+
+        if (empty($validated['fator_conversao']) || (float) $validated['fator_conversao'] <= 0) {
+            $validated['fator_conversao'] = Produto::calcularFatorPadrao(
+                $validated['natureza'],
+                $validated['unidade_armazenamento'],
+                $validated['unidade_aplicacao']
+            );
+        }
 
         $validated['unidade'] = $validated['unidade_armazenamento'];
 
@@ -62,14 +70,22 @@ class ProdutoController extends Controller
         $validated = $request->validate([
             'nome' => 'required|string|max:255',
             'natureza' => 'required|string|in:liquido,solido,unidade',
-            'unidade_armazenamento' => 'required|string|max:10',
-            'unidade_aplicacao' => 'required|string|max:10',
-            'fator_conversao' => 'required|numeric|min:0.0001',
+            'unidade_armazenamento' => 'required|string|max:20',
+            'unidade_aplicacao' => 'required|string|max:20',
+            'fator_conversao' => 'nullable|numeric|min:0.0001',
             'quantidade_estoque' => 'required|numeric|min:0',
             'estoque_minimo' => 'required|numeric|min:0',
             'preco_custo_unitario' => 'required|numeric|min:0',
             'descricao' => 'nullable|string',
         ]);
+
+        if (empty($validated['fator_conversao']) || (float) $validated['fator_conversao'] <= 0) {
+            $validated['fator_conversao'] = Produto::calcularFatorPadrao(
+                $validated['natureza'],
+                $validated['unidade_armazenamento'],
+                $validated['unidade_aplicacao']
+            );
+        }
 
         $validated['unidade'] = $validated['unidade_armazenamento'];
 

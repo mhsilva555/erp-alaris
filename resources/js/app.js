@@ -410,22 +410,88 @@ window.addProdutoRow = function () {
     const optionsData = window.__produtosOptions || '';
 
     const row = document.createElement('div');
-    row.className = 'produto-row flex items-center gap-3 animate-fadeIn';
+    row.className = 'produto-row p-3 rounded-lg border space-y-2 animate-fadeIn';
+    row.style.borderColor = 'var(--color-border)';
+    row.style.backgroundColor = 'var(--color-surface-subtle)';
     row.innerHTML = `
-        <select name="produtos[${index}][id]" class="form-select produto-select" style="flex:1;min-width:0;width:auto;" required onchange="window.recalcularFinanceiroVisita && window.recalcularFinanceiroVisita()">
-            <option value="">Selecione o insumo...</option>
-            ${optionsData}
-        </select>
-        <input type="number" name="produtos[${index}][quantidade]" step="0.01" min="0.01"
-               placeholder="Dose" class="form-input produto-qtd" style="width:7rem;flex:none;" required oninput="window.recalcularFinanceiroVisita && window.recalcularFinanceiroVisita()" />
-        <button type="button" onclick="this.closest('.produto-row').remove(); window.recalcularFinanceiroVisita && window.recalcularFinanceiroVisita();"
-                class="text-red-400 hover:text-red-300 transition p-1 shrink-0" title="Remover produto">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-        </button>
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div class="flex-1 min-w-0">
+                <select name="produtos[${index}][id]" class="form-select produto-select w-full" required onchange="window.atualizarProdutoRow && window.atualizarProdutoRow(this); window.recalcularFinanceiroVisita && window.recalcularFinanceiroVisita();">
+                    <option value="">Selecione o insumo / defensivo...</option>
+                    ${optionsData}
+                </select>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <div class="relative flex items-center">
+                    <input type="number" name="produtos[${index}][quantidade]" step="any" min="0.0001"
+                           placeholder="Qtd / Dose" class="form-input produto-qtd text-left sm:text-right !pr-10" style="width: 10.5rem;" required
+                           oninput="window.atualizarProdutoRow && window.atualizarProdutoRow(this); window.recalcularFinanceiroVisita && window.recalcularFinanceiroVisita();" />
+                    <span class="produto-unidade-badge absolute right-2.5 text-xs font-semibold pointer-events-none text-slate-500">
+                        mL
+                    </span>
+                </div>
+                <button type="button" onclick="this.closest('.produto-row').remove(); window.recalcularFinanceiroVisita && window.recalcularFinanceiroVisita();"
+                        class="btn btn-danger-soft btn-sm p-2 shrink-0" title="Remover produto">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="produto-feedback text-[11px] flex items-center justify-between px-1" style="color: var(--color-slate-500);">
+            <span class="produto-baixa-preview">Informe a quantidade usada na OS. Aceita frações (ex: 50 mL ou 0,5 pacote).</span>
+            <span class="produto-custo-preview font-medium" style="color: var(--color-ink-900);"></span>
+        </div>
     `;
     container.appendChild(row);
     if (window.recalcularFinanceiroVisita) {
         window.recalcularFinanceiroVisita();
+    }
+};
+
+window.atualizarProdutoRow = function (element) {
+    const row = element.closest('.produto-row');
+    if (!row) return;
+
+    const sel = row.querySelector('.produto-select');
+    const qtdInput = row.querySelector('.produto-qtd');
+    const badge = row.querySelector('.produto-unidade-badge');
+    const baixaPreview = row.querySelector('.produto-baixa-preview');
+    const custoPreview = row.querySelector('.produto-custo-preview');
+
+    if (!sel || !sel.value) {
+        if (badge) badge.textContent = '';
+        if (baixaPreview) baixaPreview.textContent = 'Selecione um insumo para ver a unidade e cálculo de baixa.';
+        if (custoPreview) custoPreview.textContent = '';
+        return;
+    }
+
+    const prodId = sel.value;
+    const meta = (window.__produtosMetadata && window.__produtosMetadata[prodId]) || {};
+    const unApl = meta.unidade_aplicacao || 'mL';
+    const unArm = meta.unidade_armazenamento || 'L';
+    const fator = meta.fator || 1;
+    const preco = meta.preco || 0;
+
+    if (badge) badge.textContent = unApl;
+
+    const qtd = parseFloat(qtdInput ? qtdInput.value : 0) || 0;
+    if (qtd > 0) {
+        const fracao = fator > 0 ? (qtd / fator) : qtd;
+        const custo = fracao * preco;
+
+        let fracaoStr = fracao.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+        let custoStr = custo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        if (baixaPreview) {
+            baixaPreview.innerHTML = `📉 <strong>Baixa no estoque:</strong> ${fracaoStr} ${unArm} (utilizado: ${qtd} ${unApl})`;
+        }
+        if (custoPreview) {
+            custoPreview.innerHTML = `Custo proporcional: <strong class="text-emerald-400">R$ ${custoStr}</strong>`;
+        }
+    } else {
+        if (baixaPreview) {
+            baixaPreview.innerHTML = `Aplicação informada em <strong>${unApl}</strong>. Estoque em <strong>${unArm}</strong>. Aceita valores fracionados (ex: 50 ou 0,5).`;
+        }
+        if (custoPreview) custoPreview.textContent = '';
     }
 };
 
@@ -483,6 +549,9 @@ window.recalcularFinanceiroVisita = function () {
             const fator = fatoresObj[prodId] || 1;
             const custoItem = (dose / (fator > 0 ? fator : 1)) * precoCusto;
             custoProdutosTotal += custoItem;
+            if (window.atualizarProdutoRow) {
+                window.atualizarProdutoRow(sel);
+            }
         }
     });
 

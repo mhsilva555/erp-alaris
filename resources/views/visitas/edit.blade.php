@@ -77,9 +77,11 @@
                                         {{ old('tecnico_id', $visita->tecnico_id) == $tecnico->id ? 'selected' : '' }}>
                                         {{ $tecnico->nome }}
                                         {{ $tecnico->especialidade ? "({$tecnico->especialidade})" : '' }}
-                                        @if ($tecnico->valor_diaria_padrao > 0)
-                                            — Diária: R$ {{ number_format($tecnico->valor_diaria_padrao, 2, ',', '.') }}
-                                        @endif
+                                        @permissao('tecnicos.acessar_dados')
+                                            @if ($tecnico->valor_diaria_padrao > 0)
+                                                — Diária: R$ {{ number_format($tecnico->valor_diaria_padrao, 2, ',', '.') }}
+                                            @endif
+                                        @endpermissao
                                     </option>
                                 @endforeach
                             </select>
@@ -140,33 +142,57 @@
                         @endphp
                         @if (!empty($produtosOld))
                             @foreach ($produtosOld as $i => $item)
-                                <div class="produto-row flex items-center gap-3">
-                                    <select name="produtos[{{ $i }}][id]" class="form-select produto-select"
-                                        style="flex:1;min-width:0;width:auto;" required
-                                        onchange="recalcularFinanceiroVisita()">
-                                        <option value="">Selecione...</option>
-                                        @foreach ($produtos as $p)
-                                            <option value="{{ $p->id }}"
-                                                {{ ($item['id'] ?? '') == $p->id ? 'selected' : '' }}>
-                                                {{ $p->nome }} (Saldo:
-                                                {{ number_format($p->quantidade_estoque, 2, ',', '.') }}
-                                                {{ $p->unidade_armazenamento ?? $p->unidade }} &bull; Dose:
-                                                {{ $p->unidade_aplicacao ?? 'mL' }})
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    <input type="number" name="produtos[{{ $i }}][quantidade]"
-                                        step="0.01" min="0.01" value="{{ $item['quantidade'] ?? '' }}"
-                                        placeholder="Dose" class="form-input produto-qtd" style="width:7rem;flex:none;"
-                                        required oninput="recalcularFinanceiroVisita()" />
-                                    <button type="button"
-                                        onclick="this.closest('.produto-row').remove(); recalcularFinanceiroVisita();"
-                                        class="text-red-400 hover:text-red-300 transition p-1 shrink-0">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
+                                @php
+                                    $pSel = $produtos->firstWhere('id', $item['id'] ?? null);
+                                    $unApl = $pSel->unidade_aplicacao ?? 'mL';
+                                @endphp
+                                <div class="produto-row p-3 rounded-lg border space-y-2 animate-fadeIn"
+                                    style="border-color: var(--color-border); background-color: var(--color-surface-subtle);">
+                                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                        <div class="flex-1 min-w-0">
+                                            <select name="produtos[{{ $i }}][id]"
+                                                class="form-select produto-select w-full" required
+                                                onchange="window.atualizarProdutoRow && window.atualizarProdutoRow(this); recalcularFinanceiroVisita()">
+                                                <option value="">Selecione o insumo / defensivo...</option>
+                                                @foreach ($produtos as $p)
+                                                    <option value="{{ $p->id }}"
+                                                        {{ ($item['id'] ?? '') == $p->id ? 'selected' : '' }}>
+                                                        {{ $p->nome }} (Saldo: {{ $p->quantidade_estoque_formatada }}
+                                                        {{ $p->unidade_armazenamento ?? $p->unidade }} &bull; Uso em:
+                                                        {{ $p->unidade_aplicacao ?? 'mL' }})
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="flex items-center gap-2 shrink-0">
+                                            <div class="relative flex items-center">
+                                                <input type="number" name="produtos[{{ $i }}][quantidade]"
+                                                    step="any" min="0.0001"
+                                                    value="{{ $item['quantidade'] ?? '' }}" placeholder="Qtd / Dose"
+                                                    class="form-input produto-qtd text-left sm:text-right !pr-10" required
+                                                    oninput="window.atualizarProdutoRow && window.atualizarProdutoRow(this); recalcularFinanceiroVisita()" />
+                                                <span
+                                                    class="produto-unidade-badge absolute right-2.5 text-xs font-semibold pointer-events-none text-slate-500">
+                                                    {{ $unApl }}
+                                                </span>
+                                            </div>
+                                            <button type="button"
+                                                onclick="this.closest('.produto-row').remove(); recalcularFinanceiroVisita();"
+                                                class="btn btn-danger-soft btn-sm p-2 shrink-0" title="Remover produto">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="produto-feedback text-[11px] flex items-center justify-between px-1"
+                                        style="color: var(--color-slate-500);">
+                                        <span class="produto-baixa-preview"></span>
+                                        <span class="produto-custo-preview font-medium"
+                                            style="color: var(--color-ink-900);"></span>
+                                    </div>
                                 </div>
                             @endforeach
                         @endif
@@ -174,94 +200,105 @@
                 </div>
 
                 {{-- Formação de Preço e Custos (Aba Financeira) --}}
-                <div class="pt-4 border-t" style="border-color: var(--color-surface-800);">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-white mb-3"
-                        style="color: var(--color-primary-400);">3. Formação de Preço & Custos Operacionais</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                            <label class="form-label" for="valor_cobrado">Valor Cobrado do Cliente (R$) *</label>
-                            <input type="number" id="valor_cobrado" name="valor_cobrado"
-                                value="{{ old('valor_cobrado', $visita->valor_cobrado) }}" step="0.01" min="0"
-                                class="form-input font-bold text-white" required oninput="recalcularFinanceiroVisita()">
-                        </div>
-
-                        <div>
-                            <div class="flex items-center justify-between mb-1">
-                                <label class="form-label mb-0" for="custo_mao_de_obra">Diária / Mão de Obra Técnico
-                                    (R$)</label>
-                                <span id="label-diaria-tecnico" class="text-[11px] text-emerald-400 font-medium"></span>
+                @permissao('visitas.acessar_dados')
+                    <div class="pt-4 border-t" style="border-color: var(--color-surface-800);">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-white mb-3"
+                            style="color: var(--color-primary-400);">3. Formação de Preço & Custos Operacionais</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="form-label" for="valor_cobrado">Valor Cobrado do Cliente (R$) *</label>
+                                <input type="number" id="valor_cobrado" name="valor_cobrado"
+                                    value="{{ old('valor_cobrado', $visita->valor_cobrado) }}" step="0.01" min="0"
+                                    class="form-input font-bold text-white" required oninput="recalcularFinanceiroVisita()">
                             </div>
-                            <input type="number" id="custo_mao_de_obra" name="custo_mao_de_obra"
-                                value="{{ old('custo_mao_de_obra', $visita->custo_mao_de_obra) }}" step="0.01"
-                                min="0" class="form-input" oninput="recalcularFinanceiroVisita()">
+
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="form-label mb-0" for="custo_mao_de_obra">Diária / Mão de Obra Técnico
+                                        (R$)</label>
+                                    <span id="label-diaria-tecnico" class="text-[11px] text-emerald-400 font-medium"></span>
+                                </div>
+                                <input type="number" id="custo_mao_de_obra" name="custo_mao_de_obra"
+                                    value="{{ old('custo_mao_de_obra', $visita->custo_mao_de_obra) }}" step="0.01"
+                                    min="0" class="form-input" oninput="recalcularFinanceiroVisita()">
+                            </div>
+
+                            <div>
+                                <label class="form-label" for="custo_deslocamento">Deslocamento / Transporte (R$)</label>
+                                <input type="number" id="custo_deslocamento" name="custo_deslocamento"
+                                    value="{{ old('custo_deslocamento', $visita->custo_deslocamento) }}" step="0.01"
+                                    min="0" class="form-input" oninput="recalcularFinanceiroVisita()">
+                            </div>
+
+                            <div>
+                                <label class="form-label" for="gastos_adicionais">Gastos Extras / Adicionais (R$)</label>
+                                <input type="number" id="gastos_adicionais" name="gastos_adicionais"
+                                    value="{{ old('gastos_adicionais', $visita->gastos_adicionais) }}" step="0.01"
+                                    min="0" class="form-input" oninput="recalcularFinanceiroVisita()">
+                            </div>
+
+                            <div class="sm:col-span-2">
+                                <label class="form-label" for="motivo_gastos_adicionais">Motivo dos Gastos Extras /
+                                    Adicionais</label>
+                                <input type="text" id="motivo_gastos_adicionais" name="motivo_gastos_adicionais"
+                                    value="{{ old('motivo_gastos_adicionais', $visita->motivo_gastos_adicionais) }}"
+                                    class="form-input" placeholder="Ex: Pedágio, compras extras, estacionamento">
+                            </div>
                         </div>
 
-                        <div>
-                            <label class="form-label" for="custo_deslocamento">Deslocamento / Transporte (R$)</label>
-                            <input type="number" id="custo_deslocamento" name="custo_deslocamento"
-                                value="{{ old('custo_deslocamento', $visita->custo_deslocamento) }}" step="0.01"
-                                min="0" class="form-input" oninput="recalcularFinanceiroVisita()">
+                        <div class="mt-4 flex items-center justify-between p-3 rounded-lg"
+                            style="background: var(--color-surface-900); border: 1px solid var(--color-surface-800);">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="exige_nota_fiscal" name="exige_nota_fiscal" value="1"
+                                    {{ old('exige_nota_fiscal', $visita->exige_nota_fiscal) ? 'checked' : '' }}
+                                    onchange="recalcularFinanceiroVisita()" class="rounded w-4 h-4">
+                                <span class="text-sm font-medium text-white">Exige Nota Fiscal?</span>
+                                <span class="text-xs" style="color: var(--color-surface-400);">(Aplica taxa configurada de
+                                    {{ $aliquotaPadrao }}% no cálculo tributário)</span>
+                            </label>
                         </div>
 
-                        <div>
-                            <label class="form-label" for="gastos_adicionais">Gastos Extras / Adicionais (R$)</label>
-                            <input type="number" id="gastos_adicionais" name="gastos_adicionais"
-                                value="{{ old('gastos_adicionais', $visita->gastos_adicionais) }}" step="0.01"
-                                min="0" class="form-input" oninput="recalcularFinanceiroVisita()">
-                        </div>
-
-                        <div class="sm:col-span-2">
-                            <label class="form-label" for="motivo_gastos_adicionais">Motivo dos Gastos Extras / Adicionais</label>
-                            <input type="text" id="motivo_gastos_adicionais" name="motivo_gastos_adicionais"
-                                value="{{ old('motivo_gastos_adicionais', $visita->motivo_gastos_adicionais) }}"
-                                class="form-input" placeholder="Ex: Pedágio, compras extras, estacionamento">
+                        {{-- Painel de Lucro em Tempo Real --}}
+                        <div class="mt-4 p-4 rounded-lg grid grid-cols-2 sm:grid-cols-4 gap-3 text-center"
+                            style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
+                            <div>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Custo
+                                    Insumos</span>
+                                <span id="preview-custo-insumos" class="text-xs font-semibold text-white">R$
+                                    {{ number_format($visita->custo_produtos, 2, ',', '.') }}</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Custo
+                                    Operacional</span>
+                                <span id="preview-custo-operacional" class="text-xs font-semibold text-white">R$
+                                    {{ number_format($visita->custoOperacionalTotal(), 2, ',', '.') }}</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Impostos
+                                    (NF)</span>
+                                <span id="preview-imposto" class="text-xs font-semibold text-amber-300">R$
+                                    {{ number_format($visita->valor_imposto, 2, ',', '.') }}</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Lucro
+                                    Estimado</span>
+                                <span id="preview-lucro-bruto"
+                                    class="text-sm font-bold {{ $visita->lucro_bruto >= 0 ? 'text-emerald-400' : 'text-red-400' }}">R$
+                                    {{ number_format($visita->lucro_bruto, 2, ',', '.') }}</span>
+                                <span id="preview-margem"
+                                    class="text-[10px] block {{ $visita->lucro_bruto >= 0 ? 'text-emerald-400' : 'text-red-400' }}">{{ $visita->margemPercentual() }}%</span>
+                            </div>
                         </div>
                     </div>
-
-                    <div class="mt-4 flex items-center justify-between p-3 rounded-lg"
-                        style="background: var(--color-surface-900); border: 1px solid var(--color-surface-800);">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" id="exige_nota_fiscal" name="exige_nota_fiscal" value="1"
-                                {{ old('exige_nota_fiscal', $visita->exige_nota_fiscal) ? 'checked' : '' }}
-                                onchange="recalcularFinanceiroVisita()" class="rounded w-4 h-4">
-                            <span class="text-sm font-medium text-white">Exige Nota Fiscal?</span>
-                            <span class="text-xs" style="color: var(--color-surface-400);">(Aplica taxa configurada de
-                                {{ $aliquotaPadrao }}% no cálculo tributário)</span>
-                        </label>
-                    </div>
-
-                    {{-- Painel de Lucro em Tempo Real --}}
-                    <div class="mt-4 p-4 rounded-lg grid grid-cols-2 sm:grid-cols-4 gap-3 text-center"
-                        style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
-                        <div>
-                            <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Custo
-                                Insumos</span>
-                            <span id="preview-custo-insumos" class="text-xs font-semibold text-white">R$
-                                {{ number_format($visita->custo_produtos, 2, ',', '.') }}</span>
-                        </div>
-                        <div>
-                            <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Custo
-                                Operacional</span>
-                            <span id="preview-custo-operacional" class="text-xs font-semibold text-white">R$
-                                {{ number_format($visita->custoOperacionalTotal(), 2, ',', '.') }}</span>
-                        </div>
-                        <div>
-                            <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Impostos
-                                (NF)</span>
-                            <span id="preview-imposto" class="text-xs font-semibold text-amber-300">R$
-                                {{ number_format($visita->valor_imposto, 2, ',', '.') }}</span>
-                        </div>
-                        <div>
-                            <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Lucro
-                                Estimado</span>
-                            <span id="preview-lucro-bruto"
-                                class="text-sm font-bold {{ $visita->lucro_bruto >= 0 ? 'text-emerald-400' : 'text-red-400' }}">R$
-                                {{ number_format($visita->lucro_bruto, 2, ',', '.') }}</span>
-                            <span id="preview-margem"
-                                class="text-[10px] block {{ $visita->lucro_bruto >= 0 ? 'text-emerald-400' : 'text-red-400' }}">{{ $visita->margemPercentual() }}%</span>
-                        </div>
-                    </div>
-                </div>
+                @else
+                    <input type="hidden" name="valor_cobrado" value="{{ old('valor_cobrado', $visita->valor_cobrado) }}">
+                    <input type="hidden" name="custo_mao_de_obra"
+                        value="{{ old('custo_mao_de_obra', $visita->custo_mao_de_obra) }}">
+                    <input type="hidden" name="custo_deslocamento"
+                        value="{{ old('custo_deslocamento', $visita->custo_deslocamento) }}">
+                    <input type="hidden" name="gastos_adicionais"
+                        value="{{ old('gastos_adicionais', $visita->gastos_adicionais) }}">
+                @endpermissao
 
                 <div class="flex items-center gap-3 pt-3">
                     <button type="submit" class="btn btn-primary">
@@ -288,18 +325,23 @@
                 {{ $p->id }}: {{ (float) $p->fator_conversao }},
             @endforeach
         };
+        window.__produtosMetadata = {
+            @foreach ($produtos as $p)
+                {{ $p->id }}: {
+                    unidade_aplicacao: '{{ $p->unidade_aplicacao ?? 'mL' }}',
+                    unidade_armazenamento: '{{ $p->unidade_armazenamento ?? $p->unidade }}',
+                    fator: {{ (float) $p->fator_conversao }},
+                    preco: {{ (float) $p->preco_custo_unitario }},
+                    saldo: {{ (float) $p->quantidade_estoque }}
+                },
+            @endforeach
+        };
         window.__produtosOptions =
-            `@foreach ($produtos as $p)<option value="{{ $p->id }}">{{ $p->nome }} (Saldo: {{ number_format($p->quantidade_estoque, 2, ',', '.') }} {{ $p->unidade_armazenamento ?? $p->unidade }} &bull; Dose: {{ $p->unidade_aplicacao ?? 'mL' }})</option>@endforeach`;
+            `@foreach ($produtos as $p)<option value="{{ $p->id }}">{{ $p->nome }} (Saldo: {{ $p->quantidade_estoque_formatada }} {{ $p->unidade_armazenamento ?? $p->unidade }} &bull; Uso em: {{ $p->unidade_aplicacao ?? 'mL' }})</option>@endforeach`;
 
         document.addEventListener('DOMContentLoaded', function() {
-            const sel = document.getElementById('tecnico_id');
-            if (sel && sel.value) {
-                const opt = sel.options[sel.selectedIndex];
-                const labelDiaria = document.getElementById('label-diaria-tecnico');
-                // if (opt && opt.dataset.diaria && labelDiaria) {
-                //     labelDiaria.textContent = 'Diária padrão do técnico: R$ ' + parseFloat(opt.dataset.diaria)
-                //         .toFixed(2).replace('.', ',');
-                // }
+            if (window.recalcularFinanceiroVisita) {
+                window.recalcularFinanceiroVisita();
             }
         });
     </script>

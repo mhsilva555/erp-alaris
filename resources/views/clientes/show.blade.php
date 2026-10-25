@@ -36,24 +36,32 @@
                             {{ $statusLabels[$cliente->status_prospeccao] ?? ucfirst($cliente->status_prospeccao) }}
                         </span>
                     </div>
-                    @if($cliente->documento)
-                        <p class="text-xs font-mono" style="color: var(--color-surface-400);">{{ $cliente->documento_formatado ?? $cliente->documento }}</p>
-                    @endif
+                    @permissao('clientes.acessar_dados')
+                        @if($cliente->documento)
+                            <p class="text-xs font-mono" style="color: var(--color-surface-400);">{{ $cliente->documento_formatado ?? $cliente->documento }}</p>
+                        @endif
+                    @endpermissao
                 </div>
             </div>
             <div class="flex items-center gap-2">
+                @permissao('comodatos.criar')
                 <a href="{{ route('comodatos.create', ['cliente_id' => $cliente->id]) }}" class="btn btn-secondary btn-sm">
                     <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                     Alocar Comodato
                 </a>
+                @endpermissao
+                @permissao('visitas.criar')
                 <a href="{{ route('visitas.create', ['cliente_id' => $cliente->id]) }}" class="btn btn-primary btn-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     Nova Visita / OS
                 </a>
+                @endpermissao
+                @permissao('clientes.editar')
                 <a href="{{ route('clientes.edit', $cliente) }}" class="btn btn-secondary btn-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                     Editar
                 </a>
+                @endpermissao
             </div>
         </div>
 
@@ -156,12 +164,14 @@
                                     @endif
                                 </td>
                                 <td class="text-right">
+                                    @permissao('comodatos.registrar_reposicao')
                                     <form action="{{ route('comodatos.reposicao', $c) }}" method="POST" class="inline">
                                         @csrf
                                         <button type="submit" class="btn btn-secondary btn-sm text-xs" title="Registrar que as iscas foram trocadas hoje">
                                             ✓ Registrar Troca
                                         </button>
                                     </form>
+                                    @endpermissao
                                 </td>
                             </tr>
                         @endforeach
@@ -208,7 +218,9 @@
                                 <span class="badge {{ $vBadge }}">
                                     {{ $v->statusLabel() }}
                                 </span>
+                                @permissao('visitas.ver')
                                 <a href="{{ route('visitas.show', $v) }}" class="btn btn-secondary btn-sm text-xs">Ver OS</a>
+                                @endpermissao
                             </div>
                         </div>
 

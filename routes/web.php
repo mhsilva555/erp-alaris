@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EquipamentoController;
 use App\Http\Controllers\FinanceiroController;
 use App\Http\Controllers\NotificacaoAgendamentoController;
+use App\Http\Controllers\PerfilController;
 use App\Http\Controllers\ProdutoController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TecnicoController;
@@ -91,5 +92,8 @@ Route::middleware('auth')->group(function () {
         // Configurações Fiscais e Operacionais
         Route::get('/configuracoes', [ConfiguracaoController::class, 'index'])->name('configuracoes.index');
         Route::put('/configuracoes', [ConfiguracaoController::class, 'update'])->name('configuracoes.update');
+
+        // Perfis de Acesso & Permissões Granulares
+        Route::resource('perfis', PerfilController::class)->parameters(['perfis' => 'perfil']);
     });
 });

@@ -31,10 +31,14 @@
                     <input type="text" id="especialidade" name="especialidade" value="{{ old('especialidade', $tecnico->especialidade) }}" class="form-input">
                 </div>
 
-                <div>
-                    <label class="form-label" for="valor_diaria_padrao">Valor Diária Padrão (R$)</label>
-                    <input type="number" step="0.01" min="0" id="valor_diaria_padrao" name="valor_diaria_padrao" value="{{ old('valor_diaria_padrao', $tecnico->valor_diaria_padrao) }}" class="form-input" placeholder="50.00">
-                </div>
+                @permissao('tecnicos.acessar_dados')
+                    <div>
+                        <label class="form-label" for="valor_diaria_padrao">Valor Diária Padrão (R$)</label>
+                        <input type="number" step="0.01" min="0" id="valor_diaria_padrao" name="valor_diaria_padrao" value="{{ old('valor_diaria_padrao', $tecnico->valor_diaria_padrao) }}" class="form-input" placeholder="50.00">
+                    </div>
+                @else
+                    <input type="hidden" name="valor_diaria_padrao" value="{{ old('valor_diaria_padrao', $tecnico->valor_diaria_padrao) }}">
+                @endpermissao
             </div>
 
             <div class="flex items-center gap-2">

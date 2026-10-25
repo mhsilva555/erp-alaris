@@ -377,6 +377,34 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `user_id` | BIGINT UNSIGNED | Sim | NULL | Usuário destinatário (null = notificação global) |
 | `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
 
+### 3.10. Tabela `perfis`
+| Coluna | Tipo | Nulo | Default | Descrição |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único |
+| `nome` | VARCHAR(100) | Não | - | Nome legível do perfil (ex: Administrador, Gerente Operacional) |
+| `slug` | VARCHAR(100) | Não | - | Identificador único padronizado (ex: admin, financeiro) |
+| `descricao` | VARCHAR(255) | Sim | NULL | Finalidade e responsabilidade do perfil |
+| `is_sistema` | BOOLEAN | Não | `false` | Se é perfil protegido e nativo do sistema (não deletável) |
+| `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
+
+### 3.11. Tabela `permissoes`
+| Coluna | Tipo | Nulo | Default | Descrição |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único |
+| `modulo` | VARCHAR(50) | Não | - | Módulo correspondente (ex: clientes, visitas, financeiro) |
+| `nome` | VARCHAR(150) | Não | - | Título descritivo da permissão |
+| `chave` | VARCHAR(100) | Não | - | Chave canônica única (ex: clientes.ver, visitas.finalizar) |
+| `descricao` | VARCHAR(255) | Sim | NULL | Detalhamento da ação permitida |
+| `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
+
+### 3.12. Tabela `perfil_permissao`
+| Coluna | Tipo | Nulo | Default | Descrição |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único da relação |
+| `perfil_id` | BIGINT UNSIGNED | Não | - | FK -> `perfis.id` (cascadeOnDelete) |
+| `permissao_id` | BIGINT UNSIGNED | Não | - | FK -> `permissoes.id` (cascadeOnDelete) |
+| `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
+
 ---
 
 ## 4. Matriz de Rotas e Endpoints
@@ -407,6 +435,7 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `GET` | `/financeiro/relatorios/pdf` | `financeiro.relatorio.pdf` | `FinanceiroController@relatorioPdf` | Admin (Relatório em PDF gerado no Backend) |
 | `GET` | `/configuracoes` | `configuracoes.index` | `ConfiguracaoController@index` | Admin |
 | `PUT` | `/configuracoes` | `configuracoes.update`| `ConfiguracaoController@update` | Admin |
+| `RESOURCE` | `/perfis` | `perfis.*` | `PerfilController` | Admin (`permissao:perfis.ver`) |
 | `GET` | `/perfil` | `perfil.edit` | `ProfileController@edit` | Autenticado |
 | `PUT` | `/perfil` | `perfil.update` | `ProfileController@update` | Autenticado |
 

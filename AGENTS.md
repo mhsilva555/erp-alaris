@@ -88,11 +88,20 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 - **Conciliação Cruzada DRE vs Fluxo de Caixa**:
   - O Relatório de Lucro Bruto (`/financeiro/relatorios` e PDF) expõe o confronto entre DRE Faturado (Competência), Recebido no Caixa (Pagas), Pendente (A Receber), Diárias Pagas vs Pendentes e status de recebimento por OS (`Recebido`, `A Receber`, `Isento`, `Cancelado`).
 
-### 3.6. Segregação de Perfis (ACL)
-- Papéis definidos: `admin` (Gestor) e `tecnico` (Técnico de Campo).
-- **Restrição do Técnico**:
-  - Acessa unicamente a sua própria escala de visitas e ordens de serviço.
-  - Não possui acesso a rotas de faturamento global, fluxo de caixa, relatórios de Lucro Bruto ou custos de aquisição de insumos.
+### 3.6. Segregação de Perfis & Permissões Granulares (ACL)
+- **Módulo de Permissões Granulares (`/perfis`)**:
+  - Matriz completa de permissões por módulo (`clientes`, `equipamentos`, `comodatos`, `visitas`, `produtos`, `agendamentos`, `tecnicos`, `financeiro`, `configuracoes`, `perfis`, `usuarios`).
+  - **Permissões Comuns em Cada Módulo**: `ver`, `criar`, `editar`, `deletar` e `acessar_dados`.
+  - **Permissões Específicas**: Ações pontuais como `visitas.finalizar`, `visitas.gerar_os`, `visitas.proposta_comercial`, `comodatos.registrar_reposicao`, `equipamentos.gerenciar_categorias`, `produtos.ajustar_estoque`, `financeiro.alterar_status`, `financeiro.relatorio_dre` e `financeiro.exportar_pdf`.
+- **Perfis Pré-configurados e Dinâmicos**:
+  - `admin` (Administrador): Super-usuário com acesso irrestrito a todas as rotas e permissões.
+  - `tecnico` (Técnico de Campo): Restrito unicamente à sua própria escala de visitas, finalização de OS, comodatos e produtos sem acesso a dados financeiros ou sigilosos.
+  - `gerente_operacional`: Coordenação de campo, clientes, insumos e equipamentos.
+  - `financeiro`: Gestão de fluxo de caixa, títulos a pagar/receber e relatórios de DRE.
+  - Novos perfis personalizados podem ser cadastrados e ajustados pelo gestor via matriz de checkboxes.
+- **Middleware & Gates**:
+  - Middleware de rota: `permissao:modulo.acao` (ex.: `permissao:visitas.proposta_comercial`).
+  - Interceptação via Gate e diretivas Blade `@permissao('chave')` / `@endpermissao`.
 
 ### 3.7. Notificações Nativas no Navegador e Monitoramento Minuto a Minuto
 - O sistema executa monitoramento minuto a minuto via Laravel Scheduler e crontab/Task Scheduler (`php artisan cron:install`).

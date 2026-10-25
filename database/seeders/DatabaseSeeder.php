@@ -29,6 +29,7 @@ class DatabaseSeeder extends Seeder
         Configuracao::set('diaria_tecnico_padrao', '50.00', 'Valor padrão de mão de obra/diária por visita (R$)');
 
         $this->call([
+            PerfilPermissaoSeeder::class,
             NotificationsTestSeeder::class,
         ]);
     }

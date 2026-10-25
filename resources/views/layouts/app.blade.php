@@ -58,6 +58,8 @@
                     </svg>
                     Dashboard
                 </a>
+
+                @permissao('agendamentos.ver')
                 <a href="{{ route('agendamentos.index') }}"
                     class="sidebar-link {{ request()->routeIs('agendamentos.*') ? 'active' : '' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -66,6 +68,9 @@
                     </svg>
                     Agenda Unificada
                 </a>
+                @endpermissao
+
+                @permissao('clientes.ver')
                 <a href="{{ route('clientes.index') }}"
                     class="sidebar-link {{ request()->routeIs('clientes.*') ? 'active' : '' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -74,6 +79,9 @@
                     </svg>
                     Clientes & Funil
                 </a>
+                @endpermissao
+
+                @permissao('equipamentos.ver')
                 <a href="{{ route('equipamentos.index') }}"
                     class="sidebar-link {{ request()->routeIs('equipamentos.*') ? 'active' : '' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,6 +90,9 @@
                     </svg>
                     Equipamentos
                 </a>
+                @endpermissao
+
+                @permissao('comodatos.ver')
                 <a href="{{ route('comodatos.index') }}"
                     class="sidebar-link {{ request()->routeIs('comodatos.*') ? 'active' : '' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -90,6 +101,9 @@
                     </svg>
                     Comodatos
                 </a>
+                @endpermissao
+
+                @permissao('visitas.ver')
                 <a href="{{ route('visitas.index') }}"
                     class="sidebar-link {{ request()->routeIs('visitas.*') ? 'active' : '' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -98,6 +112,9 @@
                     </svg>
                     Visitas & O.S.
                 </a>
+                @endpermissao
+
+                @permissao('produtos.ver')
                 <a href="{{ route('produtos.index') }}"
                     class="sidebar-link {{ request()->routeIs('produtos.*') ? 'active' : '' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,10 +123,13 @@
                     </svg>
                     Produtos & Insumos
                 </a>
+                @endpermissao
 
-                @if (auth()->user() && auth()->user()->isAdmin())
+                @algumapermissao(['tecnicos.ver', 'financeiro.ver', 'financeiro.relatorio_dre', 'configuracoes.ver', 'perfis.ver'])
                     <div class="pt-3 pb-1 px-3 text-[10px] font-bold uppercase tracking-wider text-surface-400"
                         style="color: var(--color-surface-400);">Gestão & Controladoria</div>
+
+                    @permissao('tecnicos.ver')
                     <a href="{{ route('tecnicos.index') }}"
                         class="sidebar-link {{ request()->routeIs('tecnicos.*') ? 'active' : '' }}">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -118,6 +138,9 @@
                         </svg>
                         Técnicos
                     </a>
+                    @endpermissao
+
+                    @permissao('financeiro.ver')
                     <a href="{{ route('financeiro.fluxo') }}"
                         class="sidebar-link {{ request()->routeIs('financeiro.fluxo') ? 'active' : '' }}">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,6 +149,9 @@
                         </svg>
                         Fluxo de Caixa
                     </a>
+                    @endpermissao
+
+                    @permissao('financeiro.relatorio_dre')
                     <a href="{{ route('financeiro.relatorio') }}"
                         class="sidebar-link {{ request()->routeIs('financeiro.relatorio') ? 'active' : '' }}">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -134,6 +160,9 @@
                         </svg>
                         Lucro Bruto & DRE
                     </a>
+                    @endpermissao
+
+                    @permissao('configuracoes.ver')
                     <a href="{{ route('configuracoes.index') }}"
                         class="sidebar-link {{ request()->routeIs('configuracoes.*') ? 'active' : '' }}">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -144,7 +173,19 @@
                         </svg>
                         Configurações
                     </a>
-                @endif
+                    @endpermissao
+
+                    @permissao('perfis.ver')
+                    <a href="{{ route('perfis.index') }}"
+                        class="sidebar-link {{ request()->routeIs('perfis.*') ? 'active' : '' }}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        Perfis & Permissões
+                    </a>
+                    @endpermissao
+                @endalgumapermissao
 
                 <div class="pt-3 pb-1 px-3 text-[10px] font-bold uppercase tracking-wider text-surface-400"
                     style="color: var(--color-surface-400);">Conta</div>
@@ -167,7 +208,7 @@
                             {{ auth()->user()->name ?? 'Administrador' }}</p>
                         <span
                             class="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase {{ auth()->user() && auth()->user()->isTecnico() ? 'bg-amber-500/20 text-amber-300' : 'bg-primary-500/20 text-blue-300' }}">
-                            {{ auth()->user() && auth()->user()->isTecnico() ? 'Técnico' : 'Admin' }}
+                            {{ auth()->user() ? auth()->user()->roleLabel() : 'Usuário' }}
                         </span>
                     </div>
                     <p class="text-[10px] truncate" style="color: var(--color-surface-400);">

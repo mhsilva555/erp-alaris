@@ -42,7 +42,8 @@
                                 <input type="number" step="0.01" min="0" max="100"
                                     id="aliquota_imposto_padrao" name="aliquota_imposto_padrao"
                                     value="{{ old('aliquota_imposto_padrao', $aliquotaImpostoPadrao) }}"
-                                    class="form-input text-right  font-bold pr-8" required>
+                                    class="form-input text-right font-bold pr-8"
+                                    {{ auth()->user() && auth()->user()->temPermissao('configuracoes.editar') ? 'required' : 'readonly' }}>
                                 <span class="absolute right-3 top-2.5 text-xs font-bold"
                                     style="color: var(--color-surface-400);">%</span>
                             </div>
@@ -70,7 +71,8 @@
                                 <input type="number" step="0.01" min="0" id="diaria_tecnico_padrao"
                                     name="diaria_tecnico_padrao"
                                     value="{{ old('diaria_tecnico_padrao', $diariaTecnicoPadrao) }}"
-                                    class="form-input text-right  font-bold pl-9" required>
+                                    class="form-input text-right font-bold pl-9"
+                                    {{ auth()->user() && auth()->user()->temPermissao('configuracoes.editar') ? 'required' : 'readonly' }}>
                             </div>
                         </div>
                     </div>
@@ -78,12 +80,14 @@
 
                 <div class="flex items-center justify-end gap-3 pt-4 border-t"
                     style="border-color: var(--color-surface-800);">
-                    <button type="submit" class="btn btn-primary">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                        </svg>
-                        Salvar Parâmetros
-                    </button>
+                    @permissao('configuracoes.editar')
+                        <button type="submit" class="btn btn-primary">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Salvar Parâmetros
+                        </button>
+                    @endpermissao
                 </div>
             </form>
         </div>

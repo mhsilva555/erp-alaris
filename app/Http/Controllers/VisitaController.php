@@ -87,7 +87,7 @@ class VisitaController extends Controller
             'produtos' => 'nullable|array',
             'produtos.*.id' => 'nullable|exists:produtos,id',
             'produtos.*.produto_id' => 'nullable|exists:produtos,id',
-            'produtos.*.quantidade' => 'required_with:produtos|numeric|min:0.01',
+            'produtos.*.quantidade' => 'required_with:produtos|numeric|min:0.0001',
         ]);
 
         $exigeNf = $request->has('exige_nota_fiscal');
@@ -221,7 +221,7 @@ class VisitaController extends Controller
             'produtos' => 'nullable|array',
             'produtos.*.id' => 'nullable|exists:produtos,id',
             'produtos.*.produto_id' => 'nullable|exists:produtos,id',
-            'produtos.*.quantidade' => 'required_with:produtos|numeric|min:0.01',
+            'produtos.*.quantidade' => 'required_with:produtos|numeric|min:0.0001',
         ]);
 
         $statusAnterior = $visita->status;

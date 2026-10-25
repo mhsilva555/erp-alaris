@@ -53,18 +53,22 @@
                 @if(request('busca') || request('tipo'))
                     <a href="{{ route('equipamentos.index') }}" class="btn btn-secondary text-xs">Limpar</a>
                 @endif
+                @permissao('equipamentos.gerenciar_categorias')
                 <button type="button" onclick="abrirModalCategorias()" class="btn btn-secondary shrink-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                     </svg>
                     Categorias
                 </button>
+                @endpermissao
+                @permissao('equipamentos.criar')
                 <a href="{{ route('equipamentos.create') }}" class="btn btn-primary shrink-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
                     Novo Equipamento
                 </a>
+                @endpermissao
             </div>
         </form>
     </div>
@@ -79,7 +83,9 @@
                     <th class="text-center">Total Físico</th>
                     <th class="text-center">Em Comodato</th>
                     <th class="text-center">Disponível</th>
-                    <th class="text-right hidden md:table-cell">Valor Unitário</th>
+                    @permissao('equipamentos.acessar_dados')
+                        <th class="text-right hidden md:table-cell">Valor Unitário</th>
+                    @endpermissao
                     <th class="text-center">Status</th>
                     <th class="text-right">Ações</th>
                 </tr>
@@ -122,6 +128,7 @@
                                 </span>
                             @endif
                         </td>
+                        @permissao('equipamentos.acessar_dados')
                         <td class="text-right hidden md:table-cell">
                             @if($eq->valor_unitario)
                                 <span class="text-xs text-white">R$ {{ number_format($eq->valor_unitario, 2, ',', '.') }}</span>
@@ -129,6 +136,7 @@
                                 <span class="text-xs" style="color: var(--color-surface-500);">-</span>
                             @endif
                         </td>
+                        @endpermissao
                         <td class="text-center">
                             @if($eq->ativo)
                                 <span class="badge badge-success text-[11px]">Ativo</span>
@@ -138,14 +146,19 @@
                         </td>
                         <td class="text-right">
                             <div class="flex items-center justify-end gap-1">
+                                @permissao('comodatos.criar')
                                 <a href="{{ route('comodatos.create') }}?equipamento_id={{ $eq->id }}" class="btn btn-secondary btn-sm text-xs" title="Alocar este equipamento em novo comodato" {{ $eq->quantidade_disponivel <= 0 ? 'disabled style=opacity:0.5;pointer-events:none;' : '' }}>
                                     + Comodato
                                 </a>
+                                @endpermissao
+                                @permissao('equipamentos.editar')
                                 <a href="{{ route('equipamentos.edit', $eq) }}" class="btn btn-secondary btn-sm" title="Editar">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                     </svg>
                                 </a>
+                                @endpermissao
+                                @permissao('equipamentos.deletar')
                                 <form action="{{ route('equipamentos.destroy', $eq) }}" method="POST" class="inline" onsubmit="return confirm('Tem certeza que deseja remover este equipamento?');">
                                     @csrf
                                     @method('DELETE')
@@ -155,6 +168,7 @@
                                         </svg>
                                     </button>
                                 </form>
+                                @endpermissao
                             </div>
                         </td>
                     </tr>

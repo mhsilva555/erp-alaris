@@ -349,17 +349,8 @@
                                             @endif
 
                                             @if (($item['eh_recorrente_projetado'] ?? false) && $item['tipo_item'] === 'visita')
-                                                <a href="{{ $item['url'] }}" class="btn btn-primary btn-sm text-xs">
-                                                    Agendar OS
-                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2" d="M9 5l7 7-7 7" />
-                                                    </svg>
-                                                </a>
-                                            @elseif ($item['tipo_item'] === 'comodato')
-                                                @if (!empty($item['url_os']))
-                                                    <a href="{{ $item['url_os'] }}" class="btn btn-primary btn-sm text-xs" title="Criar Ordem de Serviço vinculada a esta reposição">
+                                                @permissao('visitas.criar')
+                                                    <a href="{{ $item['url'] }}" class="btn btn-primary btn-sm text-xs">
                                                         Agendar OS
                                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
                                                             viewBox="0 0 24 24">
@@ -367,6 +358,19 @@
                                                                 stroke-width="2" d="M9 5l7 7-7 7" />
                                                         </svg>
                                                     </a>
+                                                @endpermissao
+                                            @elseif ($item['tipo_item'] === 'comodato')
+                                                @if (!empty($item['url_os']))
+                                                    @permissao('visitas.criar')
+                                                        <a href="{{ $item['url_os'] }}" class="btn btn-primary btn-sm text-xs" title="Criar Ordem de Serviço vinculada a esta reposição">
+                                                            Agendar OS
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                                                viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                                    stroke-width="2" d="M9 5l7 7-7 7" />
+                                                            </svg>
+                                                        </a>
+                                                    @endpermissao
                                                 @endif
                                                 <a href="{{ $item['url'] }}" class="btn btn-secondary btn-sm text-xs" title="Ver detalhes do comodato">
                                                     Abrir
@@ -388,9 +392,10 @@
                                             @endif
 
                                             @if (auth()->user() &&
-                                                    (auth()->user()->isAdmin() ||
+                                                    (auth()->user()->temPermissao('agendamentos.deletar') ||
                                                         ($item['tipo_item'] === 'visita' &&
-                                                            $item['model']->tecnico_id === auth()->user()->tecnico_id)))
+                                                            $item['model']->tecnico_id === auth()->user()->tecnico_id &&
+                                                            auth()->user()->temPermissao('visitas.deletar'))))
                                                 @if ($item['eh_retorno_preventivo'] ?? false)
                                                     <form
                                                         id="delete-agenda-{{ $loop->parent->index }}-{{ $loop->index }}"
@@ -664,16 +669,26 @@
                                 @endif
 
                                 @if ($item['tipo_item'] === 'comodato' && !empty($item['url_os']))
-                                    <a href="{{ $item['url_os'] }}" class="btn btn-primary btn-sm text-xs">
-                                        Agendar OS →
-                                    </a>
+                                    @permissao('visitas.criar')
+                                        <a href="{{ $item['url_os'] }}" class="btn btn-primary btn-sm text-xs">
+                                            Agendar OS →
+                                        </a>
+                                    @endpermissao
                                     <a href="{{ $urlModal }}" class="btn btn-secondary btn-sm text-xs">
                                         Ver Comodato →
                                     </a>
                                 @elseif ($urlModal)
-                                    <a href="{{ $urlModal }}" class="btn btn-secondary btn-sm text-xs">
-                                        {{ (($item['eh_recorrente_projetado'] ?? false) && $item['tipo_item'] === 'visita') ? 'Agendar OS →' : 'Abrir →' }}
-                                    </a>
+                                    @if (($item['eh_recorrente_projetado'] ?? false) && $item['tipo_item'] === 'visita')
+                                        @permissao('visitas.criar')
+                                            <a href="{{ $urlModal }}" class="btn btn-secondary btn-sm text-xs">
+                                                Agendar OS →
+                                            </a>
+                                        @endpermissao
+                                    @else
+                                        <a href="{{ $urlModal }}" class="btn btn-secondary btn-sm text-xs">
+                                            Abrir →
+                                        </a>
+                                    @endif
                                 @endif
                             </div>
                         </div>

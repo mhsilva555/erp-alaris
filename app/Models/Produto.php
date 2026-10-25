@@ -56,8 +56,8 @@ class Produto extends Model
     {
         return [
             'fator_conversao' => 'decimal:4',
-            'quantidade_estoque' => 'decimal:2',
-            'estoque_minimo' => 'decimal:2',
+            'quantidade_estoque' => 'decimal:4',
+            'estoque_minimo' => 'decimal:4',
             'preco_custo_unitario' => 'decimal:2',
         ];
     }
@@ -91,5 +91,58 @@ class Produto extends Model
         $fator = (float) $this->fator_conversao;
 
         return $fator > 0 ? round($dose / $fator, 4) : $dose;
+    }
+
+    public static function calcularFatorPadrao(string $natureza, string $unArm, string $unApl): float
+    {
+        if ($unArm === $unApl) {
+            return 1.0;
+        }
+
+        if ($unArm === 'L' && $unApl === 'mL') {
+            return 1000.0;
+        }
+
+        if ($unArm === 'Kg' && $unApl === 'g') {
+            return 1000.0;
+        }
+
+        if ($unArm === 'Gal' && $unApl === 'L') {
+            return 5.0;
+        }
+
+        if ($unArm === 'Gal' && $unApl === 'mL') {
+            return 5000.0;
+        }
+
+        if ($unArm === 'Bombona' && $unApl === 'L') {
+            return 20.0;
+        }
+
+        if ($unArm === 'Bombona' && $unApl === 'mL') {
+            return 20000.0;
+        }
+
+        return 1.0;
+    }
+
+    public function getQuantidadeEstoqueFormatadaAttribute(): string
+    {
+        $val = (float) $this->quantidade_estoque;
+        if (abs($val - round($val, 2)) > 0.0001) {
+            return rtrim(rtrim(number_format($val, 4, ',', '.'), '0'), ',');
+        }
+
+        return number_format($val, 2, ',', '.');
+    }
+
+    public function getEstoqueMinimoFormatadoAttribute(): string
+    {
+        $val = (float) $this->estoque_minimo;
+        if (abs($val - round($val, 2)) > 0.0001) {
+            return rtrim(rtrim(number_format($val, 4, ',', '.'), '0'), ',');
+        }
+
+        return number_format($val, 2, ',', '.');
     }
 }

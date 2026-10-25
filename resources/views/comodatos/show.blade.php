@@ -30,6 +30,7 @@
                 <a href="{{ route('comodatos.index') }}" class="btn btn-secondary btn-sm">
                     ← Voltar
                 </a>
+                @permissao('comodatos.editar')
                 <a href="{{ route('comodatos.edit', $comodato) }}" class="btn btn-secondary btn-sm">
                     <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -37,6 +38,8 @@
                     </svg>
                     Editar
                 </a>
+                @endpermissao
+                @permissao('visitas.criar')
                 <a href="{{ route('visitas.create', [
                     'cliente_id' => $comodato->cliente_id,
                     'comodato_id' => $comodato->id,
@@ -51,6 +54,7 @@
                     </svg>
                     Agendar Ordem de Serviço
                 </a>
+                @endpermissao
             </div>
         </div>
     </div>
@@ -174,6 +178,7 @@
                         <p class="empty-state-desc max-w-md mx-auto">
                             Quando uma OS vinculada a este comodato for agendada e concluída pelo técnico, o histórico será listado aqui e o ciclo de reposição será atualizado automaticamente.
                         </p>
+                        @permissao('visitas.criar')
                         <div class="mt-4">
                             <a href="{{ route('visitas.create', [
                                 'cliente_id' => $comodato->cliente_id,
@@ -189,6 +194,7 @@
                                 <span>Gerar Primeira OS de Reposição</span>
                             </a>
                         </div>
+                        @endpermissao
                     </div>
                 @else
                     <div class="table-container">
@@ -383,14 +389,16 @@
                         </span>
                     </div>
 
-                    @if ($comodato->cliente->documento)
-                        <div>
-                            <span class="text-slate-500 block">Documento:</span>
-                            <span class="font-semibold text-slate-800 dark:text-slate-200 block mt-0.5">
-                                {{ $comodato->cliente->documento_formatado }}
-                            </span>
-                        </div>
-                    @endif
+                    @permissao('clientes.acessar_dados')
+                        @if ($comodato->cliente->documento)
+                            <div>
+                                <span class="text-slate-500 block">Documento:</span>
+                                <span class="font-semibold text-slate-800 dark:text-slate-200 block mt-0.5">
+                                    {{ $comodato->cliente->documento_formatado }}
+                                </span>
+                            </div>
+                        @endif
+                    @endpermissao
 
                     @if ($comodato->cliente->telefone)
                         <div>

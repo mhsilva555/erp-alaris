@@ -37,12 +37,14 @@
                 <div class="flex items-center gap-2">
                     <input type="date" name="data" value="{{ request('data') }}" class="form-input w-full"
                         onchange="this.form.submit()">
+                    @permissao('visitas.criar')
                     <a href="{{ route('visitas.create') }}" class="btn btn-primary shrink-0">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
                         Nova OS
                     </a>
+                    @endpermissao
                 </div>
             </form>
         </div>
@@ -56,9 +58,9 @@
                         <th>Cliente</th>
                         <th>Categoria & Serviço</th>
                         <th class="hidden sm:table-cell">Técnico</th>
-                        @if (auth()->user() && auth()->user()->isAdmin())
+                        @permissao('visitas.acessar_dados')
                             <th class="hidden md:table-cell">Valor / Lucro</th>
-                        @endif
+                        @endpermissao
                         <th>Status</th>
                         <th class="text-right">Ações</th>
                     </tr>
@@ -96,7 +98,7 @@
                             </td>
                             <td class="hidden sm:table-cell text-sm" style="color: var(--color-surface-200);">
                                 {{ $visita->tecnico?->nome ?? '—' }}</td>
-                            @if (auth()->user() && auth()->user()->isAdmin())
+                            @permissao('visitas.acessar_dados')
                                 <td class="hidden md:table-cell text-xs ">
                                     <span class="text-white font-bold">R$
                                         {{ number_format($visita->valor_cobrado, 2, ',', '.') }}</span>
@@ -108,7 +110,7 @@
                                         </span>
                                     @endif
                                 </td>
-                            @endif
+                            @endpermissao
                             <td>
                                 <span class="badge {{ $vBadge }} whitespace-nowrap">
                                     {{ $visita->statusLabel() }}
@@ -116,18 +118,21 @@
                             </td>
                             <td class="text-right">
                                 <div class="flex items-center justify-end gap-1">
+                                    @permissao('visitas.gerar_os')
                                     <a href="{{ route('visitas.os', $visita) }}"
                                         class="btn btn-secondary btn-sm text-xs text-sky-400"
                                         title="Imprimir Ordem de Serviço">
                                         OS
                                     </a>
-                                    @if (auth()->user()->isAdmin())
+                                    @endpermissao
+                                    @permissao('visitas.proposta_comercial')
                                         <a href="{{ route('visitas.proposta', $visita) }}"
                                             class="btn btn-secondary btn-sm text-xs text-emerald-400"
                                             title="Proposta do Cliente (Sem custos)">
                                             Proposta
                                         </a>
-                                    @endif
+                                    @endpermissao
+                                    @permissao('visitas.finalizar')
                                     @if ($visita->status !== 'concluida')
                                         <a href="{{ route('visitas.show', $visita) }}?finalizar=1"
                                             class="btn btn-secondary btn-sm text-emerald-400 hover:text-emerald-300"
@@ -138,6 +143,8 @@
                                             </svg>
                                         </a>
                                     @endif
+                                    @endpermissao
+                                    @permissao('visitas.ver')
                                     <a href="{{ route('visitas.show', $visita) }}" class="btn btn-secondary btn-sm"
                                         title="Ver Detalhes">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -147,6 +154,8 @@
                                                 d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                         </svg>
                                     </a>
+                                    @endpermissao
+                                    @permissao('visitas.editar')
                                     <a href="{{ route('visitas.edit', $visita) }}" class="btn btn-secondary btn-sm"
                                         title="Editar">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -154,23 +163,24 @@
                                                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                         </svg>
                                     </a>
-                                    @if (auth()->user() && auth()->user()->isAdmin())
-                                        <form id="delete-visita-{{ $visita->id }}"
-                                            action="{{ route('visitas.destroy', $visita) }}" method="POST"
-                                            class="inline">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="button"
-                                                onclick="confirmDelete('delete-visita-{{ $visita->id }}')"
-                                                class="btn btn-danger-soft btn-sm" title="Excluir">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
-                                        </form>
-                                    @endif
+                                    @endpermissao
+                                    @permissao('visitas.deletar')
+                                    <form id="delete-visita-{{ $visita->id }}"
+                                        action="{{ route('visitas.destroy', $visita) }}" method="POST"
+                                        class="inline">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="button"
+                                            onclick="confirmDelete('delete-visita-{{ $visita->id }}')"
+                                            class="btn btn-danger-soft btn-sm" title="Excluir">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </form>
+                                    @endpermissao
                                 </div>
                             </td>
                         </tr>

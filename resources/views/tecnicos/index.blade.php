@@ -17,12 +17,14 @@
                             placeholder="Buscar técnicos por nome ou especialidade..." class="form-input !pl-10">
                     </div>
                 </form>
-                <a href="{{ route('tecnicos.create') }}" class="btn btn-primary shrink-0">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Novo Técnico
-                </a>
+                @permissao('tecnicos.criar')
+                    <a href="{{ route('tecnicos.create') }}" class="btn btn-primary shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Novo Técnico
+                    </a>
+                @endpermissao
             </div>
         </div>
 
@@ -63,24 +65,28 @@
                             </td>
                             <td class="text-right">
                                 <div class="flex items-center justify-end gap-1">
-                                    <a href="{{ route('tecnicos.edit', $tecnico) }}" class="btn btn-secondary btn-sm"
-                                        title="Editar">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
-                                    </a>
-                                    <form id="delete-tecnico-{{ $tecnico->id }}"
-                                        action="{{ route('tecnicos.destroy', $tecnico) }}" method="POST" class="inline">
-                                        @csrf @method('DELETE')
-                                    </form>
-                                    <button onclick="confirmDelete('delete-tecnico-{{ $tecnico->id }}')"
-                                        class="btn btn-danger-soft btn-sm" title="Excluir">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
+                                    @permissao('tecnicos.editar')
+                                        <a href="{{ route('tecnicos.edit', $tecnico) }}" class="btn btn-secondary btn-sm"
+                                            title="Editar">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                        </a>
+                                    @endpermissao
+                                    @permissao('tecnicos.deletar')
+                                        <form id="delete-tecnico-{{ $tecnico->id }}"
+                                            action="{{ route('tecnicos.destroy', $tecnico) }}" method="POST" class="inline">
+                                            @csrf @method('DELETE')
+                                        </form>
+                                        <button onclick="confirmDelete('delete-tecnico-{{ $tecnico->id }}')"
+                                            class="btn btn-danger-soft btn-sm" title="Excluir">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    @endpermissao
                                 </div>
                             </td>
                         </tr>
@@ -97,8 +103,10 @@
                                     <h4 class="empty-state-title">Nenhum técnico encontrado</h4>
                                     <p class="empty-state-desc">Cadastre operadores e aplicadores para alocar visitas e
                                         ordens de serviço.</p>
-                                    <a href="{{ route('tecnicos.create') }}" class="btn btn-primary btn-sm mt-3">Cadastrar
-                                        Técnico</a>
+                                    @permissao('tecnicos.criar')
+                                        <a href="{{ route('tecnicos.create') }}" class="btn btn-primary btn-sm mt-3">Cadastrar
+                                            Técnico</a>
+                                    @endpermissao
                                 </div>
                             </td>
                         </tr>

@@ -15,6 +15,7 @@
             </a>
 
             <div class="flex flex-wrap items-center gap-2">
+                @permissao('visitas.finalizar')
                 @if ($visita->status !== 'concluida')
                     <button type="button" onclick="openFinalizarModal()" class="btn btn-success text-sm font-semibold">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -23,7 +24,9 @@
                         Finalizar Visita
                     </button>
                 @endif
+                @endpermissao
 
+                @permissao('visitas.gerar_os')
                 {{-- OS button --}}
                 <a href="{{ route('visitas.os', $visita) }}" target="_blank" class="btn btn-secondary text-sm">
                     <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -32,8 +35,9 @@
                     </svg>
                     Imprimir OS Técnica
                 </a>
+                @endpermissao
 
-                @if (auth()->user()->isAdmin())
+                @permissao('visitas.proposta_comercial')
                     {{-- Proposta Comercial button --}}
                     <a href="{{ route('visitas.proposta', $visita) }}" target="_blank" class="btn btn-purple-soft text-sm">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -42,8 +46,9 @@
                         </svg>
                         Proposta Comercial (Sigilosa)
                     </a>
-                @endif
+                @endpermissao
 
+                @permissao('visitas.editar')
                 <a href="{{ route('visitas.edit', $visita) }}" class="btn btn-primary text-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -51,8 +56,9 @@
                     </svg>
                     Editar
                 </a>
+                @endpermissao
 
-                @if (auth()->user()->isAdmin())
+                @permissao('visitas.deletar')
                     <form id="delete-visita-{{ $visita->id }}" action="{{ route('visitas.destroy', $visita) }}"
                         method="POST" class="inline">
                         @csrf @method('DELETE')
@@ -65,7 +71,7 @@
                         </svg>
                         Excluir
                     </button>
-                @endif
+                @endpermissao
             </div>
         </div>
 
@@ -149,8 +155,8 @@
             @endif
         </div>
 
-        {{-- Financeiro Exclusivo do Gestor / Admin --}}
-        @if (auth()->user()->isAdmin())
+        {{-- Financeiro Exclusivo do Gestor / Permissão Financeira --}}
+        @permissao('visitas.acessar_dados')
             <div class="card p-6">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-base font-bold text-white flex items-center gap-2">
@@ -234,7 +240,7 @@
                     </div>
                 </div>
             </div>
-        @endif
+        @endpermissao
 
         {{-- Produtos / Insumos Utilizados --}}
         @if ($visita->produtos->isNotEmpty())
@@ -257,9 +263,9 @@
                                 <th>Princípio Ativo</th>
                                 <th>Dose Aplicada</th>
                                 <th>Baixa no Saldo</th>
-                                @if (auth()->user()->isAdmin())
+                                @permissao('visitas.acessar_dados')
                                     <th class="text-right">Custo Proporcional</th>
-                                @endif
+                                @endpermissao
                             </tr>
                         </thead>
                         <tbody>
@@ -278,11 +284,11 @@
                                     <td class=" text-xs" style="color: var(--color-surface-300);">
                                         -{{ number_format($baixa, 4, ',', '.') }} {{ $produto->unidade_armazenamento }}
                                     </td>
-                                    @if (auth()->user()->isAdmin())
+                                    @permissao('visitas.acessar_dados')
                                         <td class=" text-right font-medium" style="color: var(--color-surface-200);">
                                             R$ {{ number_format($produto->pivot->custo_proporcional ?? 0, 2, ',', '.') }}
                                         </td>
-                                    @endif
+                                    @endpermissao
                                 </tr>
                             @endforeach
                         </tbody>
@@ -333,9 +339,11 @@
                             @if ($visita->produtos->isNotEmpty())
                                 <li>Será efetuada a <strong>baixa fracionada de estoque</strong> dos {{ $visita->produtos->count() }} insumo(s) cadastrados.</li>
                             @endif
-                            @if (auth()->user() && auth()->user()->isAdmin() && $visita->valor_cobrado > 0)
-                                <li>Lançará o contas a receber de <strong class="text-white">R$ {{ number_format($visita->valor_cobrado, 2, ',', '.') }}</strong> no financeiro.</li>
-                            @endif
+                            @permissao('visitas.acessar_dados')
+                                @if ($visita->valor_cobrado > 0)
+                                    <li>Lançará o contas a receber de <strong class="text-white">R$ {{ number_format($visita->valor_cobrado, 2, ',', '.') }}</strong> no financeiro.</li>
+                                @endif
+                            @endpermissao
                         </ul>
                     </div>
 

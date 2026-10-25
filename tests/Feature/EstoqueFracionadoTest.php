@@ -177,3 +177,128 @@ test('admin pode cadastrar e editar produto utilizando unidades predefinidas', f
     expect($produto->unidade_aplicacao)->toBe('mL');
     expect((float) $produto->fator_conversao)->toBe(1000.0);
 });
+
+test('produto liquido de 1L utilizado com 50ml na OS baixa estoque para 0,95L', function () {
+    $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+    $cliente = Cliente::create(['nome' => 'Supermercado Central', 'cidade' => 'Campinas', 'estado' => 'SP']);
+    $tecnico = Tecnico::create(['nome' => 'Marcos Lima', 'ativo' => true]);
+
+    $produto = Produto::create([
+        'nome' => 'Veneno Alpha Concentrado',
+        'natureza' => 'liquido',
+        'unidade' => 'L',
+        'unidade_armazenamento' => 'L',
+        'unidade_aplicacao' => 'mL',
+        'fator_conversao' => 1000,
+        'quantidade_estoque' => 1.0000,
+        'estoque_minimo' => 0.2000,
+        'preco_custo_unitario' => 200.00,
+    ]);
+
+    $response = $this->actingAs($admin)->post(route('visitas.store'), [
+        'cliente_id' => $cliente->id,
+        'tecnico_id' => $tecnico->id,
+        'data_hora' => now()->format('Y-m-d\TH:i'),
+        'status' => 'concluida',
+        'tipo_visita' => 'execucao',
+        'tipo_servico' => 'controle_pragas',
+        'valor_cobrado' => 350.00,
+        'produtos' => [
+            ['produto_id' => $produto->id, 'quantidade' => 50],
+        ],
+    ]);
+
+    $response->assertRedirect(route('visitas.index'));
+
+    $produto->refresh();
+    // 1 L - (50 mL / 1000) = 0.95 L
+    expect((float) $produto->quantidade_estoque)->toBe(0.95);
+    expect($produto->quantidade_estoque_formatada)->toBe('0,95');
+
+    $visita = Visita::latest()->first();
+    expect((float) $visita->custo_produtos)->toBe(10.00); // 0.05 * 200
+});
+
+test('produto em unidade ou pacote utilizado com meia unidade (0.5) na OS baixa estoque corretamente', function () {
+    $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+    $cliente = Cliente::create(['nome' => 'Padaria Estrela', 'cidade' => 'Campinas', 'estado' => 'SP']);
+    $tecnico = Tecnico::create(['nome' => 'Marcos Lima', 'ativo' => true]);
+
+    // Produto cadastrado em Pacote (Pct)
+    $produtoPct = Produto::create([
+        'nome' => 'Pacote Iscas Parafinadas',
+        'natureza' => 'unidade',
+        'unidade' => 'Pct',
+        'unidade_armazenamento' => 'Pct',
+        'unidade_aplicacao' => 'Pct',
+        'fator_conversao' => 1,
+        'quantidade_estoque' => 1.0000,
+        'estoque_minimo' => 0.5000,
+        'preco_custo_unitario' => 50.00,
+    ]);
+
+    // Produto cadastrado em Unidade (Un)
+    $produtoUn = Produto::create([
+        'nome' => 'Porta-Iscas Especial',
+        'natureza' => 'unidade',
+        'unidade' => 'Un',
+        'unidade_armazenamento' => 'Un',
+        'unidade_aplicacao' => 'Un',
+        'fator_conversao' => 1,
+        'quantidade_estoque' => 1.0000,
+        'estoque_minimo' => 0.5000,
+        'preco_custo_unitario' => 20.00,
+    ]);
+
+    $response = $this->actingAs($admin)->post(route('visitas.store'), [
+        'cliente_id' => $cliente->id,
+        'tecnico_id' => $tecnico->id,
+        'data_hora' => now()->format('Y-m-d\TH:i'),
+        'status' => 'concluida',
+        'tipo_visita' => 'execucao',
+        'tipo_servico' => 'controle_pragas',
+        'valor_cobrado' => 400.00,
+        'produtos' => [
+            ['produto_id' => $produtoPct->id, 'quantidade' => 0.5],
+            ['produto_id' => $produtoUn->id, 'quantidade' => 0.5],
+        ],
+    ]);
+
+    $response->assertRedirect(route('visitas.index'));
+
+    $produtoPct->refresh();
+    $produtoUn->refresh();
+
+    // 1.0 Pct - 0.5 Pct = 0.5 Pct
+    expect((float) $produtoPct->quantidade_estoque)->toBe(0.5);
+    expect($produtoPct->quantidade_estoque_formatada)->toBe('0,50');
+
+    // 1.0 Un - 0.5 Un = 0.5 Un
+    expect((float) $produtoUn->quantidade_estoque)->toBe(0.5);
+    expect($produtoUn->quantidade_estoque_formatada)->toBe('0,50');
+
+    $visita = Visita::latest()->first();
+    // Custo: (0.5 * 50) + (0.5 * 20) = 25 + 10 = 35.00
+    expect((float) $visita->custo_produtos)->toBe(35.00);
+});
+
+test('cadastro de produto calcula fator de conversao padrao automaticamente quando omitido', function () {
+    $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+
+    $response = $this->actingAs($admin)->post(route('produtos.store'), [
+        'nome' => 'Detergente Enzimático',
+        'natureza' => 'liquido',
+        'unidade_armazenamento' => 'L',
+        'unidade_aplicacao' => 'mL',
+        'quantidade_estoque' => 5,
+        'estoque_minimo' => 1,
+        'preco_custo_unitario' => 80.00,
+    ]);
+
+    $response->assertRedirect(route('produtos.index'));
+
+    $prod = Produto::where('nome', 'Detergente Enzimático')->first();
+    expect($prod)->not->toBeNull();
+    expect((float) $prod->fator_conversao)->toBe(1000.0);
+    expect($prod->unidade)->toBe('L');
+});
