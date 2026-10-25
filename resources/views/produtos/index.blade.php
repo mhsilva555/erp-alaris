@@ -27,6 +27,11 @@
                         <option value="unidade" {{ request('natureza') === 'unidade' ? 'selected' : '' }}>Unidades / Peças
                         </option>
                     </select>
+                    @if (request()->hasAny(['busca', 'natureza']))
+                        <a href="{{ route('produtos.index') }}" class="btn btn-outline btn-sm py-2 px-2.5 text-xs shrink-0" title="Limpar filtros">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </a>
+                    @endif
                     @permissao('produtos.criar')
                     <a href="{{ route('produtos.create') }}" class="btn btn-primary shrink-0">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -92,7 +97,7 @@
                             </td>
                             @permissao('produtos.acessar_dados')
                                 <td class="hidden md:table-cell text-xs ">
-                                    <span class="text-white font-medium">R$
+                                    <span class="text-white font-medium whitespace-nowrap">R$
                                         {{ number_format($produto->preco_custo_unitario, 2, ',', '.') }}</span>
                                     <span class="text-[10px] block" style="color: var(--color-surface-400);">
                                         por {{ $produto->unidade_armazenamento ?? $produto->unidade }}

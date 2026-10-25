@@ -171,30 +171,30 @@
                     </span>
                 </div>
 
-                <div class="grid grid-cols-2 {{ $visita->gastos_adicionais > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4' }} gap-4 mb-4">
+                <div class="grid grid-cols-2 sm:grid-cols-3 {{ $visita->gastos_adicionais > 0 ? 'xl:grid-cols-5' : 'xl:grid-cols-4' }} gap-3 sm:gap-4 mb-4">
                     <div class="p-3 rounded-lg"
                         style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                         <span class="text-xs block" style="color: var(--color-surface-400);">Custo Insumos</span>
-                        <span class="text-base font-bold text-white ">R$
+                        <span class="text-base font-bold text-white whitespace-nowrap">R$
                             {{ number_format($visita->custo_produtos, 2, ',', '.') }}</span>
                     </div>
                     <div class="p-3 rounded-lg"
                         style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                         <span class="text-xs block" style="color: var(--color-surface-400);">Diária Técnico</span>
-                        <span class="text-base font-bold text-white ">R$
+                        <span class="text-base font-bold text-white whitespace-nowrap">R$
                             {{ number_format($visita->custo_mao_de_obra, 2, ',', '.') }}</span>
                     </div>
                     <div class="p-3 rounded-lg"
                         style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                         <span class="text-xs block" style="color: var(--color-surface-400);">Deslocamento</span>
-                        <span class="text-base font-bold text-white ">R$
+                        <span class="text-base font-bold text-white whitespace-nowrap">R$
                             {{ number_format($visita->custo_deslocamento, 2, ',', '.') }}</span>
                     </div>
                     @if ($visita->gastos_adicionais > 0)
                         <div class="p-3 rounded-lg"
                             style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                             <span class="text-xs block" style="color: var(--color-surface-400);">Gastos Adicionais</span>
-                            <span class="text-base font-bold text-amber-300">R$
+                            <span class="text-base font-bold text-amber-300 whitespace-nowrap">R$
                                 {{ number_format($visita->gastos_adicionais, 2, ',', '.') }}</span>
                             @if ($visita->motivo_gastos_adicionais)
                                 <span class="text-[11px] block truncate" style="color: var(--color-surface-400);" title="{{ $visita->motivo_gastos_adicionais }}">
@@ -206,31 +206,31 @@
                     <div class="p-3 rounded-lg"
                         style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                         <span class="text-xs block" style="color: var(--color-surface-400);">Imposto NF</span>
-                        <span class="text-base font-bold text-amber-400 ">R$
+                        <span class="text-base font-bold text-amber-400 whitespace-nowrap">R$
                             {{ number_format($visita->valor_imposto, 2, ',', '.') }}</span>
                     </div>
                 </div>
 
-                <div class="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4"
+                <div class="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4"
                     style="border-top: 1px solid var(--color-surface-800);">
                     <div class="p-3 rounded-lg"
                         style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                         <span class="text-xs block" style="color: var(--color-surface-400);">Custo Operacional
                             Total</span>
-                        <span class="text-lg font-bold text-rose-400 ">R$
+                        <span class="text-lg font-bold text-rose-400 whitespace-nowrap">R$
                             {{ number_format($visita->custoOperacionalTotal(), 2, ',', '.') }}</span>
                     </div>
                     <div class="p-3 rounded-lg"
                         style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                         <span class="text-xs block" style="color: var(--color-surface-400);">Valor Cobrado</span>
-                        <span class="text-lg font-bold text-emerald-400 ">R$
+                        <span class="text-lg font-bold text-emerald-400 whitespace-nowrap">R$
                             {{ number_format($visita->valor_cobrado, 2, ',', '.') }}</span>
                     </div>
                     <div class="p-3 rounded-lg"
                         style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                         <span class="text-xs block" style="color: var(--color-surface-400);">Lucro Bruto (Margem)</span>
                         <div class="flex items-baseline gap-2">
-                            <span class="text-lg font-bold text-white ">R$
+                            <span class="text-lg font-bold text-white whitespace-nowrap">R$
                                 {{ number_format($visita->lucro_bruto, 2, ',', '.') }}</span>
                             <span
                                 class="text-xs font-semibold {{ $visita->margemPercentual() >= 40 ? 'text-emerald-400' : 'text-amber-400' }}">

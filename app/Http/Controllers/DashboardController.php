@@ -17,6 +17,17 @@ class DashboardController extends Controller
         $hoje = Carbon::today();
         $user = $request->user();
 
+        // Verifica permissão para acessar o Dashboard
+        if ($user && ! $user->temPermissao('dashboard.ver')) {
+            if ($user->temPermissao('visitas.ver')) {
+                return redirect()->route('visitas.index');
+            }
+            if ($user->temPermissao('agendamentos.ver')) {
+                return redirect()->route('agendamentos.index');
+            }
+            abort(403, 'Acesso não autorizado ao Dashboard.');
+        }
+
         $visitasQuery = Visita::query();
         if ($user && $user->isTecnico()) {
             $visitasQuery->where('tecnico_id', $user->tecnico_id);
@@ -46,20 +57,17 @@ class DashboardController extends Controller
             ->limit(10)
             ->get();
 
-        $estoqueBaixo = Produto::whereColumn('quantidade_estoque', '<=', 'estoque_minimo')
-            ->get();
+        $estoqueBaixo = ($user && $user->isTecnico())
+            ? collect()
+            : Produto::whereColumn('quantidade_estoque', '<=', 'estoque_minimo')->get();
 
-        $comodatoVencendo = EquipamentoComodato::with(['cliente', 'produto'])
-            ->reposicaoProxima(3)
-            ->orderBy('data_proxima_reposicao')
-            ->limit(10)
-            ->get();
+        $comodatoVencendo = ($user && $user->isTecnico())
+            ? collect()
+            : EquipamentoComodato::with(['cliente', 'produto'])->reposicaoProxima(3)->orderBy('data_proxima_reposicao')->limit(10)->get();
 
-        $followupsProximos = Cliente::comFollowupPendente()
-            ->whereDate('data_followup', '<=', now()->addDays(3)->toDateString())
-            ->orderBy('data_followup')
-            ->limit(10)
-            ->get();
+        $followupsProximos = ($user && $user->isTecnico())
+            ? collect()
+            : Cliente::comFollowupPendente()->whereDate('data_followup', '<=', now()->addDays(3)->toDateString())->orderBy('data_followup')->limit(10)->get();
 
         $visitasRecentes = (clone $visitasQuery)->with(['cliente', 'tecnico'])
             ->orderByDesc('data_hora')
@@ -85,14 +93,22 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        // 1. Notificações geradas no módulo de Agendamento (visitas, comodatos e follow-ups)
-        $notificacoesQuery = NotificacaoAgendamento::query();
-        if ($user && $user->isTecnico()) {
-            $notificacoesQuery->where(function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                    ->orWhere('tipo_evento', 'visita');
-            });
+        // Se o usuário não tiver permissão para ver notificações, retorna conjunto vazio
+        if ($user && ! $user->temPermissao('notificacoes.ver')) {
+            return response()->json([
+                'atrasadas' => 0,
+                'proximas' => 0,
+                'estoque_baixo' => 0,
+                'comodatos' => 0,
+                'followups' => 0,
+                'itens' => [],
+                'total_nao_lidas' => 0,
+                'total' => 0,
+            ]);
         }
+
+        // 1. Notificações filtradas exclusivamente para o usuário/técnico
+        $notificacoesQuery = NotificacaoAgendamento::paraUsuario($user);
 
         $totalNaoLidas = (clone $notificacoesQuery)->where('lida', false)->count();
 

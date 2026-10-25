@@ -21,14 +21,19 @@
                     </p>
                 </div>
 
-                <div class="flex items-center gap-3">
+                <div class="flex flex-wrap items-center gap-2.5 sm:gap-3">
                     <form method="GET" action="{{ route('financeiro.fluxo') }}">
                         <x-month-picker :value="$mes" />
                     </form>
 
                     @permissao('financeiro.relatorio_dre')
-                        <a href="{{ route('financeiro.relatorio', ['mes' => $mes]) }}" class="btn btn-secondary text-sm flex items-center gap-1.5" title="Abrir Relatório de Lucro Bruto e DRE deste mês">
-                            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                        <a href="{{ route('financeiro.relatorio', ['mes' => $mes]) }}"
+                            class="btn btn-secondary text-sm flex items-center gap-1.5"
+                            title="Abrir Relatório de Lucro Bruto e DRE deste mês">
+                            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
                             <span>Lucro Bruto & DRE</span>
                         </a>
                     @endpermissao
@@ -48,13 +53,13 @@
 
             {{-- Financial Stat Cards --}}
             @permissao('financeiro.acessar_dados')
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 lg:gap-4">
                     {{-- Saldo Realizado --}}
                     <div class="stat-card">
                         <div class="flex items-center justify-between">
                             <div>
                                 <span class="stat-label">Saldo Realizado (Caixa)</span>
-                                <div class="stat-value {{ $saldoAtual >= 0 ? 'text-emerald-400' : 'text-rose-400' }}">
+                                <div class="stat-value whitespace-nowrap {{ $saldoAtual >= 0 ? 'text-emerald-400' : 'text-rose-400' }}">
                                     R$ {{ number_format($saldoAtual, 2, ',', '.') }}
                                 </div>
                                 <div class="stat-helper">Receitas pagas menos despesas pagas</div>
@@ -73,10 +78,10 @@
                         <div class="flex items-center justify-between">
                             <div>
                                 <span class="stat-label text-emerald-400">Receitas Realizadas</span>
-                                <div class="stat-value text-emerald-400">
+                                <div class="stat-value whitespace-nowrap text-emerald-400">
                                     R$ {{ number_format($receitasPagas, 2, ',', '.') }}
                                 </div>
-                                <div class="stat-helper">A receber: <strong class="text-white">R$
+                                <div class="stat-helper">A receber: <strong class="text-white whitespace-nowrap">R$
                                         {{ number_format($receitasPendentes, 2, ',', '.') }}</strong></div>
                             </div>
                             <div class="stat-icon" style="background: rgba(16,185,129,.12); color: var(--color-success);">
@@ -93,10 +98,10 @@
                         <div class="flex items-center justify-between">
                             <div>
                                 <span class="stat-label text-rose-400">Despesas Pagas</span>
-                                <div class="stat-value text-rose-400">
+                                <div class="stat-value whitespace-nowrap text-rose-400">
                                     R$ {{ number_format($despesasPagas, 2, ',', '.') }}
                                 </div>
-                                <div class="stat-helper">A pagar: <strong class="text-white">R$
+                                <div class="stat-helper">A pagar: <strong class="text-white whitespace-nowrap">R$
                                         {{ number_format($despesasPendentes, 2, ',', '.') }}</strong></div>
                             </div>
                             <div class="stat-icon" style="background: rgba(239,68,68,.12); color: var(--color-danger);">
@@ -113,7 +118,7 @@
                         <div class="flex items-center justify-between">
                             <div>
                                 <span class="stat-label text-blue-400">Saldo Projetado Final</span>
-                                <div class="stat-value {{ $saldoProjetado >= 0 ? 'text-blue-400' : 'text-rose-400' }}">
+                                <div class="stat-value whitespace-nowrap {{ $saldoProjetado >= 0 ? 'text-blue-400' : 'text-rose-400' }}">
                                     R$ {{ number_format($saldoProjetado, 2, ',', '.') }}
                                 </div>
                                 <div class="stat-helper">Considerando todos os pendentes</div>
@@ -134,29 +139,41 @@
                     <div class="flex items-center gap-3">
                         <div class="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 shrink-0">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                             </svg>
                         </div>
                         <div>
                             <div class="flex items-center gap-2">
                                 <h4 class="text-xs font-bold text-white uppercase tracking-wider">
-                                    Conciliação com Ordens de Serviço — {{ \Carbon\Carbon::parse($mes . '-01')->translatedFormat('F \d\e Y') }}
+                                    Conciliação com Ordens de Serviço —
+                                    {{ \Carbon\Carbon::parse($mes . '-01')->translatedFormat('F \d\e Y') }}
                                 </h4>
-                                <span class="badge badge-success text-[10px]">{{ $qtdOSConcluidasMes }} {{ $qtdOSConcluidasMes === 1 ? 'OS Concluída' : 'OSs Concluídas' }}</span>
+                                <span class="badge badge-success text-[10px]">{{ $qtdOSConcluidasMes }}
+                                    {{ $qtdOSConcluidasMes === 1 ? 'OS Concluída' : 'OSs Concluídas' }}</span>
                             </div>
                             <p class="text-xs mt-0.5" style="color: var(--color-surface-400);">
-                                Faturamento Apurado no DRE: <strong class="text-white">R$ {{ number_format($faturamentoOSMes, 2, ',', '.') }}</strong>
-                                &bull; Recebido em Caixa: <strong class="text-emerald-400">R$ {{ number_format($faturamentoOSRecebido, 2, ',', '.') }} ({{ $taxaLiquidacaoOS }}%)</strong>
-                                &bull; Em Aberto: <strong class="text-amber-400">R$ {{ number_format($faturamentoOSPendente, 2, ',', '.') }}</strong>
+                                Faturamento Apurado no DRE: <strong class="text-white">R$
+                                    {{ number_format($faturamentoOSMes, 2, ',', '.') }}</strong>
+                                &bull; Recebido em Caixa: <strong class="text-emerald-400">R$
+                                    {{ number_format($faturamentoOSRecebido, 2, ',', '.') }}
+                                    ({{ $taxaLiquidacaoOS }}%)</strong>
+                                &bull; Em Aberto: <strong class="text-amber-400">R$
+                                    {{ number_format($faturamentoOSPendente, 2, ',', '.') }}</strong>
                             </p>
                         </div>
                     </div>
 
                     <div class="flex items-center gap-2 shrink-0">
                         @permissao('financeiro.relatorio_dre')
-                            <a href="{{ route('financeiro.relatorio', ['mes' => $mes]) }}" class="btn btn-secondary btn-sm flex items-center gap-1.5 text-xs">
+                            <a href="{{ route('financeiro.relatorio', ['mes' => $mes]) }}"
+                                class="btn btn-secondary btn-sm flex items-center gap-1.5 text-xs">
                                 <span>Auditar DRE do Mês</span>
-                                <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                                <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                </svg>
                             </a>
                         @endpermissao
                     </div>
@@ -191,10 +208,64 @@
                     @endpermissao
                 </div>
             @else
+                {{-- Barra de Ações em Massa (visível ao selecionar itens) --}}
+                <div id="barra-acoes-massa" class="hidden px-4 sm:px-6 py-2.5 border-b flex flex-wrap items-center justify-between gap-3 text-xs"
+                    style="background: rgba(20, 112, 245, 0.08); border-color: rgba(20, 112, 245, 0.25);">
+                    <div class="flex items-center gap-2 text-white font-medium">
+                        <span class="w-2 h-2 rounded-full bg-primary-400 animate-pulse"></span>
+                        <span id="contador-selecionados" class="font-bold text-primary-300">0</span>
+                        <span id="texto-selecionados">lançamentos selecionados</span>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        @permissao('financeiro.alterar_status')
+                            <button type="button" onclick="executarAcaoEmMassa('liquidar')"
+                                class="btn btn-success-soft btn-sm text-xs flex items-center gap-1.5"
+                                title="Marcar lançamentos selecionados como Pagos">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span>Liquidar Lançamentos</span>
+                            </button>
+                            <button type="button" onclick="executarAcaoEmMassa('reabrir')"
+                                class="btn btn-ghost btn-sm text-xs flex items-center gap-1.5"
+                                title="Reabrir lançamentos selecionados (Pendente)">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                <span>Reabrir</span>
+                            </button>
+                        @endpermissao
+
+                        @permissao('financeiro.deletar')
+                            <button type="button" onclick="executarAcaoEmMassa('excluir')"
+                                class="btn btn-danger-soft btn-sm text-xs flex items-center gap-1.5"
+                                title="Excluir permanentemente os lançamentos selecionados">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                <span>Excluir</span>
+                            </button>
+                        @endpermissao
+
+                        <button type="button" onclick="desmarcarTodosMovimentacoes()"
+                            class="btn btn-secondary btn-sm text-xs" title="Desmarcar todos">
+                            Desmarcar
+                        </button>
+                    </div>
+                </div>
+
                 <div class="table-container">
                     <table class="data-table">
                         <thead>
                             <tr>
+                                <th class="w-10 text-center">
+                                    <input type="checkbox" id="check-todos-movimentacoes"
+                                        class="rounded cursor-pointer w-4 h-4"
+                                        style="accent-color: var(--color-primary-600);"
+                                        title="Selecionar todos os lançamentos">
+                                </th>
                                 <th>Status</th>
                                 <th>Tipo</th>
                                 <th>Categoria / Descrição</th>
@@ -208,7 +279,13 @@
                         </thead>
                         <tbody>
                             @foreach ($movimentacoes as $mov)
-                                <tr class="animate-fadeIn">
+                                <tr class="animate-fadeIn tr-movimentacao" id="row-mov-{{ $mov->id }}">
+                                    <td class="w-10 text-center">
+                                        <input type="checkbox" value="{{ $mov->id }}"
+                                            class="checkbox-movimentacao rounded cursor-pointer w-4 h-4"
+                                            style="accent-color: var(--color-primary-600);"
+                                            onchange="atualizarBarraAcoesMassa()">
+                                    </td>
                                     <td>
                                         @if ($mov->status === 'pago')
                                             <span class="badge badge-success">
@@ -258,7 +335,7 @@
                                     </td>
                                     @permissao('financeiro.acessar_dados')
                                         <td
-                                            class="text-right font-bold {{ $mov->tipo === 'receita' ? 'text-emerald-400' : 'text-rose-400' }}">
+                                            class="text-right font-bold whitespace-nowrap {{ $mov->tipo === 'receita' ? 'text-emerald-400' : 'text-rose-400' }}">
                                             {{ $mov->tipo === 'receita' ? '+' : '-' }} R$
                                             {{ number_format($mov->valor, 2, ',', '.') }}
                                         </td>
@@ -312,9 +389,11 @@
                     </table>
                 </div>
 
-                <div class="p-4" style="border-top: 1px solid var(--color-surface-800);">
-                    {{ $movimentacoes->appends(['mes' => $mes])->links() }}
-                </div>
+                @if ($movimentacoes->hasPages())
+                    <div class="p-4" style="border-top: 1px solid var(--color-surface-800);">
+                        {{ $movimentacoes->links() }}
+                    </div>
+                @endif
             @endif
         </div>
 
@@ -424,4 +503,111 @@
             </div>
         </div>
     @endpermissao
+
+    {{-- Formulário Oculto de Ações em Massa --}}
+    <form id="form-acoes-massa" action="{{ route('financeiro.acoes-massa') }}" method="POST" class="hidden">
+        @csrf
+        <input type="hidden" name="acao" id="input-acao-massa" value="">
+        <div id="massa-hidden-inputs"></div>
+    </form>
+
+    <script>
+        function atualizarBarraAcoesMassa() {
+            const checkboxes = document.querySelectorAll('.checkbox-movimentacao');
+            const checked = document.querySelectorAll('.checkbox-movimentacao:checked');
+            const barra = document.getElementById('barra-acoes-massa');
+            const contador = document.getElementById('contador-selecionados');
+            const texto = document.getElementById('texto-selecionados');
+            const checkTodos = document.getElementById('check-todos-movimentacoes');
+
+            const totalChecked = checked.length;
+
+            if (barra && contador && texto) {
+                if (totalChecked > 0) {
+                    barra.classList.remove('hidden');
+                    contador.textContent = totalChecked;
+                    texto.textContent = totalChecked === 1 ? 'lançamento selecionado' : 'lançamentos selecionados';
+                } else {
+                    barra.classList.add('hidden');
+                }
+            }
+
+            if (checkTodos && checkboxes.length > 0) {
+                checkTodos.checked = totalChecked === checkboxes.length;
+                checkTodos.indeterminate = totalChecked > 0 && totalChecked < checkboxes.length;
+            }
+
+            // Destaque visual nas linhas selecionadas
+            checkboxes.forEach(cb => {
+                const tr = cb.closest('tr');
+                if (tr) {
+                    if (cb.checked) {
+                        tr.style.backgroundColor = 'rgba(20, 112, 245, 0.08)';
+                    } else {
+                        tr.style.backgroundColor = '';
+                    }
+                }
+            });
+        }
+
+        document.getElementById('check-todos-movimentacoes')?.addEventListener('change', function() {
+            const checked = this.checked;
+            document.querySelectorAll('.checkbox-movimentacao').forEach(cb => {
+                cb.checked = checked;
+            });
+            atualizarBarraAcoesMassa();
+        });
+
+        function desmarcarTodosMovimentacoes() {
+            const checkTodos = document.getElementById('check-todos-movimentacoes');
+            if (checkTodos) {
+                checkTodos.checked = false;
+                checkTodos.indeterminate = false;
+            }
+            document.querySelectorAll('.checkbox-movimentacao').forEach(cb => {
+                cb.checked = false;
+            });
+            atualizarBarraAcoesMassa();
+        }
+
+        function executarAcaoEmMassa(acao) {
+            const checked = document.querySelectorAll('.checkbox-movimentacao:checked');
+            if (checked.length === 0) {
+                alert('Nenhum lançamento foi selecionado.');
+                return;
+            }
+
+            const nomesAcao = {
+                'liquidar': 'marcar como Pago(s)',
+                'reabrir': 'reabrir como Pendente(s)',
+                'excluir': 'excluir permanentemente'
+            };
+
+            const nome = nomesAcao[acao] || acao;
+            const msg = `Deseja realmente ${nome} ${checked.length} lançamento(s) selecionado(s)?`;
+
+            if (!confirm(msg)) {
+                return;
+            }
+
+            const form = document.getElementById('form-acoes-massa');
+            const inputAcao = document.getElementById('input-acao-massa');
+            const container = document.getElementById('massa-hidden-inputs');
+
+            if (!form || !inputAcao || !container) return;
+
+            inputAcao.value = acao;
+            container.innerHTML = '';
+
+            checked.forEach(cb => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'ids[]';
+                input.value = cb.value;
+                container.appendChild(input);
+            });
+
+            form.submit();
+        }
+    </script>
 @endsection

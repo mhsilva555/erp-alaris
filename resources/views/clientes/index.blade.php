@@ -7,8 +7,8 @@
         {{-- Header e Filtros --}}
         <div class="card p-4">
             <form method="GET" action="{{ route('clientes.index') }}"
-                class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
-                <div class="relative sm:col-span-2 lg:col-span-4">
+                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-12 gap-3 items-center">
+                <div class="relative sm:col-span-2 md:col-span-4 xl:col-span-4">
                     <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style="color: var(--color-surface-400);"
                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -17,7 +17,7 @@
                     <input type="text" name="busca" value="{{ request('busca') }}"
                         placeholder="Buscar por nome, CPF/CNPJ, telefone ou cidade..." class="form-input !pl-10">
                 </div>
-                <div class="lg:col-span-2">
+                <div class="md:col-span-1 xl:col-span-2">
                     <select name="status_prospeccao" class="form-select" onchange="this.form.submit()">
                         <option value="">Todos os status...</option>
                         <option value="ativo" {{ request('status_prospeccao') === 'ativo' ? 'selected' : '' }}>Cliente Ativo</option>
@@ -28,7 +28,7 @@
                         <option value="inativo" {{ request('status_prospeccao') === 'inativo' ? 'selected' : '' }}>Inativo</option>
                     </select>
                 </div>
-                <div class="lg:col-span-2">
+                <div class="md:col-span-1 xl:col-span-2">
                     <select name="periodicidade" class="form-select" onchange="this.form.submit()">
                         <option value="">Todas as periodicidades...</option>
                         <option value="avulso" {{ request('periodicidade') === 'avulso' ? 'selected' : '' }}>Avulso / Pontual</option>
@@ -40,7 +40,7 @@
                         <option value="anual" {{ request('periodicidade') === 'anual' ? 'selected' : '' }}>Anual</option>
                     </select>
                 </div>
-                <div class="lg:col-span-2">
+                <div class="md:col-span-1 xl:col-span-2">
                     <select name="origem" class="form-select" onchange="this.form.submit()">
                         <option value="">Todas as origens...</option>
                         <option value="Trafego Pago" {{ request('origem') === 'Trafego Pago' ? 'selected' : '' }}>Tráfego Pago</option>
@@ -50,7 +50,7 @@
                         <option value="outros" {{ request('origem') === 'outros' ? 'selected' : '' }}>Outros</option>
                     </select>
                 </div>
-                <div class="lg:col-span-2 flex items-center gap-2">
+                <div class="md:col-span-1 xl:col-span-2 flex items-center gap-2">
                     @if (request()->hasAny(['busca', 'status_prospeccao', 'periodicidade', 'origem']))
                         <a href="{{ route('clientes.index') }}" class="btn btn-outline btn-sm py-2 px-2.5 text-xs shrink-0" title="Limpar todos os filtros">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>

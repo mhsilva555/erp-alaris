@@ -17,8 +17,8 @@
                     <input type="text" name="busca" value="{{ request('busca') }}"
                         placeholder="Buscar por equipamento ou cliente..." class="form-input !pl-10">
                 </div>
-                <div class="flex items-center gap-3">
-                    <label class="flex items-center gap-2 text-xs font-medium cursor-pointer"
+                <div class="flex flex-wrap items-center gap-2.5 sm:gap-3">
+                    <label class="flex items-center gap-2 text-xs font-medium cursor-pointer whitespace-nowrap"
                         style="color: var(--color-surface-300);">
                         <input type="checkbox" name="vencendo" value="1" {{ request('vencendo') ? 'checked' : '' }}
                             onchange="this.form.submit()" class="rounded" style="accent-color: var(--color-primary-600);">
@@ -98,7 +98,7 @@
                                     @endphp
                                     <div>
                                         <span
-                                            class="font-bold text-xs {{ $diasRestantes < 0 ? 'text-red-400' : ($diasRestantes <= 2 ? 'text-amber-400' : 'text-emerald-400') }}">
+                                            class="font-bold text-xs whitespace-nowrap {{ $diasRestantes < 0 ? 'text-red-400' : ($diasRestantes <= 2 ? 'text-amber-400' : 'text-emerald-400') }}">
                                             {{ $c->data_proxima_reposicao->format('d/m/Y') }}
                                         </span>
                                         <span class="block text-[10px]" style="color: var(--color-surface-400);">

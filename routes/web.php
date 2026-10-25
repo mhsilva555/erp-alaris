@@ -82,6 +82,7 @@ Route::middleware('auth')->group(function () {
         // Financeiro & Fluxo de Caixa
         Route::get('/financeiro/fluxo-caixa', [FinanceiroController::class, 'index'])->name('financeiro.fluxo');
         Route::post('/financeiro/movimentacoes', [FinanceiroController::class, 'store'])->name('financeiro.store');
+        Route::post('/financeiro/movimentacoes/acoes-em-massa', [FinanceiroController::class, 'acoesEmMassa'])->name('financeiro.acoes-massa');
         Route::patch('/financeiro/movimentacoes/{movimentacao}/status', [FinanceiroController::class, 'updateStatus'])->name('financeiro.status');
         Route::delete('/financeiro/movimentacoes/{movimentacao}', [FinanceiroController::class, 'destroy'])->name('financeiro.destroy');
 

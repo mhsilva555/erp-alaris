@@ -116,7 +116,7 @@
             </script>
 
             {{-- Summary Cards --}}
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 lg:gap-4">
                 <div class="stat-card">
                     <div class="flex items-center justify-between">
                         <div>

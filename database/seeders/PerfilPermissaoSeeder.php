@@ -53,6 +53,14 @@ class PerfilPermissaoSeeder extends Seeder
             ]
         );
         $chavesTecnico = [
+            'dashboard.ver',
+            'dashboard.card_visitas_hoje',
+            'dashboard.card_visitas_mes',
+            'dashboard.proximas_visitas',
+            'dashboard.historico_visitas',
+            'notificacoes.ver',
+            'notificacoes.editar',
+            'notificacoes.alertas_navegador',
             'visitas.ver',
             'visitas.finalizar',
             'visitas.gerar_os',
@@ -74,6 +82,11 @@ class PerfilPermissaoSeeder extends Seeder
             ]
         );
         $chavesGerente = [
+            // Dashboard & Notificações
+            'dashboard.ver', 'dashboard.criar', 'dashboard.editar', 'dashboard.deletar', 'dashboard.acessar_dados',
+            'dashboard.card_clientes', 'dashboard.card_comodatos', 'dashboard.card_visitas_hoje', 'dashboard.card_visitas_mes',
+            'dashboard.alertas', 'dashboard.proximas_visitas', 'dashboard.historico_visitas',
+            'notificacoes.ver', 'notificacoes.criar', 'notificacoes.editar', 'notificacoes.deletar', 'notificacoes.acessar_dados', 'notificacoes.alertas_navegador',
             // Clientes
             'clientes.ver', 'clientes.criar', 'clientes.editar', 'clientes.deletar', 'clientes.acessar_dados',
             // Equipamentos
@@ -102,6 +115,9 @@ class PerfilPermissaoSeeder extends Seeder
             ]
         );
         $chavesFinanceiro = [
+            // Dashboard & Notificações
+            'dashboard.ver', 'dashboard.card_clientes', 'dashboard.card_visitas_mes', 'dashboard.historico_visitas',
+            'notificacoes.ver', 'notificacoes.editar',
             // Financeiro completo
             'financeiro.ver', 'financeiro.criar', 'financeiro.editar', 'financeiro.deletar', 'financeiro.acessar_dados', 'financeiro.alterar_status', 'financeiro.relatorio_dre', 'financeiro.exportar_pdf',
             // Clientes e Visitas para faturamento

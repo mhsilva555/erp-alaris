@@ -146,6 +146,24 @@ function dispararNotificacaoNativaSO(notif) {
     }
 }
 
+// ── Helpers para atualização automática da listagem de Visitas & O.S ──
+function estaNaPaginaVisitas() {
+    const naListagem = !!document.getElementById('pagina-visitas-index');
+    const path = window.location.pathname.replace(/\/$/, '');
+    return naListagem || path === '/visitas';
+}
+
+let recarregandoVisitas = false;
+function recarregarPaginaVisitas() {
+    if (recarregandoVisitas) return;
+    recarregandoVisitas = true;
+
+    // Aguarda brevemente para exibição da notificação nativa no SO antes do reload
+    setTimeout(() => {
+        window.location.reload();
+    }, 800);
+}
+
 // ── Polling de notificações de Agendamento para o Sistema Operacional ──
 function verificarNotificacoesSO() {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -163,8 +181,13 @@ function verificarNotificacoesSO() {
                     || (document.querySelector('input[name="_token"]')?.value)
                     || '';
 
+                let temNotificacaoVisita = false;
+
                 data.notificacoes.forEach(notif => {
                     dispararNotificacaoNativaSO(notif);
+                    if (notif.tipo_evento === 'visita') {
+                        temNotificacaoVisita = true;
+                    }
 
                     // Marca como entregue no SO
                     fetch(`/notificacoes/agendamentos/${notif.id}/marcar-exibida`, {
@@ -177,6 +200,16 @@ function verificarNotificacoesSO() {
                         }
                     }).catch(() => { });
                 });
+
+                // Atualiza o badge e dropdown do header imediatamente
+                if (typeof pollNotificacoes === 'function') {
+                    pollNotificacoes();
+                }
+
+                // Se o técnico estiver na página de Visitas e O.S e recebeu notificação de OS, recarrega a página
+                if (temNotificacaoVisita && estaNaPaginaVisitas()) {
+                    recarregarPaginaVisitas();
+                }
             }
         })
         .catch(() => { });
@@ -228,6 +261,8 @@ window.marcarTodasNotificacoesLidas = function () {
         .catch(() => { });
 };
 
+let ultimosNotifIdsConhecidos = null;
+
 // ── Polling de notificações no Header ──
 function pollNotificacoes() {
     const badge = document.getElementById('notif-badge');
@@ -248,6 +283,23 @@ function pollNotificacoes() {
             return r.json();
         })
         .then(data => {
+            const itensAtuais = data.itens || [];
+            const idsAtuais = itensAtuais.map(i => i.id);
+
+            // Se novas notificações de visita chegaram para o técnico
+            if (ultimosNotifIdsConhecidos !== null) {
+                const temNovaVisita = itensAtuais.some(item =>
+                    !ultimosNotifIdsConhecidos.includes(item.id) && item.tipo_evento === 'visita'
+                );
+
+                if (temNovaVisita && estaNaPaginaVisitas()) {
+                    ultimosNotifIdsConhecidos = idsAtuais;
+                    recarregarPaginaVisitas();
+                    return;
+                }
+            }
+            ultimosNotifIdsConhecidos = idsAtuais;
+
             if (badge) {
                 if (data.total > 0) {
                     badge.textContent = data.total;
@@ -380,8 +432,9 @@ function pollNotificacoes() {
         .catch(() => { });
 }
 
-setInterval(pollNotificacoes, 30000);
-setInterval(verificarNotificacoesSO, 30000);
+const intervaloPollingNotificacoes = estaNaPaginaVisitas() ? 10000 : 25000;
+setInterval(pollNotificacoes, intervaloPollingNotificacoes);
+setInterval(verificarNotificacoesSO, intervaloPollingNotificacoes);
 
 document.addEventListener('DOMContentLoaded', () => {
     pollNotificacoes();

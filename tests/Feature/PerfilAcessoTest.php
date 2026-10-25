@@ -4,6 +4,7 @@ use App\Models\Cliente;
 use App\Models\Tecnico;
 use App\Models\User;
 use App\Models\Visita;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 test('administrador acessa rotas financeiras e de configuracao global', function () {
     $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -153,4 +154,59 @@ test('informacao de lancamento de contas a receber no modal de finalizacao apare
     $responseTecnico->assertOk();
     $responseTecnico->assertDontSee('Lançará o contas a receber de');
     $responseTecnico->assertDontSee('2.500,00');
+});
+
+test('ordens de servico agendada e em andamento aparecem com precedencia sobre as outras independente da data', function () {
+    $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+    $cliente = Cliente::create(['nome' => 'Cliente Ordenação']);
+
+    // 1. Visita concluída com data mais recente/futura (amanhã)
+    $visitaConcluidaFutura = Visita::create([
+        'cliente_id' => $cliente->id,
+        'data_hora' => now()->addDays(2),
+        'status' => 'concluida',
+        'tipo_visita' => 'execucao',
+        'tipo_servico' => 'controle_pragas',
+    ]);
+
+    // 2. Visita agendada com data mais antiga que a concluída (hoje)
+    $visitaAgendada = Visita::create([
+        'cliente_id' => $cliente->id,
+        'data_hora' => now()->addHour(),
+        'status' => 'agendada',
+        'tipo_visita' => 'execucao',
+        'tipo_servico' => 'controle_pragas',
+    ]);
+
+    // 3. Visita em andamento com data de ontem
+    $visitaEmAndamento = Visita::create([
+        'cliente_id' => $cliente->id,
+        'data_hora' => now()->subDay(),
+        'status' => 'em_andamento',
+        'tipo_visita' => 'execucao',
+        'tipo_servico' => 'controle_pragas',
+    ]);
+
+    // 4. Visita cancelada com data futura
+    $visitaCancelada = Visita::create([
+        'cliente_id' => $cliente->id,
+        'data_hora' => now()->addDays(3),
+        'status' => 'cancelada',
+        'tipo_visita' => 'execucao',
+        'tipo_servico' => 'controle_pragas',
+    ]);
+
+    $response = $this->actingAs($admin)->get(route('visitas.index'));
+    $response->assertOk();
+
+    /** @var LengthAwarePaginator $visitas */
+    $visitas = $response->viewData('visitas');
+    $ids = $visitas->pluck('id')->toArray();
+
+    // Em andamento (1) e Agendada (2) devem vir antes de Concluída (3) e Cancelada (4)
+    expect($ids[0])->toBe($visitaEmAndamento->id);
+    expect($ids[1])->toBe($visitaAgendada->id);
+    // As concluídas/canceladas vêm depois, ordenadas entre si por data_hora DESC
+    expect($ids[2])->toBe($visitaCancelada->id);
+    expect($ids[3])->toBe($visitaConcluidaFutura->id);
 });

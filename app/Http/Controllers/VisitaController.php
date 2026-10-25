@@ -6,6 +6,7 @@ use App\Models\Cliente;
 use App\Models\Configuracao;
 use App\Models\EquipamentoComodato;
 use App\Models\MovimentacaoFinanceira;
+use App\Models\NotificacaoAgendamento;
 use App\Models\Produto;
 use App\Models\Tecnico;
 use App\Models\Visita;
@@ -45,7 +46,11 @@ class VisitaController extends Controller
             });
         }
 
-        $visitas = $query->orderByDesc('data_hora')->paginate(15)->withQueryString();
+        $visitas = $query
+            ->orderByRaw("CASE WHEN status = 'em_andamento' THEN 1 WHEN status = 'agendada' THEN 2 ELSE 3 END ASC")
+            ->orderByDesc('data_hora')
+            ->paginate(15)
+            ->withQueryString();
 
         return view('visitas.index', compact('visitas'));
     }
@@ -108,7 +113,8 @@ class VisitaController extends Controller
         $aliquotaImposto = $exigeNf ? (float) Configuracao::get('aliquota_imposto_padrao', '14.0') : 0.00;
         $valorImposto = round($valorCobrado * ($aliquotaImposto / 100), 2);
 
-        DB::transaction(function () use ($validated, $valorCobrado, $custoMaoDeObra, $custoDeslocamento, $gastosAdicionais, $exigeNf, $aliquotaImposto, $valorImposto) {
+        $visitaCriada = null;
+        DB::transaction(function () use ($validated, $valorCobrado, $custoMaoDeObra, $custoDeslocamento, $gastosAdicionais, $exigeNf, $aliquotaImposto, $valorImposto, &$visitaCriada) {
             $custoProdutos = 0.0;
             $sync = [];
 
@@ -146,6 +152,7 @@ class VisitaController extends Controller
             $visitaData['lucro_bruto'] = $lucroBruto;
 
             $visita = Visita::create($visitaData);
+            $visitaCriada = $visita;
 
             if (! empty($sync)) {
                 $visita->produtos()->sync($sync);
@@ -167,6 +174,10 @@ class VisitaController extends Controller
                 $this->sincronizarMovimentacoesFinanceiras($visita);
             }
         });
+
+        if ($visitaCriada) {
+            NotificacaoAgendamento::notificarOsCriada($visitaCriada);
+        }
 
         return redirect()->route('visitas.index')
             ->with('sucesso', 'Visita registrada com sucesso.');
@@ -225,6 +236,7 @@ class VisitaController extends Controller
         ]);
 
         $statusAnterior = $visita->status;
+        $tecnicoAnteriorId = $visita->tecnico_id;
         $exigeNf = $request->has('exige_nota_fiscal');
         $valorCobrado = (float) ($validated['valor_cobrado'] ?? 0);
 
@@ -302,6 +314,8 @@ class VisitaController extends Controller
                 $this->sincronizarMovimentacoesFinanceiras($visita);
             }
         });
+
+        NotificacaoAgendamento::notificarOsAtualizada($visita, $tecnicoAnteriorId, $statusAnterior);
 
         return redirect()->route('visitas.show', $visita)
             ->with('sucesso', 'Visita atualizada com sucesso.');

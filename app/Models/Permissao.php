@@ -168,6 +168,38 @@ class Permissao extends Model
                     'usuarios.acessar_dados' => ['nome' => 'Acessar Dados de Login', 'descricao' => 'Visualizar vínculos técnicos e status de autenticação.'],
                 ],
             ],
+
+            'dashboard' => [
+                'nome' => 'Dashboard & Indicadores',
+                'descricao' => 'Painel inicial, cards de estatísticas, alertas operacionais e histórico.',
+                'permissoes' => [
+                    'dashboard.ver' => ['nome' => 'Ver Dashboard', 'descricao' => 'Acessar a página inicial do painel.'],
+                    'dashboard.criar' => ['nome' => 'Criar Widgets', 'descricao' => 'Adicionar métricas e atalhos customizados no painel.'],
+                    'dashboard.editar' => ['nome' => 'Editar Indicadores', 'descricao' => 'Configurar a exibição dos elementos do painel.'],
+                    'dashboard.deletar' => ['nome' => 'Deletar Indicadores', 'descricao' => 'Remover ou ocultar métricas do painel.'],
+                    'dashboard.acessar_dados' => ['nome' => 'Acessar Dados Consolidados', 'descricao' => 'Visualizar estatísticas agregadas da empresa.'],
+                    'dashboard.card_clientes' => ['nome' => 'Card: Clientes Cadastrados', 'descricao' => 'Visualizar card de clientes ativos e prospecção.'],
+                    'dashboard.card_comodatos' => ['nome' => 'Card: Equipamentos em Comodato', 'descricao' => 'Visualizar card de comodatos alocados.'],
+                    'dashboard.card_visitas_hoje' => ['nome' => 'Card: Visitas Hoje', 'descricao' => 'Visualizar card de roteiro de visitas do dia.'],
+                    'dashboard.card_visitas_mes' => ['nome' => 'Card: Visitas no Mês', 'descricao' => 'Visualizar card com total de visitas do mês.'],
+                    'dashboard.alertas' => ['nome' => 'Card: Alertas e Ações Requeridas', 'descricao' => 'Visualizar bloco de alertas operacionais e atrasos.'],
+                    'dashboard.proximas_visitas' => ['nome' => 'Card: Próximas Visitas (48h)', 'descricao' => 'Visualizar lista das próximas visitas agendadas.'],
+                    'dashboard.historico_visitas' => ['nome' => 'Card: Histórico Recente de Visitas', 'descricao' => 'Visualizar lista de visitas recentemente executadas.'],
+                ],
+            ],
+
+            'notificacoes' => [
+                'nome' => 'Notificações & Alertas',
+                'descricao' => 'Central de notificações, avisos operacionais e alertas no navegador.',
+                'permissoes' => [
+                    'notificacoes.ver' => ['nome' => 'Ver Notificações', 'descricao' => 'Acessar a central de notificações e sino no cabeçalho.'],
+                    'notificacoes.criar' => ['nome' => 'Criar Alertas', 'descricao' => 'Disparar alertas manuais ou notificações de teste.'],
+                    'notificacoes.editar' => ['nome' => 'Marcar Notificações como Lidas', 'descricao' => 'Atualizar status de leitura de notificações.'],
+                    'notificacoes.deletar' => ['nome' => 'Deletar Notificações', 'descricao' => 'Limpar histórico de notificações.'],
+                    'notificacoes.acessar_dados' => ['nome' => 'Acessar Dados das Notificações', 'descricao' => 'Acessar detalhes e links diretos dos eventos notificados.'],
+                    'notificacoes.alertas_navegador' => ['nome' => 'Alertas no Navegador (PC & Celular)', 'descricao' => 'Ativar e receber notificações push no desktop e celular.'],
+                ],
+            ],
         ];
     }
 }

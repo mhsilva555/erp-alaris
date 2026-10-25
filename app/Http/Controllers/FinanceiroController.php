@@ -8,6 +8,7 @@ use App\Models\Visita;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class FinanceiroController extends Controller
 {
@@ -146,6 +147,56 @@ class FinanceiroController extends Controller
         $movimentacao->delete();
 
         return back()->with('sucesso', 'Movimentação removida com sucesso.');
+    }
+
+    /**
+     * Executa ações em lote/massa sobre movimentações financeiras selecionadas (liquidar, reabrir, excluir).
+     */
+    public function acoesEmMassa(Request $request)
+    {
+        $validated = $request->validate([
+            'acao' => 'required|in:liquidar,reabrir,excluir',
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'required|integer|exists:movimentacoes_financeiras,id',
+        ]);
+
+        $ids = $validated['ids'];
+        $acao = $validated['acao'];
+
+        if (($acao === 'liquidar' || $acao === 'reabrir') && ! auth()->user()->temPermissao('financeiro.alterar_status')) {
+            abort(403, 'Acesso não autorizado para alterar status financeiro.');
+        }
+
+        if ($acao === 'excluir' && ! auth()->user()->temPermissao('financeiro.deletar')) {
+            abort(403, 'Acesso não autorizado para excluir movimentações financeiras.');
+        }
+
+        DB::transaction(function () use ($acao, $ids) {
+            if ($acao === 'liquidar') {
+                $movs = MovimentacaoFinanceira::whereIn('id', $ids)->get();
+                foreach ($movs as $mov) {
+                    $mov->status = 'pago';
+                    if (empty($mov->data_pagamento)) {
+                        $mov->data_pagamento = now()->toDateString();
+                    }
+                    $mov->save();
+                }
+            } elseif ($acao === 'reabrir') {
+                MovimentacaoFinanceira::whereIn('id', $ids)->update([
+                    'status' => 'pendente',
+                ]);
+            } elseif ($acao === 'excluir') {
+                MovimentacaoFinanceira::whereIn('id', $ids)->delete();
+            }
+        });
+
+        $mensagens = [
+            'liquidar' => count($ids).' lançamento(s) liquidado(s) com sucesso.',
+            'reabrir' => count($ids).' lançamento(s) reaberto(s) com sucesso.',
+            'excluir' => count($ids).' lançamento(s) excluído(s) com sucesso.',
+        ];
+
+        return back()->with('sucesso', $mensagens[$acao] ?? 'Ação em massa executada com sucesso.');
     }
 
     /**

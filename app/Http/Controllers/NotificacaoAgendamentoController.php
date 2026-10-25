@@ -18,18 +18,20 @@ class NotificacaoAgendamentoController extends Controller
     {
         $user = $request->user();
 
-        $query = NotificacaoAgendamento::where('enviada_so', false)
-            ->where('created_at', '>=', now()->subHours(24))
-            ->orderBy('created_at', 'asc');
-
-        if ($user && $user->isTecnico()) {
-            $query->where(function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                    ->orWhere('tipo_evento', 'visita');
-            });
+        if ($user && ! $user->temPermissao('notificacoes.ver')) {
+            return response()->json([
+                'sucesso' => true,
+                'total' => 0,
+                'notificacoes' => [],
+            ]);
         }
 
-        $notificacoes = $query->take(10)->get();
+        $notificacoes = NotificacaoAgendamento::paraUsuario($user)
+            ->where('enviada_so', false)
+            ->where('created_at', '>=', now()->subHours(24))
+            ->orderBy('created_at', 'asc')
+            ->take(10)
+            ->get();
 
         return response()->json([
             'sucesso' => true,
@@ -51,6 +53,12 @@ class NotificacaoAgendamentoController extends Controller
      */
     public function marcarExibida(Request $request, NotificacaoAgendamento $notificacao): JsonResponse
     {
+        $user = $request->user();
+
+        if ($user && ! $notificacao->pertenceAoUsuario($user)) {
+            abort(403, 'Acesso não autorizado a esta notificação.');
+        }
+
         $notificacao->marcarComoEnviada();
 
         return response()->json([
@@ -64,6 +72,12 @@ class NotificacaoAgendamentoController extends Controller
      */
     public function marcarLida(Request $request, NotificacaoAgendamento $notificacao): JsonResponse
     {
+        $user = $request->user();
+
+        if ($user && ! $notificacao->pertenceAoUsuario($user)) {
+            abort(403, 'Acesso não autorizado a esta notificação.');
+        }
+
         $notificacao->marcarComoLida();
 
         return response()->json([
@@ -79,19 +93,16 @@ class NotificacaoAgendamentoController extends Controller
     {
         $user = $request->user();
 
-        $query = NotificacaoAgendamento::where('lida', false);
-
-        if ($user && $user->isTecnico()) {
-            $query->where(function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                    ->orWhere('tipo_evento', 'visita');
-            });
+        if ($user && ! $user->temPermissao('notificacoes.editar')) {
+            abort(403, 'Você não tem permissão para alterar notificações.');
         }
 
-        $afetados = $query->update([
-            'lida' => true,
-            'enviada_so' => true,
-        ]);
+        $afetados = NotificacaoAgendamento::paraUsuario($user)
+            ->where('lida', false)
+            ->update([
+                'lida' => true,
+                'enviada_so' => true,
+            ]);
 
         return response()->json([
             'sucesso' => true,
@@ -106,6 +117,10 @@ class NotificacaoAgendamentoController extends Controller
     public function testar(Request $request, AgendamentoNotificacaoService $service): JsonResponse
     {
         $user = $request->user();
+
+        if ($user && ! $user->temPermissao('notificacoes.alertas_navegador') && ! $user->temPermissao('notificacoes.ver')) {
+            abort(403, 'Sem permissão para testar notificações.');
+        }
 
         $notificacao = NotificacaoAgendamento::create([
             'tipo_evento' => 'visita',

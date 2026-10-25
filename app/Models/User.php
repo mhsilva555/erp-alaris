@@ -84,6 +84,14 @@ class User extends Authenticatable
         // 3. Fallback de compatibilidade para usuários com role legado 'tecnico'
         if ($this->isTecnico()) {
             $permissoesTecnicoPadrao = [
+                'dashboard.ver',
+                'dashboard.card_visitas_hoje',
+                'dashboard.card_visitas_mes',
+                'dashboard.proximas_visitas',
+                'dashboard.historico_visitas',
+                'notificacoes.ver',
+                'notificacoes.editar',
+                'notificacoes.alertas_navegador',
                 'visitas.ver',
                 'visitas.finalizar',
                 'visitas.gerar_os',

@@ -3,11 +3,11 @@
 @section('title', 'Ordens de Serviço & Visitas')
 
 @section('content')
-    <div class="space-y-4">
+    <div id="pagina-visitas-index" class="space-y-4">
         {{-- Header & Filtros --}}
         <div class="card p-4">
-            <form method="GET" action="{{ route('visitas.index') }}" class="flex flex-wrap gap-3 items-center">
-                <div class="relative grow">
+            <form method="GET" action="{{ route('visitas.index') }}" class="flex flex-wrap gap-2.5 sm:gap-3 items-center">
+                <div class="relative flex-1 min-w-[180px] sm:min-w-[220px]">
                     <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style="color: var(--color-surface-400);"
                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -16,8 +16,8 @@
                     <input type="text" name="busca" value="{{ request('busca') }}" placeholder="Buscar por cliente..."
                         class="form-input !pl-10">
                 </div>
-                <div>
-                    <select name="status" class="form-select" onchange="this.form.submit()">
+                <div class="w-full sm:w-auto min-w-[130px]">
+                    <select name="status" class="form-select w-full" onchange="this.form.submit()">
                         <option value="">Todos os status</option>
                         @foreach (\App\Models\Visita::STATUSES as $key => $label)
                             <option value="{{ $key }}" {{ request('status') === $key ? 'selected' : '' }}>
@@ -25,8 +25,8 @@
                         @endforeach
                     </select>
                 </div>
-                <div>
-                    <select name="tipo_visita" class="form-select" onchange="this.form.submit()">
+                <div class="w-full sm:w-auto min-w-[140px]">
+                    <select name="tipo_visita" class="form-select w-full" onchange="this.form.submit()">
                         <option value="">Todas as categorias...</option>
                         @foreach (\App\Models\Visita::TIPOS_VISITA as $key => $label)
                             <option value="{{ $key }}" {{ request('tipo_visita') === $key ? 'selected' : '' }}>
@@ -34,9 +34,14 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="flex items-center gap-2">
-                    <input type="date" name="data" value="{{ request('data') }}" class="form-input w-full"
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <input type="date" name="data" value="{{ request('data') }}" class="form-input flex-1 sm:w-auto text-xs sm:text-sm"
                         onchange="this.form.submit()">
+                    @if (request()->hasAny(['busca', 'status', 'tipo_visita', 'data']))
+                        <a href="{{ route('visitas.index') }}" class="btn btn-outline btn-sm py-2 px-2.5 text-xs shrink-0" title="Limpar todos os filtros">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </a>
+                    @endif
                     @permissao('visitas.criar')
                     <a href="{{ route('visitas.create') }}" class="btn btn-primary shrink-0">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

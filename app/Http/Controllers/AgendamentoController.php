@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Cliente;
 use App\Models\EquipamentoComodato;
+use App\Models\NotificacaoAgendamento;
 use App\Models\Tecnico;
 use App\Models\Visita;
 use Carbon\Carbon;
@@ -364,7 +365,9 @@ class AgendamentoController extends Controller
 
             if ($visita->status === Visita::STATUS_CONCLUIDA) {
                 $visita->update(['status' => Visita::STATUS_CANCELADA]);
+                NotificacaoAgendamento::notificarOsCancelada($visita);
             } else {
+                NotificacaoAgendamento::notificarOsCancelada($visita);
                 $visita->delete();
             }
 
