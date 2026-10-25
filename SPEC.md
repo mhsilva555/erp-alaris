@@ -24,7 +24,10 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
    - Acesso estritamente restrito via login individual.
    - Visualização focada na sua própria escala de agendamentos e ordens de serviço designadas.
    - Lançamento de dados técnicos de execução (área tratada, produtos aplicados, doses, equipamentos instalados).
-   - **Bloqueio total de visibilidade**: Não visualiza relatórios financeiros da empresa, fluxo de caixa, custos de compra de insumos, margens de lucro ou taxas tributárias.
+   - **Bloqueio total de visibilidade e sigilo comercial**:
+     - Não visualiza relatórios financeiros da empresa, fluxo de caixa, custos de compra de insumos, margens de lucro ou taxas tributárias.
+     - Botão e rota de *"Proposta Comercial (Sigilosa)"* estritamente ocultos e bloqueados (`abort(403)`).
+     - Alerta de faturamento a receber no modal de finalização de OS rápida exibido exclusivamente para administradores.
 
 ---
 
@@ -94,6 +97,9 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
   - **Líquidos**: Compra/Armazenamento em Litros (`L`), aplicação dosada em Mililitros (`mL`).
   - **Pós / Sólidos**: Compra/Armazenamento em Quilos (`Kg`), aplicação dosada em Gramas (`g`).
   - **Unidades / Peças**: Peças (`Un`), Frascos, Blocos, Sachês.
+- **Seletores Padronizados com `<optgroup>`s**:
+  - Os campos de "Unidade Estoque" (`unidade_armazenamento`) e "Unidade Dose" (`unidade_aplicacao`) utilizam elementos `<select>` com agrupamentos por natureza para evitar digitação inconsistente.
+  - O sistema calcula e preenche automaticamente o **Fator de Conversão** (`fator_conversao`) com base na combinação selecionada (ex.: Litro -> mL = 1000; Kg -> g = 1000; Un -> Un = 1).
 - **Cálculo de Custo Proporcional**:
   - Cada produto armazena seu custo de aquisição por unidade base (`preco_custo_unitario`).
   - A aplicação em campo registra a quantidade na unidade de dose (`mL` ou `g`).
@@ -113,11 +119,15 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
   - `controle_pragas`: Foco central (Desinsetização, Desratização, Descupinização, Manejo de Pragas).
   - `limpeza`: Higienização, sanitização de ambientes, limpeza de caixas d'água e reservatórios (estruturado para expansão de linha de serviços).
 - **Agenda Geral Unificada (`/agendamentos`)**:
-  - Visão consolidada em lista/calendário integrando três fontes de eventos:
-    1. **Visitas Marcadas**: Ordens de serviço e visitas comerciais cadastradas pela assessoria.
-    2. **Manutenção de Comodato**: Datas programadas para reposição de iscas e manutenção preventiva de equipamentos.
-    3. **Follow-ups de Prospecção**: Clientes com retorno agendado (ex.: "Retornar em 3 meses", "Vencimento contrato concorrente").
-- **Filtros da Agenda**: Por período (hoje, próximos 7 dias, mês), por técnico responsável, por tipo de evento e por status.
+  - Visão consolidada em lista/calendário mensal integrando três fontes de eventos:
+    1. **Visitas e Ordens de Serviço**: Ordens de serviço e visitas cadastradas com status real (Agendada, Em andamento, Concluída).
+       - **Regra de Visibilidade para OS de Comodato**: Se o usuário logado for **Administrador**, ele não visualiza OSs vinculadas a Comodatos (`comodato_id != null`) separadamente na agenda, pois o próprio card do Evento de Comodato agrega e exibe as ordens de serviço geradas. Usuários com perfil **Técnico** visualizam normalmente as OSs atribuídas a si.
+    2. **Manutenção e Reposição de Comodato com Projeção Recorrente**: Projeção dinâmica de todos os ciclos de reposição dentro do mês selecionado com base em `data_proxima_reposicao` e `periodicidade_dias` (ex.: comodato com ciclo de 15 dias exibe tanto a âncora original quanto as recorrências subsequentes do mês com o badge `Previsto (Recorrente)`).
+    3. **Visitas Contratuais Recorrentes de Clientes Ativos**: Projeção automática de visitas para clientes com periodicidade contratual (`quinzenal`, `mensal`, `bimestral`, `trimestral`, `semestral`, `anual`) quando ainda não há OS física criada para aquele ciclo, com botão direto `Agendar OS` que pré-preenche o cliente e a data estimada. Ao criar a OS real, o item projetado é substituído imediatamente pela OS física correspondente.
+    4. **Follow-ups de Prospecção**: Clientes com retorno agendado (ex.: "Retornar em 3 meses", "Vencimento contrato concorrente").
+- **Filtros e Ações da Agenda**:
+  - Filtro por mês/ano, categoria de evento (Todos, Visitas, Comodatos, Follow-ups) e técnico responsável.
+  - Botão de remoção individual de eventos e agendamento rápido de recorrências.
 
 ### 2.6. Módulo de Orçamentos e Propostas (Visão do Cliente)
 - **Regra de Ouro — Sigilo de Custos Internos**:
@@ -126,13 +136,15 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
     - **Ocultação Mandatória**: Quantidades exatas de mL ou gramas aplicados, nomes técnicos de defensivos se configurado em sigilo, custos proporcionais de insumos, valor da diária do técnico, custos de transporte e margem de lucro.
   - Os custos internos ficam disponíveis exclusivamente no painel administrativo para os usuários com papel `admin`.
 
-### 2.7. Módulo Financeiro, Formação de Preço e Fluxo de Caixa
+### 2.7. Módulo Financeiro, Formação de Preço, DRE e Fluxo de Caixa
 - **Formação de Preço da Visita / OS**:
-  - A visita possui uma estrutura detalhada de custos diretos:
-    - **Custo de Produtos**: Somatório automático do custo proporcional de todos os insumos aplicados.
-    - **Mão de Obra / Diária do Técnico**: Custo da diária ou valor fixo por serviço (ex.: R$ 50,00).
-    - **Custos de Deslocamento**: Combustível, pedágio ou taxa de transporte.
-    - **Subtotal de Custos Operacionais**: $\text{Custo Operacional} = \text{Produtos} + \text{Mão de Obra} + \text{Deslocamento}$.
+  - A visita possui uma estrutura detalhada de custos diretos operacionais:
+    - **Custo de Produtos**: Somatório automático do custo proporcional de todos os defensivos aplicados.
+    - **Mão de Obra / Diária do Técnico**: Remuneração da diária técnica padrão ou personalizada por visita (garantida inclusive quando a OS é aberta a partir de um comodato).
+    - **Deslocamento / Transporte (`custo_deslocamento`)**: Custo com combustível, pedágio ou taxa de transporte da equipe.
+    - **Gastos Adicionais (`gastos_adicionais`)**: Despesas imprevistas ocorridas na execução de campo (ex.: compra de conectores extras, estacionamento) com justificativa (`motivo_gastos_adicionais`).
+    - **Subtotal de Custos Operacionais**:
+      $$\text{Custo Operacional} = \text{Produtos} + \text{Mão de Obra} + \text{Deslocamento} + \text{Gastos Adicionais}$$
 - **Impostos e Alíquota de Nota Fiscal**:
   - Campo booleano: `exige_nota_fiscal` (`true`/`false`).
   - Se marcado como `true`, o sistema aplica o acréscimo percentual configurável de impostos (ex.: 12% a 14%):
@@ -141,12 +153,23 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
   - *Nota*: Nesta fase, o sistema não realiza emissão de NFS-e junto à prefeitura/SEFAZ; a rotina é estritamente de controle gerencial e cálculo de margens.
 - **Margem e Lucro Bruto por Visita**:
   $$\text{Lucro Bruto da OS} = \text{Valor Cobrado} - (\text{Custo Operacional} + \text{Impostos})$$
-- **Fluxo de Caixa (Contas a Pagar e Receber)**:
-  - Registro de **Entradas** (faturamento das visitas/contratos) e **Saídas** (compra de estoque, pagamentos de técnicos, custos fixos, manutenção).
-  - Status das movimentações: `pendente`, `pago`, `cancelado`.
-- **Relatórios Gerenciais**:
-  - Relatório semanal e mensal consolidado:
-    $$\text{Lucro Líquido Operacional} = \sum \text{Faturamento Recebido} - \sum (\text{Produtos} + \text{Mão de Obra} + \text{Deslocamento} + \text{Impostos} + \text{Despesas Gerais})$$
+- **Sincronização Atômica entre OS e Fluxo de Caixa (`sincronizarMovimentacoesFinanceiras`)**:
+  - Ao criar, editar ou finalizar uma OS concluída:
+    1. A movimentação de faturamento (receita) é criada ou atualizada com `data_competencia` idêntica à data de execução da OS (`$visita->data_hora->toDateString()`), prevenindo descasamento entre o mês da OS e o fluxo financeiro.
+    2. A movimentação de diária técnica e de gastos adicionais é criada ou atualizada sem duplicar registros a cada edição.
+    3. Ao cancelar uma OS, lançamentos pendentes são expurgados do fluxo para manter previsões limpas.
+    4. Ao excluir uma OS, as movimentações financeiras atreladas são deletadas em transação atômica (`DB::transaction`), evitando registros órfãos que poluiriam despesas fixas gerais da empresa.
+- **Painel de Auditoria & Conciliação Cruzada: DRE vs Fluxo de Caixa**:
+  - No Relatório de Lucro Bruto (`/financeiro/relatorios`), painel executivo confronta:
+    - **Faturamento OS (Competência DRE)** vs **Recebido Efetivo no Caixa** vs **Pendente no Contas a Receber**.
+    - **Taxa de Liquidação da Receita (%)**.
+    - **Diárias Técnicas Apuradas vs Pagas vs Pendentes**.
+    - **Status de Recebimento por OS**: Coluna na tabela de OS indicando se cada serviço foi `Recebido`, está `A Receber`, `Isento` ou `Cancelado`.
+  - No Fluxo de Caixa (`/financeiro`), banner superior exibe o resumo de alinhamento de OSs concluídas do mês e botão de atalho direto para auditar o DRE do mesmo período.
+- **Exportação do Relatório Gerencial em PDF no Backend**:
+  - Rota `GET /financeiro/relatorios/pdf` (`financeiro.relatorio.pdf`) gera documento corporativo em formato A4 Paisagem via DomPDF, contendo cabeçalho Alaris Service, KPIs, painel de conciliação e tabela detalhada de OSs.
+- **Seletor de Data Amigável (`<x-month-picker>`)**:
+  - Componente Blade reaproveitável com navegação facilitada mês anterior/próximo e trigger automático para atualização do relatório e fluxo de caixa.
 
 ### 2.8. Módulo de Notificações, Monitoramento em Tempo Real & Cron
 - **Monitoramento Automático Minuto a Minuto**:
@@ -279,12 +302,13 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `observacoes` | TEXT | Sim | NULL | Localização dos pontos na planta do cliente |
 | `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
 
-### 3.6. Tabela `visitas`
+### 3.8. Tabela `visitas`
 | Coluna | Tipo | Nulo | Default | Descrição |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único |
 | `cliente_id` | BIGINT UNSIGNED | Não | - | FK -> `clientes.id` (cascade) |
 | `tecnico_id` | BIGINT UNSIGNED | Sim | NULL | FK -> `tecnicos.id` |
+| `comodato_id` | BIGINT UNSIGNED | Sim | NULL | FK -> `equipamentos_comodato.id` (null on delete) |
 | `data_hora` | DATETIME | Não | - | Horário agendado |
 | `status` | VARCHAR(20) | Não | `'agendada'` | `agendada`, `em_andamento`, `concluida`, `cancelada` |
 | `tipo_visita` | VARCHAR(30) | Não | `'execucao'` | `comercial`, `tecnica`, `demonstracao`, `execucao` |
@@ -305,7 +329,7 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `observacoes` | TEXT | Sim | NULL | Observações de campo |
 | `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
 
-### 3.7. Tabela `visita_produto` (Pivot com Custo Fracionado)
+### 3.9. Tabela `visita_produto` (Pivot com Custo Fracionado)
 | Coluna | Tipo | Nulo | Default | Descrição |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único |
@@ -314,7 +338,7 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `quantidade_aplicada`| DECIMAL(10,2)| Não | - | Dose utilizada na unidade de aplicação (ex.: 25 mL) |
 | `custo_proporcional` | DECIMAL(10,2)| Não | `0.00` | Custo calculado da dose aplicada |
 
-### 3.8. Tabela `movimentacoes_financeiras` (Fluxo de Caixa)
+### 3.10. Tabela `movimentacoes_financeiras` (Fluxo de Caixa)
 | Coluna | Tipo | Nulo | Default | Descrição |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador da movimentação |
@@ -328,7 +352,7 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `status` | VARCHAR(20) | Não | `'pendente'` | `'pendente'`, `'pago'`, `'cancelado'` |
 | `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
 
-### 3.9. Tabela `configuracoes`
+### 3.11. Tabela `configuracoes`
 | Coluna | Tipo | Nulo | Default | Descrição |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador |
@@ -337,7 +361,7 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `descricao` | VARCHAR(255) | Sim | NULL | Explicação do parâmetro |
 | `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
 
-### 3.10. Tabela `notificacoes_agendamentos`
+### 3.12. Tabela `notificacoes_agendamentos`
 | Coluna | Tipo | Nulo | Default | Descrição |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único da notificação |
@@ -379,7 +403,8 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `GET` | `/visitas/{visita}/proposta`| `visitas.proposta`| `VisitaController@propostaCliente` | Admin / Comercial (visão sem custos internos) |
 | `GET` | `/financeiro/fluxo-caixa` | `financeiro.fluxo` | `FinanceiroController@index` | Admin |
 | `POST` | `/financeiro/movimentacoes`| `financeiro.store` | `FinanceiroController@store` | Admin |
-| `GET` | `/financeiro/relatorios` | `financeiro.relatorio`| `FinanceiroController@relatorio` | Admin (DRE e Lucro Bruto) |
+| `GET` | `/financeiro/relatorios` | `financeiro.relatorio`| `FinanceiroController@relatorio` | Admin (DRE e Lucro Bruto Web) |
+| `GET` | `/financeiro/relatorios/pdf` | `financeiro.relatorio.pdf` | `FinanceiroController@relatorioPdf` | Admin (Relatório em PDF gerado no Backend) |
 | `GET` | `/configuracoes` | `configuracoes.index` | `ConfiguracaoController@index` | Admin |
 | `PUT` | `/configuracoes` | `configuracoes.update`| `ConfiguracaoController@update` | Admin |
 | `GET` | `/perfil` | `perfil.edit` | `ProfileController@edit` | Autenticado |

@@ -14,6 +14,31 @@ class Produto extends Model
 
     public const NATUREZA_UNIDADE = 'unidade';
 
+    public const UNIDADES_ARMAZENAMENTO = [
+        'L' => 'L (Litro)',
+        'mL' => 'mL (Mililitro)',
+        'Gal' => 'Gal (Galão)',
+        'Bombona' => 'Bombona',
+        'Frasco' => 'Frasco',
+        'Kg' => 'Kg (Quilograma)',
+        'g' => 'g (Grama)',
+        'Un' => 'Un (Unidade)',
+        'Cx' => 'Cx (Caixa)',
+        'Pct' => 'Pct (Pacote)',
+    ];
+
+    public const UNIDADES_APLICACAO = [
+        'mL' => 'mL (Mililitro)',
+        'L' => 'L (Litro)',
+        'g' => 'g (Grama)',
+        'Kg' => 'Kg (Quilograma)',
+        'Un' => 'Un (Unidade)',
+        'Dose' => 'Dose',
+        'Sachê' => 'Sachê',
+        'Pastilha' => 'Pastilha',
+        'Bloco' => 'Bloco',
+    ];
+
     protected $fillable = [
         'nome',
         'natureza',

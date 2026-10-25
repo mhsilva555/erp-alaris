@@ -36,8 +36,14 @@ This skill documents the core domain logic, data models, and business operations
    - Method: `calcularCustoDose(float $dose): float` -> `($dose / $this->fator_conversao) * $this->preco_custo_unitario`.
 
 5. **Visita (`App\Models\Visita`)**:
-   - Fields: `cliente_id`, `tecnico_id`, `data_hora`, `status` (`agendada`, `em_andamento`, `concluida`, `cancelada`), `tipo_visita` (`comercial`, `tecnica`, `demonstracao`, `execucao`), `tipo_servico` (`controle_pragas`, `limpeza`), `tipo_praga`, `area_tratada`, `proxima_visita`, `valor_cobrado`, `custo_produtos`, `custo_mao_de_obra`, `custo_deslocamento`, `exige_nota_fiscal`, `percentual_imposto`, `valor_imposto`, `lucro_bruto`, `observacoes`.
-   - Relationships: `belongsTo(Cliente::class)`, `belongsTo(Tecnico::class)`, `belongsToMany(Produto::class, 'visita_produto')->withPivot('quantidade_aplicada', 'custo_proporcional')`.
+   - Fields: `cliente_id`, `comodato_id`, `tecnico_id`, `data_hora`, `status` (`agendada`, `em_andamento`, `concluida`, `cancelada`), `tipo_visita` (`comercial`, `tecnica`, `demonstracao`, `execucao`), `tipo_servico` (`controle_pragas`, `limpeza`), `tipo_praga`, `area_tratada`, `proxima_visita`, `valor_cobrado`, `custo_produtos`, `custo_mao_de_obra`, `custo_deslocamento`, `gastos_adicionais`, `motivo_gastos_adicionais`, `exige_nota_fiscal`, `percentual_imposto`, `valor_imposto`, `lucro_bruto`, `observacoes`.
+   - Relationships: `belongsTo(Cliente::class)`, `belongsTo(EquipamentoComodato::class, 'comodato_id')`, `belongsTo(Tecnico::class)`, `belongsToMany(Produto::class, 'visita_produto')->withPivot('quantidade', 'custo_proporcional')`, `hasMany(MovimentacaoFinanceira::class)`.
+   - Methods:
+     - `statusRecebimento(): string` -> returns `'pago'`, `'pendente'`, `'isento'`, `'cancelado'`.
+     - `movimentacaoReceita(): ?MovimentacaoFinanceira` -> returns revenue ledger row.
+     - `movimentacaoDiaria(): ?MovimentacaoFinanceira` -> returns technician daily fee ledger row.
+     - `custoOperacionalTotal(): float` -> sum of products, labor, transit and additional expenses.
+     - `margemPercentual(): float` -> `($lucro_bruto / $valor_cobrado) * 100`.
 
 6. **MovimentacaoFinanceira (`App\Models\MovimentacaoFinanceira`)**:
    - Cash flow ledger entries: revenues and operational expenses.
@@ -76,42 +82,38 @@ DB::transaction(function () use ($visita, $validated, $statusAnterior) {
     // Costing calculations
     $custoMaoDeObra = (float) ($validated['custo_mao_de_obra'] ?? 50.00);
     $custoDeslocamento = (float) ($validated['custo_deslocamento'] ?? 0.00);
+    $gastosAdicionais = (float) ($validated['gastos_adicionais'] ?? 0.00);
     $valorCobrado = (float) ($validated['valor_cobrado'] ?? 0.00);
     $exigeNf = (bool) ($validated['exige_nota_fiscal'] ?? false);
     
     $percentualImposto = $exigeNf ? (float) config('alaris.aliquota_imposto', 14.00) : 0.00;
     $valorImposto = $valorCobrado * ($percentualImposto / 100);
-    $custoTotal = $custoProdutos + $custoMaoDeObra + $custoDeslocamento;
+    $custoTotal = $custoProdutos + $custoMaoDeObra + $custoDeslocamento + $gastosAdicionais;
     $lucroBruto = $valorCobrado - ($custoTotal + $valorImposto);
 
     $visita->update(array_merge($validated, [
-        'custo_produtos'     => $custoProdutos,
-        'custo_mao_de_obra'  => $custoMaoDeObra,
-        'custo_deslocamento' => $custoDeslocamento,
-        'percentual_imposto' => $percentualImposto,
-        'valor_imposto'      => $valorImposto,
-        'lucro_bruto'        => $lucroBruto,
+        'custo_produtos'           => $custoProdutos,
+        'custo_mao_de_obra'        => $custoMaoDeObra,
+        'custo_deslocamento'       => $custoDeslocamento,
+        'gastos_adicionais'        => $gastosAdicionais,
+        'motivo_gastos_adicionais' => $validated['motivo_gastos_adicionais'] ?? null,
+        'percentual_imposto'       => $percentualImposto,
+        'valor_imposto'            => $valorImposto,
+        'lucro_bruto'              => $lucroBruto,
     ]));
 
     // Atomic stock deduction when transitioning to concluida
     if ($statusAnterior !== Visita::STATUS_CONCLUIDA && $visita->status === Visita::STATUS_CONCLUIDA) {
         $visita->load('produtos');
         foreach ($visita->produtos as $prod) {
-            $fracaoBaixa = $prod->pivot->quantidade_aplicada / $prod->fator_conversao;
+            $fracaoBaixa = $prod->pivot->quantidade / $prod->fator_conversao;
             $prod->decrement('quantidade_estoque', $fracaoBaixa);
         }
-
-        // Register accounts receivable
-        MovimentacaoFinanceira::create([
-            'visita_id'        => $visita->id,
-            'tipo'             => 'receita',
-            'categoria'        => 'faturamento_servico',
-            'descricao'        => "Serviço OS #{$visita->id} - {$visita->cliente->nome}",
-            'valor'            => $visita->valor_cobrado,
-            'data_competencia' => now()->toDateString(),
-            'status'           => 'pendente',
-        ]);
     }
+
+    // Atomic cash flow synchronization (store, update, and finalize)
+    // Synchronizes Revenue, Daily fee, and Extra expenses with data_competencia = data_hora
+    $this->sincronizarMovimentacoesFinanceiras($visita);
 });
 ```
 

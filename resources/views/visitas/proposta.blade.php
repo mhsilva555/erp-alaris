@@ -197,7 +197,7 @@
 
         .pricing-amount {
             font-size: 28px;
-            font-weight: 800;
+            font-weight: 700;
             color: #065f46;
             letter-spacing: -0.5px;
         }

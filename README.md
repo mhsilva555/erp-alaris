@@ -23,6 +23,7 @@ O **ERP Alaris** (anteriormente Biosp) é uma plataforma desenvolvida para empre
 
 ### 3. Estoque e Conversão Fracionada
 - **Múltiplas Naturezas de Produto**: Suporte a Líquidos (`L` / `mL`), Pós/Sólidos (`Kg` / `g`) e Unidades (`Un`, Frascos, Blocos).
+- **Seletores Padronizados com `<optgroup>`s**: Seleção assistida por dropdown impedindo preenchimento inconsistente e calculando automaticamente o fator de conversão fracionário.
 - **Cálculo de Custo Proporcional**: Apuração exata do custo por dose aplicada (ex.: frasco de 1.000 mL com custo de R$ 100 -> dose de 20 mL gera custo proporcional de R$ 2,00).
 - **Baixa Automática Atômica**: Ao concluir uma OS, o estoque é debitado com conversão precisa da fração utilizada.
 
@@ -30,19 +31,21 @@ O **ERP Alaris** (anteriormente Biosp) é uma plataforma desenvolvida para empre
 - **Categorização de Visitas**: Visita Comercial, Visita Técnica, Demonstração ou Execução de Serviço.
 - **Linhas de Serviço**: Controle de Pragas (foco atual) e estrutura preparada para expansão em Limpeza e Sanitização.
 - **Agenda Geral Unificada**: Ponto de controle integrando visitas marcadas, reposições de comodato e follow-ups de prospecção.
+  - *Regra de Exibição de Comodato*: Administradores visualizam o comodato consolidado (ocultando OSs de comodato avulsas); técnicos visualizam normalmente suas OSs atribuídas.
 - **Proposta Comercial com Sigilo de Custos**:
   - Na visualização ou PDF para o cliente, são exibidos **apenas o Serviço Prestado e o Valor Final**.
-  - Informações de dosagem (mL), custos de insumos, diárias técnicas e margens de lucro permanecem estritamente restritas ao painel administrativo.
+  - Informações de dosagem (mL), custos de insumos, diárias técnicas e margens de lucro permanecem estritamente restritas ao painel administrativo. Botão bloqueado para técnicos (`abort(403)`).
 
-### 5. Financeiro, Formação de Preço e Fluxo de Caixa
-- **Formação de Preço por OS**: Custo proporcional de produtos + mão de obra/diária do técnico + custos de deslocamento.
-- **Impostos e Nota Fiscal**: Seletor *"Exige Nota Fiscal? (Sim/Não)"* com acréscimo percentual configurável de impostos nas margens.
-- **Fluxo de Caixa**: Contas a pagar e receber para receitas de serviços e despesas operacionais da empresa.
-- **Relatório de Lucro Bruto**: Demonstrativo consolidado (semanal e mensal) comparando Total Faturado vs Custos Totais.
+### 5. Financeiro, Formação de Preço, DRE e Fluxo de Caixa
+- **Formação de Preço por OS**: Custo proporcional de produtos + mão de obra/diária do técnico + custos de deslocamento + gastos adicionais imprevistos com justificativa.
+- **Sincronização Atômica Contínua**: Espelhamento automático de receitas, diárias e despesas no Caixa com data de competência da OS (`$visita->data_hora`), sem duplicidades em edições e com expurgo de pendências em cancelamentos.
+- **Conciliação Cruzada DRE x Caixa**: Painel executivo confrontando Faturamento Apurado (Competência) vs Recebido Efetivo (Caixa) vs Pendente (A Receber), taxas de liquidação e coluna de status de recebimento por OS.
+- **Exportação em PDF no Backend**: Geração de relatório gerencial completo em PDF A4 Paisagem via DomPDF.
+- **Seletor de Data Amigável**: Componente `<x-month-picker>` com navegação mês a mês e trigger instantâneo.
 
 ### 6. Perfis de Acesso e Segurança (ACL)
 - **Papel Administrador (`admin`)**: Visão irrestrita de faturamento, margens, DRE e configurações globais.
-- **Papel Técnico (`tecnico`)**: Acesso focado exclusivamente à sua própria agenda de trabalho e ordens de serviço, sem visibilidade de dados financeiros da empresa.
+- **Papel Técnico (`tecnico`)**: Acesso focado exclusivamente à sua própria agenda de trabalho e ordens de serviço, sem visibilidade de dados financeiros da empresa ou avisos de faturamento.
 
 ---
 
@@ -60,7 +63,7 @@ O **ERP Alaris** (anteriormente Biosp) é uma plataforma desenvolvida para empre
 
 | Documento | Descrição |
 | :--- | :--- |
-| **[SPEC.md](./SPEC.md)** | Especificação técnica e funcional completa, dicionário de dados de 9 tabelas e matriz de rotas |
+| **[SPEC.md](./SPEC.md)** | Especificação técnica e funcional completa, dicionário de dados de 12 tabelas e matriz de rotas |
 | **[ARCHITECTURE.md](./ARCHITECTURE.md)** | Diagrama ERD expandido, fluxos de conversão fracionada, comodato e sigilo comercial |
 | **[AGENTS.md](./AGENTS.md)** | Diretrizes operacionais, regras críticas invariantes e convenções para agentes de IA |
 | **[Skill: alaris-domain](./.agents/skills/alaris-domain/SKILL.md)** | Regras de negócio, modelos Eloquent, transações de estoque e rotinas de comodato |

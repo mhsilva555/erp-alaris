@@ -53,7 +53,9 @@
                         <tr class="animate-fadeIn">
                             <td>
                                 <div class="flex items-center gap-2">
-                                    <span class="font-medium text-white">{{ $c->nome_equipamento }}</span>
+                                    <a href="{{ route('comodatos.show', $c) }}" class="font-medium text-white hover:underline hover:text-primary-400 transition">
+                                        {{ $c->nome_equipamento }}
+                                    </a>
                                     @if($c->equipamento)
                                         <span class="badge badge-neutral text-[10px]">{{ $c->equipamento->tipo_formatado }}</span>
                                     @endif
@@ -113,13 +115,25 @@
                             </td>
                             <td class="text-right">
                                 <div class="flex items-center justify-end gap-1">
-                                    <form action="{{ route('comodatos.reposicao', $c) }}" method="POST" class="inline">
-                                        @csrf
-                                        <button type="submit" class="btn btn-secondary btn-sm text-xs"
-                                            title="Registrar que as iscas/equipamentos foram repostos hoje">
-                                            ✓ Repor
-                                        </button>
-                                    </form>
+                                    <a href="{{ route('visitas.create', [
+                                        'cliente_id' => $c->cliente_id,
+                                        'comodato_id' => $c->id,
+                                        'tipo_visita' => 'execucao',
+                                        'tipo_servico' => 'controle_pragas',
+                                        'data' => $c->data_proxima_reposicao ? $c->data_proxima_reposicao->format('Y-m-d\T09:00') : now()->format('Y-m-d\T09:00'),
+                                        'observacoes' => "Reposição de comodato: {$c->nome_equipamento} ({$c->quantidade} un)",
+                                    ]) }}" class="btn btn-primary btn-sm text-xs" title="Agendar Ordem de Serviço de Reposição">
+                                        + OS
+                                    </a>
+                                    <a href="{{ route('comodatos.show', $c) }}" class="btn btn-secondary btn-sm"
+                                        title="Ver Detalhes do Comodato">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </a>
                                     <a href="{{ route('comodatos.edit', $c) }}" class="btn btn-secondary btn-sm"
                                         title="Editar">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

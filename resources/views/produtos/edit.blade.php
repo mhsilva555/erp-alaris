@@ -23,22 +23,67 @@
                     </select>
                 </div>
 
+                @php
+                    $unArmVal = old('unidade_armazenamento', $produto->unidade_armazenamento ?? $produto->unidade ?? 'L');
+                    $unAplVal = old('unidade_aplicacao', $produto->unidade_aplicacao ?? 'mL');
+                    $unidadesPadraoArm = ['L', 'mL', 'Gal', 'Bombona', 'Frasco', 'Kg', 'g', 'Un', 'Cx', 'Pct'];
+                    $unidadesPadraoApl = ['mL', 'L', 'g', 'Kg', 'Un', 'Dose', 'Sachê', 'Pastilha', 'Bloco'];
+                @endphp
                 <div>
                     <label class="form-label" for="unidade_armazenamento">Unidade Estoque *</label>
-                    <input type="text" id="unidade_armazenamento" name="unidade_armazenamento" value="{{ old('unidade_armazenamento', $produto->unidade_armazenamento ?? $produto->unidade) }}" class="form-input" required>
+                    <select id="unidade_armazenamento" name="unidade_armazenamento" class="form-select" required onchange="sugerirFatorConversao()">
+                        <optgroup label="Líquidos">
+                            <option value="L" {{ $unArmVal === 'L' ? 'selected' : '' }}>L (Litro)</option>
+                            <option value="mL" {{ $unArmVal === 'mL' ? 'selected' : '' }}>mL (Mililitro)</option>
+                            <option value="Gal" {{ $unArmVal === 'Gal' ? 'selected' : '' }}>Gal (Galão)</option>
+                            <option value="Bombona" {{ $unArmVal === 'Bombona' ? 'selected' : '' }}>Bombona</option>
+                            <option value="Frasco" {{ $unArmVal === 'Frasco' ? 'selected' : '' }}>Frasco</option>
+                        </optgroup>
+                        <optgroup label="Sólidos / Pós">
+                            <option value="Kg" {{ $unArmVal === 'Kg' ? 'selected' : '' }}>Kg (Quilograma)</option>
+                            <option value="g" {{ $unArmVal === 'g' ? 'selected' : '' }}>g (Grama)</option>
+                        </optgroup>
+                        <optgroup label="Contáveis / Embalagens">
+                            <option value="Un" {{ $unArmVal === 'Un' ? 'selected' : '' }}>Un (Unidade)</option>
+                            <option value="Cx" {{ $unArmVal === 'Cx' ? 'selected' : '' }}>Cx (Caixa)</option>
+                            <option value="Pct" {{ $unArmVal === 'Pct' ? 'selected' : '' }}>Pct (Pacote)</option>
+                        </optgroup>
+                        @if (!in_array($unArmVal, $unidadesPadraoArm) && !empty($unArmVal))
+                            <option value="{{ $unArmVal }}" selected>{{ $unArmVal }}</option>
+                        @endif
+                    </select>
                 </div>
 
                 <div>
                     <label class="form-label" for="unidade_aplicacao">Unidade Dose (Uso) *</label>
-                    <input type="text" id="unidade_aplicacao" name="unidade_aplicacao" value="{{ old('unidade_aplicacao', $produto->unidade_aplicacao ?? 'mL') }}" class="form-input" required>
+                    <select id="unidade_aplicacao" name="unidade_aplicacao" class="form-select" required onchange="sugerirFatorConversao()">
+                        <optgroup label="Líquidos">
+                            <option value="mL" {{ $unAplVal === 'mL' ? 'selected' : '' }}>mL (Mililitro)</option>
+                            <option value="L" {{ $unAplVal === 'L' ? 'selected' : '' }}>L (Litro)</option>
+                        </optgroup>
+                        <optgroup label="Sólidos">
+                            <option value="g" {{ $unAplVal === 'g' ? 'selected' : '' }}>g (Grama)</option>
+                            <option value="Kg" {{ $unAplVal === 'Kg' ? 'selected' : '' }}>Kg (Quilograma)</option>
+                        </optgroup>
+                        <optgroup label="Contáveis / Doses">
+                            <option value="Un" {{ $unAplVal === 'Un' ? 'selected' : '' }}>Un (Unidade)</option>
+                            <option value="Dose" {{ $unAplVal === 'Dose' ? 'selected' : '' }}>Dose</option>
+                            <option value="Sachê" {{ $unAplVal === 'Sachê' ? 'selected' : '' }}>Sachê</option>
+                            <option value="Pastilha" {{ $unAplVal === 'Pastilha' ? 'selected' : '' }}>Pastilha</option>
+                            <option value="Bloco" {{ $unAplVal === 'Bloco' ? 'selected' : '' }}>Bloco</option>
+                        </optgroup>
+                        @if (!in_array($unAplVal, $unidadesPadraoApl) && !empty($unAplVal))
+                            <option value="{{ $unAplVal }}" selected>{{ $unAplVal }}</option>
+                        @endif
+                    </select>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="form-label" for="fator_conversao">Fator de Conversão *</label>
-                    <input type="number" id="fator_conversao" name="fator_conversao" value="{{ old('fator_conversao', $produto->fator_conversao ?? 1000) }}" step="0.0001" min="0.0001" class="form-input" required>
-                    <p class="text-[11px] mt-1" style="color: var(--color-surface-400);">Quantidade de doses por 1 unidade de estoque.</p>
+                    <input type="number" id="fator_conversao" name="fator_conversao" value="{{ old('fator_conversao', $produto->fator_conversao ?? 1000) }}" step="0.0001" min="0.0001" class="form-input" required oninput="atualizarAjudaFator()">
+                    <p id="fator_help" class="text-[11px] mt-1" style="color: var(--color-surface-400);">Quantidade de doses por 1 unidade de estoque.</p>
                 </div>
 
                 <div>
@@ -94,6 +139,36 @@ function ajustarNatureza(natureza) {
         unArm.value = 'Un';
         unApl.value = 'Un';
         fator.value = '1';
+    }
+    atualizarAjudaFator();
+}
+
+function sugerirFatorConversao() {
+    const unArm = document.getElementById('unidade_armazenamento').value;
+    const unApl = document.getElementById('unidade_aplicacao').value;
+    const fator = document.getElementById('fator_conversao');
+
+    if (unArm === 'L' && unApl === 'mL') {
+        fator.value = '1000';
+    } else if (unArm === 'Kg' && unApl === 'g') {
+        fator.value = '1000';
+    } else if (unArm === unApl) {
+        fator.value = '1';
+    } else if (unArm === 'Gal' && unApl === 'L') {
+        fator.value = '5';
+    } else if (unArm === 'Gal' && unApl === 'mL') {
+        fator.value = '5000';
+    }
+    atualizarAjudaFator();
+}
+
+function atualizarAjudaFator() {
+    const unArm = document.getElementById('unidade_armazenamento').value;
+    const unApl = document.getElementById('unidade_aplicacao').value;
+    const fator = document.getElementById('fator_conversao').value;
+    const help = document.getElementById('fator_help');
+    if (help) {
+        help.textContent = `Quantidade de doses por 1 ${unArm} (Ex: 1 ${unArm} = ${fator || 1000} ${unApl}).`;
     }
 }
 </script>

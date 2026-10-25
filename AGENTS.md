@@ -37,15 +37,17 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 
 ## 3. Regras de Negócio Críticas (Invariantes)
 
-### 3.1. Sigilo Comercial Absoluto na Visão do Cliente
+### 3.1. Sigilo Comercial Absoluto na Visão do Cliente e Técnicos
 > [!IMPORTANT]
-> **Regra de Ouro da Proposta Comercial**:
+> **Regra de Ouro da Proposta Comercial & Sigilo Interno**:
 > - Em propostas comerciais, orçamentos e visualizações geradas para o cliente (impressão ou tela), **devem constar apenas o Serviço Prestado e o Valor Final**.
-> - **NUNCA exibir para o cliente externo**:
+> - **NUNCA exibir para o cliente externo ou para técnicos de campo**:
 >   - Quantidades exatas fracionadas de defensivos químicos (ex.: mL ou gramas).
 >   - Preço de custo de compra dos insumos.
 >   - Valor da diária do técnico ou custos de transporte/deslocamento.
 >   - Margem de lucro ou taxas de impostos.
+>   - Aviso de faturamento de contas a receber no modal de finalização de OS (restrito a `admin`).
+> - O botão e a rota de *"Proposta Comercial (Sigilosa)"* são estritamente bloqueados para usuários com papel `tecnico` (`abort(403)`).
 > - Essas informações de custo compõem a inteligência interna do ERP e são visíveis **exclusivamente no painel administrativo** por usuários com perfil `admin`.
 
 ### 3.2. Ciclo de Vida da Visita, Conversão Fracionada e Baixa de Estoque
@@ -60,19 +62,31 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 - A cada reposição registrada, a `data_proxima_reposicao` é recalculada: $\text{data\_proxima} = \text{data\_reposicao} + \text{periodicidade\_dias}$.
 - Equipamentos cuja data de próxima reposição seja $\le \text{now}() + 48\text{h}$ geram alertas e aparecem destacados na **Agenda Geral Unificada**.
 
-### 3.4. Agenda Geral Unificada
+### 3.4. Agenda Geral Unificada e Regra de Visibilidade de Comodato
 - O módulo de agendamentos (`/agendamentos`) consolida três pilares:
   1. **Ordens de Serviço e Visitas Técnicas/Comerciais**.
   2. **Vencimentos de Reposição de Comodato**.
   3. **Follow-ups de Clientes em Prospecção** (clientes com status "Retornar em 3 meses" ou "Vencimento contrato concorrente").
+- **Regra de Visibilidade de OS de Comodato**:
+  - Se o usuário for **Administrador (`admin`)**, ele não visualiza Ordens de Serviço vinculadas a Comodatos separadamente na agenda, pois o próprio Evento de Comodato já agrega as ordens geradas.
+  - Se o usuário for **Técnico (`tecnico`)**, visualiza normalmente suas OSs na sua agenda de trabalho.
 
-### 3.5. Formação de Preço, Impostos e Nota Fiscal
-- Cada Ordem de Serviço possui uma aba de apuração financeira:
-  - $\text{Custo Operacional} = \text{Custo Insumos} + \text{Mão de Obra/Diária} + \text{Deslocamento}$.
-  - Se `exige_nota_fiscal === true`, calcula acréscimo percentual configurável (ex.: 12% a 14%):
+### 3.5. Formação de Preço, DRE e Sincronização com Fluxo de Caixa
+- Cada Ordem de Serviço possui apuração de custos diretos:
+  $$\text{Custo Operacional} = \text{Insumos} + \text{Diária Técnica} + \text{Deslocamento} + \text{Gastos Adicionais}$$
+  - $\text{Deslocamento / Transporte}$ (`custo_deslocamento`): Combustível e logística prevista.
+  - $\text{Gastos Adicionais}$ (`gastos_adicionais` + `motivo_gastos_adicionais`): Imprevistos de campo.
+  - Se `exige_nota_fiscal === true`, calcula acréscimo percentual configurável:
     $$\text{Imposto} = \text{Valor Cobrado} \times \frac{\text{Percentual Imposto}}{100}$$
   - $\text{Lucro Bruto} = \text{Valor Cobrado} - (\text{Custo Operacional} + \text{Imposto})$.
-- *Nota*: O sistema não emite NFS-e direta no SEFAZ; o recurso é de controle financeiro gerencial e cálculo de margem líquida.
+- **Invariante de Sincronização Atômica (`sincronizarMovimentacoesFinanceiras`)**:
+  - Toda criação, edição ou conclusão de OS executada com status `concluida` sincroniza seus lançamentos no Caixa:
+    1. A `data_competencia` deve espelhar obrigatoriamente a data de execução da OS (`$visita->data_hora->toDateString()`).
+    2. Edições subsequentes de valor cobrado, diária ou gastos extras devem atualizar os lançamentos existentes sem gerar duplicatas.
+    3. Ao cancelar uma OS, lançamentos pendentes são expurgados do fluxo.
+    4. Ao excluir uma OS (`destroy`), suas movimentações vinculadas devem ser excluídas em transação atômica (`DB::transaction`) antes de apagar a visita, impedindo a geração de movimentações órfãs (`visita_id = null`) que distorceriam as despesas fixas gerais da empresa.
+- **Conciliação Cruzada DRE vs Fluxo de Caixa**:
+  - O Relatório de Lucro Bruto (`/financeiro/relatorios` e PDF) expõe o confronto entre DRE Faturado (Competência), Recebido no Caixa (Pagas), Pendente (A Receber), Diárias Pagas vs Pendentes e status de recebimento por OS (`Recebido`, `A Receber`, `Isento`, `Cancelado`).
 
 ### 3.6. Segregação de Perfis (ACL)
 - Papéis definidos: `admin` (Gestor) e `tecnico` (Técnico de Campo).
@@ -102,6 +116,9 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
         ->whereDate('data_followup', '<=', $fim);
   ```
 - **Proibição**: Nunca utilizar comparações diretas de strings (`where('data', '<=', $dataStr)`) ou `whereBetween()` com strings puras em colunas que armazenam timestamp/datetime, sob risco de omitir registros no último dia do mês (ex.: 31/10).
+
+### 3.10. Padronização de Unidades de Medida em Produtos e Insumos
+- Formulários de produtos utilizam `<select>` com `<optgroup>`s pré-definidos (Líquidos: L/mL; Sólidos: Kg/g; Unidades: Un/Un) e cálculo automático do fator de conversão no frontend, impedindo entradas incorretas.
 
 ---
 

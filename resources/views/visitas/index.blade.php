@@ -6,9 +6,8 @@
     <div class="space-y-4">
         {{-- Header & Filtros --}}
         <div class="card p-4">
-            <form method="GET" action="{{ route('visitas.index') }}"
-                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-center">
-                <div class="relative sm:col-span-2">
+            <form method="GET" action="{{ route('visitas.index') }}" class="flex flex-wrap gap-3 items-center">
+                <div class="relative grow">
                     <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style="color: var(--color-surface-400);"
                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -122,17 +121,20 @@
                                         title="Imprimir Ordem de Serviço">
                                         OS
                                     </a>
-                                    <a href="{{ route('visitas.proposta', $visita) }}"
-                                        class="btn btn-secondary btn-sm text-xs text-emerald-400"
-                                        title="Proposta do Cliente (Sem custos)">
-                                        Proposta
-                                    </a>
+                                    @if (auth()->user()->isAdmin())
+                                        <a href="{{ route('visitas.proposta', $visita) }}"
+                                            class="btn btn-secondary btn-sm text-xs text-emerald-400"
+                                            title="Proposta do Cliente (Sem custos)">
+                                            Proposta
+                                        </a>
+                                    @endif
                                     @if ($visita->status !== 'concluida')
                                         <a href="{{ route('visitas.show', $visita) }}?finalizar=1"
                                             class="btn btn-secondary btn-sm text-emerald-400 hover:text-emerald-300"
                                             title="Finalizar Visita (Adicionar observação e gastos extras)">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M5 13l4 4L19 7" />
                                             </svg>
                                         </a>
                                     @endif

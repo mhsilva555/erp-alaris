@@ -149,6 +149,7 @@ erDiagram
         bigint id PK
         bigint cliente_id FK
         bigint tecnico_id FK
+        bigint comodato_id FK "nullable"
         datetime data_hora
         string status "agendada | em_andamento | concluida | cancelada"
         string tipo_visita "comercial | tecnica | demonstracao | execucao"
@@ -222,6 +223,7 @@ erDiagram
     CLIENTES ||--o{ EQUIPAMENTOS_COMODATO : "aloca (1:N)"
     CATEGORIA_EQUIPAMENTOS ||--o{ EQUIPAMENTOS : "classifica (1:N)"
     EQUIPAMENTOS ||--o{ EQUIPAMENTOS_COMODATO : "alocado_em (1:N)"
+    EQUIPAMENTOS_COMODATO ||--o{ VISITAS : "origina_os (1:N)"
     TECNICOS ||--o{ VISITAS : "executa (1:N)"
     TECNICOS ||--o| USERS : "login_vinculado (1:1)"
     PRODUTOS ||--o{ EQUIPAMENTOS_COMODATO : "reabastece (1:N)"
@@ -246,6 +248,7 @@ sequenceDiagram
     participant DB as Banco de Dados
     participant Visita as Model Visita
     participant Produto as Model Produto
+    participant Mov as Model MovimentacaoFinanceira
 
     Operador->>Controller: POST/PUT /visitas (status: concluida, produtos[])
     Controller->>Service: Calcular custos proporcionais das frações aplicadas
@@ -267,9 +270,13 @@ sequenceDiagram
         end
     end
 
-    Controller->>DB: Gerar movimentacao_financeira (Contas a Receber)
+    Controller->>Controller: sincronizarMovimentacoesFinanceiras(Visita)
+    Note over Controller,Mov: Competência idêntica à OS (data_hora->toDateString)
+    Controller->>Mov: Atualiza ou cria Receita (Faturamento OS)
+    Controller->>Mov: Atualiza ou cria Despesa (Diária do Técnico)
+    Controller->>Mov: Atualiza ou cria Despesa (Gastos Adicionais)
     Controller->>DB: Commit DB::transaction()
-    Controller-->>Operador: Sucesso com atualização de margens e estoque
+    Controller-->>Operador: Sucesso com atualização de margens, estoque e caixa
 ```
 
 ---
@@ -290,6 +297,8 @@ graph TD
 
     C --> C1[Porta-iscas com Reposição Vencendo]
     C --> C2[Cálculo: data_ultima_reposicao + periodicidade_dias]
+    C --> C3[Admin: Oculta OSs de Comodato avulsas na Agenda, pois o Comodato já as exibe]
+    C --> C4[Técnico: Visualiza normalmente suas OSs atribuídas]
 
     D --> D1[Clientes com status 'retornar_3_meses']
     D --> D2[Clientes com 'contrato_concorrente' a vencer]
@@ -382,7 +391,36 @@ graph LR
 
 ---
 
-## 4. Arquitetura Frontend: Temas, Polling e Reatividade
+### 3.6. Arquitetura de Conciliação Cruzada: DRE (Competência) vs Fluxo de Caixa (Realizado)
+
+O sistema opera um modelo de conciliação dupla em tempo real entre o resultado operacional e a liquidez do caixa:
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                   DRE — Regime de Competência (OSs)                    │
+│   • Baseado na data_hora de execução da Visita                         │
+│   • (+) Faturamento Bruto das OSs                                      │
+│   • (-) Custos Diretos (Defensivos + Diárias + Deslocamento + Extras)  │
+│   • (-) Tributos Estimados / NF                                        │
+│   • (=) Lucro Bruto Operacional das OSs                                │
+│   • (-) Despesas Gerais / Fixas Avulsas (whereNull('visita_id'))       │
+│   • (=) Resultado / Lucro Líquido Operacional Estimado                 │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │  Espelhamento Atômico Contínuo
+                                    │  sincronizarMovimentacoesFinanceiras()
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                Fluxo de Caixa — Regime de Caixa / Bancos               │
+│   • Baseado na data_competencia (= OS) e status da movimentação        │
+│   • (+) Receitas Pagas (Caixa Efetivo) vs Pendentes (A Receber)        │
+│   • (-) Despesas Pagas (Diárias/Custos) vs Pendentes (A Pagar)         │
+│   • (=) Saldo Realizado (Disponibilidade Bancária Atual)               │
+│   • (=) Saldo Projetado (Considerando todas as provisões)              │
+│   • Indicador: Taxa de Liquidação da Receita (%)                       │
+└────────────────────────────────────────────────────────────────────────┘
+---
+
+## 4. Arquitetura Frontend e Módulos JavaScript
 
 ```
 ┌──────────────────────────────────────────────────────────────┐

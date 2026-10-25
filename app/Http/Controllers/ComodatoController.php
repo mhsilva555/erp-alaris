@@ -90,6 +90,14 @@ class ComodatoController extends Controller
             ->with('sucesso', 'Equipamento em comodato registrado com sucesso.');
     }
 
+    public function show(EquipamentoComodato $comodato)
+    {
+        $comodato->load(['cliente', 'produto', 'equipamento']);
+        $visitas = $comodato->visitas()->with(['tecnico', 'produtos'])->orderByDesc('data_hora')->paginate(10);
+
+        return view('comodatos.show', compact('comodato', 'visitas'));
+    }
+
     public function edit(EquipamentoComodato $comodato)
     {
         $clientes = Cliente::orderBy('nome')->get();

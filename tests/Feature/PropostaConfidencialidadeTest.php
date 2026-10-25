@@ -74,3 +74,44 @@ test('garante a regra de ouro de sigilo comercial na proposta comercial para o c
     $response->assertDontSee('175,00'); // imposto retido
     $response->assertDontSee('14,0%');
 });
+
+test('tecnico de campo nao visualiza botao de proposta comercial e tem acesso bloqueado a rota de proposta', function () {
+    $tecnico = Tecnico::create([
+        'nome' => 'Técnico Responsável',
+        'ativo' => true,
+    ]);
+    $tecnicoUser = User::factory()->create([
+        'role' => User::ROLE_TECNICO,
+        'tecnico_id' => $tecnico->id,
+    ]);
+
+    $cliente = Cliente::create([
+        'nome' => 'Cliente Proposta Teste',
+        'cidade' => 'Campinas',
+        'estado' => 'SP',
+    ]);
+
+    $visita = Visita::create([
+        'cliente_id' => $cliente->id,
+        'tecnico_id' => $tecnico->id,
+        'data_hora' => now(),
+        'status' => 'agendada',
+        'tipo_visita' => 'execucao',
+        'tipo_servico' => 'controle_pragas',
+        'valor_cobrado' => 950.00,
+    ]);
+
+    // 1. Na tela de detalhes da visita, o botão não pode aparecer para o técnico
+    $responseShow = $this->actingAs($tecnicoUser)->get(route('visitas.show', $visita));
+    $responseShow->assertOk();
+    $responseShow->assertDontSee('Proposta Comercial (Sigilosa)');
+
+    // 2. Na listagem de visitas, o link Proposta não pode aparecer para o técnico
+    $responseIndex = $this->actingAs($tecnicoUser)->get(route('visitas.index'));
+    $responseIndex->assertOk();
+    $responseIndex->assertDontSee(route('visitas.proposta', $visita));
+
+    // 3. Acesso direto à rota /visitas/{id}/proposta deve retornar 403 Forbidden
+    $responseProposta = $this->actingAs($tecnicoUser)->get(route('visitas.proposta', $visita));
+    $responseProposta->assertForbidden();
+});

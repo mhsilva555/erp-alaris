@@ -86,6 +86,7 @@ Route::middleware('auth')->group(function () {
 
         // Relatórios Gerenciais (Lucro Bruto e Demonstrativo)
         Route::get('/financeiro/relatorios', [FinanceiroController::class, 'relatorio'])->name('financeiro.relatorio');
+        Route::get('/financeiro/relatorios/pdf', [FinanceiroController::class, 'relatorioPdf'])->name('financeiro.relatorio.pdf');
 
         // Configurações Fiscais e Operacionais
         Route::get('/configuracoes', [ConfiguracaoController::class, 'index'])->name('configuracoes.index');

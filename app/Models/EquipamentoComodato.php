@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EquipamentoComodato extends Model
 {
@@ -48,6 +49,11 @@ class EquipamentoComodato extends Model
     public function produto(): BelongsTo
     {
         return $this->belongsTo(Produto::class);
+    }
+
+    public function visitas(): HasMany
+    {
+        return $this->hasMany(Visita::class, 'comodato_id');
     }
 
     public function scopeReposicaoProxima(Builder $query, int $dias = 2): Builder

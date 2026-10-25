@@ -99,3 +99,81 @@ test('calcula baixa de estoque fracionada e custo proporcional na conclusao da v
     // Lucro bruto: 450.00 - (96.00 + 63.00) = 291.00
     expect((float) $visita->lucro_bruto)->toBe(291.00);
 });
+
+test('formulario de cadastro e edicao de produto renderiza selects de unidades predefinidas', function () {
+    $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+
+    $responseCreate = $this->actingAs($admin)->get(route('produtos.create'));
+    $responseCreate->assertOk();
+    $responseCreate->assertSee('select id="unidade_armazenamento"', false);
+    $responseCreate->assertSee('select id="unidade_aplicacao"', false);
+    $responseCreate->assertSee('L (Litro)');
+    $responseCreate->assertSee('mL (Mililitro)');
+    $responseCreate->assertSee('Kg (Quilograma)');
+    $responseCreate->assertSee('Un (Unidade)');
+
+    $produto = Produto::create([
+        'nome' => 'Raticida Bloco',
+        'natureza' => 'solido',
+        'unidade' => 'Kg',
+        'unidade_armazenamento' => 'Kg',
+        'unidade_aplicacao' => 'g',
+        'fator_conversao' => 1000,
+        'quantidade_estoque' => 50,
+        'estoque_minimo' => 5,
+        'preco_custo_unitario' => 45.00,
+    ]);
+
+    $responseEdit = $this->actingAs($admin)->get(route('produtos.edit', $produto));
+    $responseEdit->assertOk();
+    $responseEdit->assertSee('select id="unidade_armazenamento"', false);
+    $responseEdit->assertSee('select id="unidade_aplicacao"', false);
+    $responseEdit->assertSee('value="Kg" selected', false);
+    $responseEdit->assertSee('value="g" selected', false);
+});
+
+test('admin pode cadastrar e editar produto utilizando unidades predefinidas', function () {
+    $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+
+    $postData = [
+        'nome' => 'Gel Baraticida Formiga',
+        'natureza' => 'unidade',
+        'unidade_armazenamento' => 'Un',
+        'unidade_aplicacao' => 'Dose',
+        'fator_conversao' => 30,
+        'quantidade_estoque' => 15,
+        'estoque_minimo' => 2,
+        'preco_custo_unitario' => 38.50,
+        'descricao' => 'Seringa aplicadora de 30g',
+    ];
+
+    $responseStore = $this->actingAs($admin)->post(route('produtos.store'), $postData);
+    $responseStore->assertRedirect(route('produtos.index'));
+
+    $produto = Produto::where('nome', 'Gel Baraticida Formiga')->first();
+    expect($produto)->not->toBeNull();
+    expect($produto->unidade_armazenamento)->toBe('Un');
+    expect($produto->unidade_aplicacao)->toBe('Dose');
+    expect((float) $produto->fator_conversao)->toBe(30.0);
+
+    // Atualizar
+    $updateData = [
+        'nome' => 'Gel Baraticida Formiga Turbinado',
+        'natureza' => 'liquido',
+        'unidade_armazenamento' => 'L',
+        'unidade_aplicacao' => 'mL',
+        'fator_conversao' => 1000,
+        'quantidade_estoque' => 20,
+        'estoque_minimo' => 3,
+        'preco_custo_unitario' => 55.00,
+        'descricao' => 'Versão líquida 1L',
+    ];
+
+    $responseUpdate = $this->actingAs($admin)->put(route('produtos.update', $produto), $updateData);
+    $responseUpdate->assertRedirect(route('produtos.index'));
+
+    $produto->refresh();
+    expect($produto->unidade_armazenamento)->toBe('L');
+    expect($produto->unidade_aplicacao)->toBe('mL');
+    expect((float) $produto->fator_conversao)->toBe(1000.0);
+});

@@ -50,6 +50,7 @@ class Visita extends Model
 
     protected $fillable = [
         'cliente_id',
+        'comodato_id',
         'tecnico_id',
         'data_hora',
         'status',
@@ -93,6 +94,11 @@ class Visita extends Model
         return $this->belongsTo(Cliente::class);
     }
 
+    public function comodato(): BelongsTo
+    {
+        return $this->belongsTo(EquipamentoComodato::class, 'comodato_id');
+    }
+
     public function tecnico(): BelongsTo
     {
         return $this->belongsTo(Tecnico::class);
@@ -107,6 +113,32 @@ class Visita extends Model
     public function movimentacoes(): HasMany
     {
         return $this->hasMany(MovimentacaoFinanceira::class);
+    }
+
+    public function movimentacaoReceita(): ?MovimentacaoFinanceira
+    {
+        return $this->movimentacoes->firstWhere('tipo', MovimentacaoFinanceira::TIPO_RECEITA);
+    }
+
+    public function statusRecebimento(): string
+    {
+        if ((float) $this->valor_cobrado <= 0) {
+            return 'isento';
+        }
+
+        $receita = $this->movimentacaoReceita();
+        if (! $receita) {
+            return 'pendente';
+        }
+
+        return $receita->status;
+    }
+
+    public function movimentacaoDiaria(): ?MovimentacaoFinanceira
+    {
+        return $this->movimentacoes
+            ->where('tipo', MovimentacaoFinanceira::TIPO_DESPESA)
+            ->first(fn ($m) => in_array($m->categoria, ['mao_de_obra', 'diaria_tecnico']));
     }
 
     public function statusLabel(): string

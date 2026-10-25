@@ -25,20 +25,53 @@
 
                 <div>
                     <label class="form-label" for="unidade_armazenamento">Unidade Estoque *</label>
-                    <input type="text" id="unidade_armazenamento" name="unidade_armazenamento" value="{{ old('unidade_armazenamento', 'L') }}" class="form-input" placeholder="L, Kg ou Un" required>
+                    <select id="unidade_armazenamento" name="unidade_armazenamento" class="form-select" required onchange="sugerirFatorConversao()">
+                        <optgroup label="Líquidos">
+                            <option value="L" {{ old('unidade_armazenamento', 'L') === 'L' ? 'selected' : '' }}>L (Litro)</option>
+                            <option value="mL" {{ old('unidade_armazenamento') === 'mL' ? 'selected' : '' }}>mL (Mililitro)</option>
+                            <option value="Gal" {{ old('unidade_armazenamento') === 'Gal' ? 'selected' : '' }}>Gal (Galão)</option>
+                            <option value="Bombona" {{ old('unidade_armazenamento') === 'Bombona' ? 'selected' : '' }}>Bombona</option>
+                            <option value="Frasco" {{ old('unidade_armazenamento') === 'Frasco' ? 'selected' : '' }}>Frasco</option>
+                        </optgroup>
+                        <optgroup label="Sólidos / Pós">
+                            <option value="Kg" {{ old('unidade_armazenamento') === 'Kg' ? 'selected' : '' }}>Kg (Quilograma)</option>
+                            <option value="g" {{ old('unidade_armazenamento') === 'g' ? 'selected' : '' }}>g (Grama)</option>
+                        </optgroup>
+                        <optgroup label="Contáveis / Embalagens">
+                            <option value="Un" {{ old('unidade_armazenamento') === 'Un' ? 'selected' : '' }}>Un (Unidade)</option>
+                            <option value="Cx" {{ old('unidade_armazenamento') === 'Cx' ? 'selected' : '' }}>Cx (Caixa)</option>
+                            <option value="Pct" {{ old('unidade_armazenamento') === 'Pct' ? 'selected' : '' }}>Pct (Pacote)</option>
+                        </optgroup>
+                    </select>
                 </div>
 
                 <div>
                     <label class="form-label" for="unidade_aplicacao">Unidade Dose (Uso) *</label>
-                    <input type="text" id="unidade_aplicacao" name="unidade_aplicacao" value="{{ old('unidade_aplicacao', 'mL') }}" class="form-input" placeholder="mL, g ou Un" required>
+                    <select id="unidade_aplicacao" name="unidade_aplicacao" class="form-select" required onchange="sugerirFatorConversao()">
+                        <optgroup label="Líquidos">
+                            <option value="mL" {{ old('unidade_aplicacao', 'mL') === 'mL' ? 'selected' : '' }}>mL (Mililitro)</option>
+                            <option value="L" {{ old('unidade_aplicacao') === 'L' ? 'selected' : '' }}>L (Litro)</option>
+                        </optgroup>
+                        <optgroup label="Sólidos">
+                            <option value="g" {{ old('unidade_aplicacao') === 'g' ? 'selected' : '' }}>g (Grama)</option>
+                            <option value="Kg" {{ old('unidade_aplicacao') === 'Kg' ? 'selected' : '' }}>Kg (Quilograma)</option>
+                        </optgroup>
+                        <optgroup label="Contáveis / Doses">
+                            <option value="Un" {{ old('unidade_aplicacao') === 'Un' ? 'selected' : '' }}>Un (Unidade)</option>
+                            <option value="Dose" {{ old('unidade_aplicacao') === 'Dose' ? 'selected' : '' }}>Dose</option>
+                            <option value="Sachê" {{ old('unidade_aplicacao') === 'Sachê' ? 'selected' : '' }}>Sachê</option>
+                            <option value="Pastilha" {{ old('unidade_aplicacao') === 'Pastilha' ? 'selected' : '' }}>Pastilha</option>
+                            <option value="Bloco" {{ old('unidade_aplicacao') === 'Bloco' ? 'selected' : '' }}>Bloco</option>
+                        </optgroup>
+                    </select>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="form-label" for="fator_conversao">Fator de Conversão *</label>
-                    <input type="number" id="fator_conversao" name="fator_conversao" value="{{ old('fator_conversao', '1000') }}" step="0.0001" min="0.0001" class="form-input" required>
-                    <p class="text-[11px] mt-1" style="color: var(--color-surface-400);">Quantidade de doses em 1 unidade de estoque (Ex: 1 L = 1000 mL).</p>
+                    <input type="number" id="fator_conversao" name="fator_conversao" value="{{ old('fator_conversao', '1000') }}" step="0.0001" min="0.0001" class="form-input" required oninput="atualizarAjudaFator()">
+                    <p id="fator_help" class="text-[11px] mt-1" style="color: var(--color-surface-400);">Quantidade de doses em 1 unidade de estoque (Ex: 1 L = 1000 mL).</p>
                 </div>
 
                 <div>
@@ -94,6 +127,36 @@ function ajustarNatureza(natureza) {
         unArm.value = 'Un';
         unApl.value = 'Un';
         fator.value = '1';
+    }
+    atualizarAjudaFator();
+}
+
+function sugerirFatorConversao() {
+    const unArm = document.getElementById('unidade_armazenamento').value;
+    const unApl = document.getElementById('unidade_aplicacao').value;
+    const fator = document.getElementById('fator_conversao');
+
+    if (unArm === 'L' && unApl === 'mL') {
+        fator.value = '1000';
+    } else if (unArm === 'Kg' && unApl === 'g') {
+        fator.value = '1000';
+    } else if (unArm === unApl) {
+        fator.value = '1';
+    } else if (unArm === 'Gal' && unApl === 'L') {
+        fator.value = '5';
+    } else if (unArm === 'Gal' && unApl === 'mL') {
+        fator.value = '5000';
+    }
+    atualizarAjudaFator();
+}
+
+function atualizarAjudaFator() {
+    const unArm = document.getElementById('unidade_armazenamento').value;
+    const unApl = document.getElementById('unidade_aplicacao').value;
+    const fator = document.getElementById('fator_conversao').value;
+    const help = document.getElementById('fator_help');
+    if (help) {
+        help.textContent = `Quantidade de doses em 1 ${unArm} (Ex: 1 ${unArm} = ${fator || 1000} ${unApl}).`;
     }
 }
 </script>

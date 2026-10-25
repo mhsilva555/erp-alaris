@@ -236,6 +236,17 @@ h1, h2, h3, .page-title, .stat-value {
     gap: 0.75rem;
 }
 
+/* ── Dividers & Rows Separators ── */
+.divide-y > :not([hidden]) ~ :not([hidden]),
+.divide-y > * + * {
+    border-top: 1px solid var(--color-border) !important;
+}
+
+.divide-x > :not([hidden]) ~ :not([hidden]),
+.divide-x > * + * {
+    border-left: 1px solid var(--color-border) !important;
+}
+
 /* ── Stat Cards ── */
 .stat-card {
     background: var(--color-surface);
