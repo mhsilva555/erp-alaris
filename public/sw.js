@@ -1,7 +1,8 @@
 // ERP Alaris — Service Worker para Notificações Nativas no Sistema Operacional (Desktop & Celular)
-const CACHE_NAME = 'alaris-sw-v2';
+// v3: suporte a Web Push (evento "push") — entrega mesmo com o PWA fechado ou o celular bloqueado.
+const CACHE_NAME = 'alaris-sw-v3';
 
-self.addEventListener('install', (event) => {
+self.addEventListener('install', () => {
     self.skipWaiting();
 });
 
@@ -9,28 +10,59 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(self.clients.claim());
 });
 
-// Listener para receber pedidos de notificação vindos da página
+function montarNotificacao(payload) {
+    payload = payload || {};
+    const title = payload.titulo || 'ERP Alaris — Agendamento';
+    // Obs.: sem "actions" — o Safari/iOS rejeita showNotification quando presente
+    const options = {
+        body: payload.mensagem || 'Você tem um evento próximo na agenda.',
+        icon: '/icons/icon-192.png',
+        badge: '/favicon-32x32.png',
+        tag: 'alaris-event-' + (payload.id || Date.now()),
+        renotify: true,
+        vibrate: [200, 100, 200, 100, 200],
+        requireInteraction: false,
+        timestamp: Date.now(),
+        data: {
+            url: payload.url || '/agendamentos',
+            id: payload.id,
+            tipo_evento: payload.tipo_evento || null,
+        },
+    };
+    return { title, options };
+}
+
+async function avisarJanelasAbertas(payload) {
+    const janelas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    janelas.forEach((janela) => janela.postMessage({ type: 'PUSH_RECEIVED', payload }));
+}
+
+// Web Push vindo do servidor (desperta o SW mesmo com o app fechado)
+self.addEventListener('push', (event) => {
+    let payload = {};
+    if (event.data) {
+        try {
+            payload = event.data.json();
+        } catch (e) {
+            payload = { mensagem: event.data.text() };
+        }
+    }
+
+    const { title, options } = montarNotificacao(payload);
+
+    // O push SEMPRE precisa exibir uma notificação (userVisibleOnly), senão o navegador revoga a inscrição
+    event.waitUntil(
+        self.registration.showNotification(title, options)
+            .then(() => avisarJanelasAbertas(payload))
+            .catch(() => avisarJanelasAbertas(payload))
+    );
+});
+
+// Listener para receber pedidos de notificação vindos da página (fallback por polling)
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
-        const payload = event.data.payload || {};
-        const title = payload.titulo || 'ERP Alaris — Agendamento';
-        const options = {
-            body: payload.mensagem || 'Você tem um evento próximo na agenda.',
-            icon: '/icons/icon-192.png',
-            badge: '/favicon-32x32.png',
-            tag: 'alaris-event-' + (payload.id || Date.now()),
-            renotify: true,
-            vibrate: [200, 100, 200, 100, 200], // Vibração no celular
-            requireInteraction: false,
-            data: {
-                url: payload.url || '/agendamentos',
-                id: payload.id
-            }
-        };
-
-        event.waitUntil(
-            self.registration.showNotification(title, options)
-        );
+        const { title, options } = montarNotificacao(event.data.payload);
+        event.waitUntil(self.registration.showNotification(title, options));
     }
 });
 
@@ -38,23 +70,22 @@ self.addEventListener('message', (event) => {
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
-    if (event.action === 'close') {
-        return;
-    }
-
     const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/agendamentos';
 
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-            for (let client of windowClients) {
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+            for (const client of windowClients) {
                 if (client.url.includes(self.location.origin) && 'focus' in client) {
-                    client.navigate(targetUrl);
-                    return client.focus();
+                    return client.focus().then((focado) => {
+                        const alvo = focado || client;
+                        return ('navigate' in alvo) ? alvo.navigate(targetUrl).catch(() => null) : null;
+                    });
                 }
             }
-            if (clients.openWindow) {
-                return clients.openWindow(targetUrl);
+            if (self.clients.openWindow) {
+                return self.clients.openWindow(targetUrl);
             }
+            return null;
         })
     );
 });

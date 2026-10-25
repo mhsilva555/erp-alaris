@@ -112,6 +112,11 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 - **Emissão Estrita via Navegador Web**:
   - Alertas ao Sistema Operacional (Desktop e Mobile) são gerados **exclusivamente via Web Notifications API e Service Worker** (`public/sw.js`).
   - É expressamente proibido disparar scripts locais do servidor (PowerShell/Windows Forms) para emitir notificações na máquina.
+- **Entrega via Web Push (VAPID) — PWA fechado / celular bloqueado**:
+  - Toda `NotificacaoAgendamento` criada dispara, após o commit, o envio via `WebPushService` (`minishlink/web-push`) para as inscrições em `push_subscriptions` dos destinatários (mesmas regras de visibilidade de `scopeParaUsuario`).
+  - O `public/sw.js` trata o evento `push` e sempre chama `showNotification` (sem `actions`, incompatível com iOS). Inscrições expiradas (404/410) são removidas automaticamente.
+  - O polling JavaScript permanece apenas como fallback para dispositivos sem inscrição push; quando o push é aceito, a notificação é marcada `enviada_so` para evitar duplicidade.
+  - Chaves: `php artisan webpush:vapid` (grava `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` no `.env`). Exige HTTPS em produção; no iOS (16.4+) apenas com o PWA instalado na Tela de Início.
 
 ### 3.8. Máscaras no Frontend & Persistência Limpa no Banco
 - Os campos `documento` (CPF/CNPJ), `telefone` e `cep` possuem máscaras dinâmicas no frontend via atributos `data-mask`.

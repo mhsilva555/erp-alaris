@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\WebPushService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+
+use function Illuminate\Support\defer;
 
 class NotificacaoAgendamento extends Model
 {
@@ -26,6 +30,25 @@ class NotificacaoAgendamento extends Model
         'enviada_so',
         'user_id',
     ];
+
+    /**
+     * Toda notificação criada é empurrada via Web Push ao Service Worker dos aparelhos
+     * inscritos, garantindo entrega com o PWA fechado ou o celular bloqueado.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (self $notificacao): void {
+            DB::afterCommit(function () use ($notificacao): void {
+                $enviar = fn () => app(WebPushService::class)->enviarNotificacao($notificacao);
+
+                if (app()->runningInConsole()) {
+                    $enviar();
+                } else {
+                    defer($enviar);
+                }
+            });
+        });
+    }
 
     protected function casts(): array
     {

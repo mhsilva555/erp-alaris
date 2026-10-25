@@ -36,7 +36,9 @@ function registrarServiceWorker() {
     return navigator.serviceWorker.register('/sw.js', { scope: '/' })
         .then(reg => {
             swRegistration = reg;
+            reg.update().catch(() => { });
             atualizarInterfaceNotificacoesSO();
+            inscreverWebPush();
             return reg;
         })
         .catch(err => {
@@ -48,11 +50,34 @@ function registrarServiceWorker() {
 // Inicia registro imediatamente sem depender do window.load
 if ('serviceWorker' in navigator) {
     registrarServiceWorker();
+
+    // Push recebido pelo Service Worker enquanto o app está aberto
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        if (!event.data || event.data.type !== 'PUSH_RECEIVED') return;
+        const notif = event.data.payload || {};
+
+        if (document.visibilityState === 'visible') {
+            tocarSomNotificacao();
+            exibirToastNotificacao({
+                titulo: notif.titulo || 'ERP Alaris — Agendamento',
+                mensagem: notif.mensagem || '',
+                url: notif.url || '/agendamentos'
+            });
+        }
+
+        if (typeof pollNotificacoes === 'function') {
+            pollNotificacoes();
+        }
+
+        if (notif.tipo_evento === 'visita' && estaNaPaginaVisitas()) {
+            recarregarPaginaVisitas();
+        }
+    });
 }
 
 async function obterServiceWorkerRegistration() {
     if (!('serviceWorker' in navigator)) return null;
-    if (swRegistration) return swRegistration;
+    if (swRegistration && swRegistration.active) return swRegistration;
     try {
         const reg = await navigator.serviceWorker.ready;
         swRegistration = reg;
@@ -61,6 +86,84 @@ async function obterServiceWorkerRegistration() {
         return null;
     }
 }
+
+// ── Web Push (VAPID): entrega com o PWA fechado, em segundo plano ou celular bloqueado ──
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = window.atob(base64);
+    const output = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) {
+        output[i] = raw.charCodeAt(i);
+    }
+    return output;
+}
+
+function chavesIguais(bufferA, chaveB) {
+    if (!bufferA) return false;
+    const a = new Uint8Array(bufferA);
+    if (a.length !== chaveB.length) return false;
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== chaveB[i]) return false;
+    }
+    return true;
+}
+
+let inscrevendoPush = null;
+async function inscreverWebPush() {
+    if (inscrevendoPush) return inscrevendoPush;
+
+    inscrevendoPush = (async () => {
+        try {
+            const vapid = document.querySelector('meta[name="vapid-public-key"]')?.getAttribute('content');
+            if (!vapid || !('PushManager' in window) || !('Notification' in window)) return false;
+            if (Notification.permission !== 'granted') return false;
+
+            const reg = await obterServiceWorkerRegistration();
+            if (!reg || !reg.pushManager) return false;
+
+            const chave = urlBase64ToUint8Array(vapid);
+            let sub = await reg.pushManager.getSubscription();
+
+            // Chave VAPID mudou no servidor: refaz a inscrição
+            if (sub && sub.options && sub.options.applicationServerKey && !chavesIguais(sub.options.applicationServerKey, chave)) {
+                await sub.unsubscribe().catch(() => { });
+                sub = null;
+            }
+
+            if (!sub) {
+                sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: chave
+                });
+            }
+
+            const encodings = (window.PushManager && PushManager.supportedContentEncodings) || ['aesgcm'];
+            const contentEncoding = encodings.includes('aes128gcm') ? 'aes128gcm' : 'aesgcm';
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+            const resp = await fetch('/notificacoes/push/inscrever', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...sub.toJSON(), contentEncoding })
+            });
+            return resp.ok;
+        } catch (e) {
+            console.warn('Falha ao inscrever Web Push:', e);
+            return false;
+        } finally {
+            setTimeout(() => { inscrevendoPush = null; }, 0);
+        }
+    })();
+
+    return inscrevendoPush;
+}
+window.inscreverWebPush = inscreverWebPush;
 
 // Síntese de áudio cristalino de alerta (sem arquivos externos ou latência)
 function tocarSomNotificacao() {
@@ -179,28 +282,33 @@ window.solicitarNotificacoesSO = function () {
         return;
     }
 
-    const processarPermissao = (permission) => {
+    const processarPermissao = async (permission) => {
         atualizarInterfaceNotificacoesSO();
         if (permission === 'granted') {
             tocarSomNotificacao();
+            await inscreverWebPush();
             window.testarNotificacaoSO();
         }
     };
 
     try {
-        const p = Notification.requestPermission(processarPermissao);
+        const p = Notification.requestPermission();
         if (p && typeof p.then === 'function') {
             p.then(processarPermissao);
         }
     } catch (e) {
+        // Navegadores antigos (Safari < 15) usam a API baseada em callback
         Notification.requestPermission(processarPermissao);
     }
 };
 
-window.testarNotificacaoSO = function () {
+window.testarNotificacaoSO = async function () {
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
         || (document.querySelector('input[name="_token"]')?.value)
         || '';
+
+    // Garante que este aparelho está inscrito antes de testar o push real
+    await inscreverWebPush();
 
     fetch('/notificacoes/agendamentos/testar', {
         method: 'POST',
@@ -213,9 +321,12 @@ window.testarNotificacaoSO = function () {
     })
         .then(r => r.json())
         .then(data => {
-            if (data.notificacao) {
-                dispararNotificacaoNativaSO(data.notificacao);
+            if (!data.notificacao) return;
+            if (data.push_entregues > 0) {
+                // A notificação do SO chega pelo Web Push (evento "push" no sw.js)
+                return;
             }
+            dispararNotificacaoNativaSO(data.notificacao);
         })
         .catch(err => console.error('Erro ao testar notificação:', err));
 };

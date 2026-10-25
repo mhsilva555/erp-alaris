@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\NotificacaoAgendamento;
+use App\Models\PushSubscription;
 use App\Services\AgendamentoNotificacaoService;
+use App\Services\WebPushService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -114,7 +116,7 @@ class NotificacaoAgendamentoController extends Controller
     /**
      * Dispara uma notificação de teste imediata para verificar no computador ou celular.
      */
-    public function testar(Request $request, AgendamentoNotificacaoService $service): JsonResponse
+    public function testar(Request $request, AgendamentoNotificacaoService $service, WebPushService $webPush): JsonResponse
     {
         $user = $request->user();
 
@@ -122,7 +124,8 @@ class NotificacaoAgendamentoController extends Controller
             abort(403, 'Sem permissão para testar notificações.');
         }
 
-        $notificacao = NotificacaoAgendamento::create([
+        // Cria sem disparar o push automático do model, para enviar de forma síncrona e reportar o resultado
+        $notificacao = NotificacaoAgendamento::withoutEvents(fn () => NotificacaoAgendamento::create([
             'tipo_evento' => 'visita',
             'evento_id' => 0,
             'titulo' => 'ERP Alaris — Teste de Notificação',
@@ -131,11 +134,15 @@ class NotificacaoAgendamentoController extends Controller
             'data_evento' => now(),
             'user_id' => $user?->id,
             'enviada_so' => false,
-        ]);
+        ]));
+
+        $pushEntregues = $webPush->enviarNotificacao($notificacao);
 
         return response()->json([
             'sucesso' => true,
             'mensagem' => 'Notificação de teste criada com sucesso!',
+            'push_configurado' => $webPush->configurado(),
+            'push_entregues' => $pushEntregues,
             'notificacao' => [
                 'id' => $notificacao->id,
                 'titulo' => $notificacao->titulo,
@@ -143,5 +150,47 @@ class NotificacaoAgendamentoController extends Controller
                 'url' => $notificacao->url,
             ],
         ]);
+    }
+
+    /**
+     * Registra (ou atualiza) a inscrição Web Push do dispositivo atual.
+     */
+    public function inscreverPush(Request $request): JsonResponse
+    {
+        $dados = $request->validate([
+            'endpoint' => ['required', 'url', 'max:500'],
+            'keys.p256dh' => ['required', 'string', 'max:255'],
+            'keys.auth' => ['required', 'string', 'max:255'],
+            'contentEncoding' => ['nullable', 'string', 'in:aesgcm,aes128gcm'],
+        ]);
+
+        PushSubscription::updateOrCreate(
+            ['endpoint' => $dados['endpoint']],
+            [
+                'user_id' => $request->user()->id,
+                'public_key' => $dados['keys']['p256dh'],
+                'auth_token' => $dados['keys']['auth'],
+                'content_encoding' => $dados['contentEncoding'] ?? 'aes128gcm',
+                'user_agent' => mb_substr((string) $request->userAgent(), 0, 500),
+            ]
+        );
+
+        return response()->json(['sucesso' => true]);
+    }
+
+    /**
+     * Remove a inscrição Web Push do dispositivo atual.
+     */
+    public function cancelarPush(Request $request): JsonResponse
+    {
+        $dados = $request->validate([
+            'endpoint' => ['required', 'string', 'max:500'],
+        ]);
+
+        PushSubscription::where('endpoint', $dados['endpoint'])
+            ->where('user_id', $request->user()->id)
+            ->delete();
+
+        return response()->json(['sucesso' => true]);
     }
 }

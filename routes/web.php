@@ -42,6 +42,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/notificacoes/agendamentos/marcar-todas-lidas', [NotificacaoAgendamentoController::class, 'marcarTodasLidas'])->name('notificacoes.agendamentos.marcar-todas-lidas');
     Route::post('/notificacoes/agendamentos/testar', [NotificacaoAgendamentoController::class, 'testar'])->name('notificacoes.agendamentos.testar');
 
+    // Web Push (entrega com PWA fechado / celular bloqueado)
+    Route::post('/notificacoes/push/inscrever', [NotificacaoAgendamentoController::class, 'inscreverPush'])->name('notificacoes.push.inscrever');
+    Route::post('/notificacoes/push/cancelar', [NotificacaoAgendamentoController::class, 'cancelarPush'])->name('notificacoes.push.cancelar');
+
     // Clientes
     Route::resource('clientes', ClienteController::class);
 
