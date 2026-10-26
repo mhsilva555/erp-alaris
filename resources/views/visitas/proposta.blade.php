@@ -22,11 +22,156 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             color: #1f2937;
-            background: #f3f4f6;
+            background: #f1f5f9;
             margin: 0;
-            padding: 24px;
+            padding: 0;
             font-size: 13.5px;
             line-height: 1.5;
+        }
+
+        /* Barra de Ações Nativa PWA */
+        .pwa-action-bar {
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(15, 23, 42, 0.94);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+            padding: max(10px, env(safe-area-inset-top)) 16px 10px 16px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .pwa-bar-inner {
+            max-width: 880px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .pwa-bar-left,
+        .pwa-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pwa-bar-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            min-width: 0;
+        }
+
+        .pwa-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #f9fafb;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .pwa-subtitle {
+            font-size: 11px;
+            color: #94a3b8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 260px;
+        }
+
+        .pwa-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.15s ease-in-out;
+            border: 1px solid transparent;
+            line-height: 1;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .pwa-icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .pwa-btn-back {
+            background: rgba(255, 255, 255, 0.08);
+            color: #e2e8f0;
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .pwa-btn-back:hover {
+            background: rgba(255, 255, 255, 0.16);
+            color: #ffffff;
+        }
+
+        .pwa-btn-share {
+            background: rgba(35, 180, 235, 0.15);
+            color: #38bdf8;
+            border-color: rgba(35, 180, 235, 0.3);
+        }
+
+        .pwa-btn-share:hover {
+            background: rgba(35, 180, 235, 0.25);
+            color: #7dd3fc;
+        }
+
+        .pwa-btn-primary {
+            background: #23b4eb;
+            color: #0f172a;
+            font-weight: 700;
+            border: none;
+            box-shadow: 0 2px 8px rgba(35, 180, 235, 0.35);
+        }
+
+        .pwa-btn-primary:hover {
+            background: #1ea0d2;
+            color: #0f172a;
+        }
+
+        .document-viewport {
+            padding: 24px 16px 40px 16px;
+            box-sizing: border-box;
+        }
+
+        .pwa-toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #0f172a;
+            color: #38bdf8;
+            border: 1px solid #38bdf8;
+            padding: 10px 20px;
+            border-radius: 9999px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            z-index: 2000;
+            opacity: 0;
+            transition: all 0.25s ease;
+            pointer-events: none;
+        }
+
+        .pwa-toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
         }
 
         .proposal-container {
@@ -236,31 +381,42 @@
             color: #6b7280;
         }
 
-        .no-print {
-            text-align: center;
-            margin-bottom: 20px;
-        }
+        @media (max-width: 640px) {
+            .pwa-bar-center {
+                display: none;
+            }
 
-        .btn-print {
-            background: #059669;
-            color: white;
-            border: none;
-            padding: 10px 24px;
-            font-size: 14px;
-            font-weight: 600;
-            border-radius: 6px;
-            cursor: pointer;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
+            .pwa-btn {
+                padding: 7px 10px;
+                font-size: 12px;
+            }
 
-        .btn-print:hover {
-            background: #047857;
+            .document-viewport {
+                padding: 12px 8px 32px 8px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .proposal-container {
+                padding: 20px 16px;
+                border-radius: 8px;
+            }
         }
 
         @media print {
             body {
                 background: white;
                 padding: 0;
+            }
+
+            .pwa-action-bar,
+            .no-print,
+            .pwa-toast {
+                display: none !important;
+            }
+
+            .document-viewport {
+                padding: 0 !important;
             }
 
             .proposal-container {
@@ -281,23 +437,48 @@
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
-
-            .no-print {
-                display: none;
-            }
         }
     </style>
 </head>
 
 <body>
 
-    <div class="no-print">
-        <button class="btn-print" onclick="window.print()">
-            🖨️ Imprimir / Salvar em PDF
-        </button>
-    </div>
+    <header class="pwa-action-bar no-print">
+        <div class="pwa-bar-inner">
+            <div class="pwa-bar-left">
+                <a href="{{ route('visitas.show', $visita) }}" class="pwa-btn pwa-btn-back" onclick="if (history.length > 1) { history.back(); return false; }">
+                    <svg class="pwa-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    <span>Voltar</span>
+                </a>
+            </div>
 
-    <div class="proposal-container">
+            <div class="pwa-bar-center">
+                <span class="pwa-title">Proposta Comercial #{{ $visita->id }}</span>
+                <span class="pwa-subtitle">{{ $visita->cliente->nome }}</span>
+            </div>
+
+            <div class="pwa-bar-right">
+                <button type="button" class="pwa-btn pwa-btn-share" onclick="compartilharDocumento()">
+                    <svg class="pwa-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
+                    <span class="btn-label-text">Compartilhar</span>
+                </button>
+
+                <button type="button" class="pwa-btn pwa-btn-primary" onclick="window.print()">
+                    <svg class="pwa-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    <span>Imprimir / PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="document-viewport">
+        <div class="proposal-container">
         {{-- Marca d'água oficial Alaris Service --}}
         <div class="watermark-container" aria-hidden="true">
             <img src="{{ $logoDataUri }}" alt="" class="watermark-logo">
@@ -430,7 +611,46 @@
 
         </div> {{-- fim .proposal-content --}}
     </div> {{-- fim .proposal-container --}}
+    </div> {{-- fim .document-viewport --}}
 
+    <script>
+        function compartilharDocumento() {
+            const dados = {
+                title: 'Proposta Comercial #{{ $visita->id }} — Alaris Service',
+                text: 'Proposta Comercial #{{ $visita->id }} - Cliente: {{ addslashes($visita->cliente->nome) }}',
+                url: window.location.href
+            };
+
+            if (navigator.share) {
+                navigator.share(dados).catch((err) => {
+                    if (err.name !== 'AbortError') {
+                        console.error('Erro ao compartilhar:', err);
+                    }
+                });
+            } else if (navigator.clipboard) {
+                navigator.clipboard.writeText(window.location.href).then(() => {
+                    mostrarToast('Link copiado para a área de transferência!');
+                }).catch(() => {
+                    window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(dados.text + ' ' + dados.url), '_blank');
+                });
+            } else {
+                window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(dados.text + ' ' + dados.url), '_blank');
+            }
+        }
+
+        function mostrarToast(mensagem) {
+            let toast = document.getElementById('pwa-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'pwa-toast';
+                toast.className = 'pwa-toast no-print';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = mensagem;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+    </script>
 </body>
 
 </html>
