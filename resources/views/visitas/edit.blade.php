@@ -5,7 +5,7 @@
 @section('content')
     <div class="max-w-3xl">
         <div class="card p-6">
-            <form method="POST" action="{{ route('visitas.update', $visita) }}" class="space-y-6">
+            <form method="POST" action="{{ route('visitas.update', $visita) }}" class="space-y-6" onsubmit="return window.validarEstoqueVisitaForm ? window.validarEstoqueVisitaForm(this) : true;">
                 @csrf @method('PUT')
 
                 {{-- Informações Operacionais da Visita --}}
@@ -121,7 +121,7 @@
                             <h3 class="text-xs font-bold uppercase tracking-wider text-white"
                                 style="color: var(--color-primary-400);">2. Insumos Químicos & Doses Fracionadas</h3>
                             <p class="text-[11px]" style="color: var(--color-surface-400);">Doses informadas em mL, gramas
-                                ou unidades. Ao concluir a OS, o sistema debitará com conversão fracionada.</p>
+                                ou unidades. O sistema controla a alocação e reserva de estoque em tempo real. Se cancelada, os insumos são estornados.</p>
                         </div>
                         <button type="button" onclick="addProdutoRow()" class="btn btn-secondary btn-sm shrink-0">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,6 +130,13 @@
                             Adicionar Insumo
                         </button>
                     </div>
+
+                    @error('produtos')
+                        <div class="mb-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2 animate-fadeIn">
+                            <svg class="w-4 h-4 shrink-0 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                            <span class="font-medium">{{ $message }}</span>
+                        </div>
+                    @enderror
 
                     <div id="produtos-container" class="space-y-3">
                         @php
@@ -155,10 +162,15 @@
                                                 onchange="window.atualizarProdutoRow && window.atualizarProdutoRow(this); recalcularFinanceiroVisita()">
                                                 <option value="">Selecione o insumo / defensivo...</option>
                                                 @foreach ($produtos as $p)
+                                                    @php
+                                                        $fracaoVisita = (float) ($visita->produtos->firstWhere('id', $p->id)?->pivot->fracao_baixada ?? 0);
+                                                        $saldoEfetivo = (float) $p->quantidade_estoque + $fracaoVisita;
+                                                        $saldoEfetivoFmt = number_format($saldoEfetivo, 2, ',', '.');
+                                                    @endphp
                                                     <option value="{{ $p->id }}"
-                                                        {{ ($item['id'] ?? '') == $p->id ? 'selected' : '' }}>
-                                                        {{ $p->nome }} (Saldo: {{ $p->quantidade_estoque_formatada }}
-                                                        {{ $p->unidade_armazenamento ?? $p->unidade }} &bull; Uso em:
+                                                        {{ ($item['id'] ?? '') == $p->id ? 'selected' : '' }}
+                                                        class="{{ $saldoEfetivo <= 0 ? 'text-rose-500 font-semibold' : '' }}">
+                                                        {{ $p->nome }} ({{ $saldoEfetivo <= 0 ? 'SEM ESTOQUE' : 'Saldo disp: ' . $saldoEfetivoFmt . ' ' . ($p->unidade_armazenamento ?? $p->unidade) }} &bull; Uso em:
                                                         {{ $p->unidade_aplicacao ?? 'mL' }})
                                                     </option>
                                                 @endforeach
@@ -327,17 +339,21 @@
         };
         window.__produtosMetadata = {
             @foreach ($produtos as $p)
+                @php
+                    $pFracaoVisita = (float) ($visita->produtos->firstWhere('id', $p->id)?->pivot->fracao_baixada ?? 0);
+                    $pSaldoEfetivo = (float) $p->quantidade_estoque + $pFracaoVisita;
+                @endphp
                 {{ $p->id }}: {
                     unidade_aplicacao: '{{ $p->unidade_aplicacao ?? 'mL' }}',
                     unidade_armazenamento: '{{ $p->unidade_armazenamento ?? $p->unidade }}',
                     fator: {{ (float) $p->fator_conversao }},
                     preco: {{ (float) $p->preco_custo_unitario }},
-                    saldo: {{ (float) $p->quantidade_estoque }}
+                    saldo: {{ $pSaldoEfetivo }}
                 },
             @endforeach
         };
         window.__produtosOptions =
-            `@foreach ($produtos as $p)<option value="{{ $p->id }}">{{ $p->nome }} (Saldo: {{ $p->quantidade_estoque_formatada }} {{ $p->unidade_armazenamento ?? $p->unidade }} &bull; Uso em: {{ $p->unidade_aplicacao ?? 'mL' }})</option>@endforeach`;
+            `@foreach ($produtos as $p)@php $fracaoVisita = (float) ($visita->produtos->firstWhere('id', $p->id)?->pivot->fracao_baixada ?? 0); $saldoEfetivo = (float) $p->quantidade_estoque + $fracaoVisita; $saldoEfetivoFmt = number_format($saldoEfetivo, 2, ',', '.'); @endphp<option value="{{ $p->id }}" class="{{ $saldoEfetivo <= 0 ? 'text-rose-500 font-semibold' : '' }}">{{ $p->nome }} ({{ $saldoEfetivo <= 0 ? 'SEM ESTOQUE' : 'Saldo disp: ' . $saldoEfetivoFmt . ' ' . ($p->unidade_armazenamento ?? $p->unidade) }} &bull; Uso em: {{ $p->unidade_aplicacao ?? 'mL' }})</option>@endforeach`;
 
         document.addEventListener('DOMContentLoaded', function() {
             if (window.recalcularFinanceiroVisita) {

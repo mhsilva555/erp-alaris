@@ -773,6 +773,7 @@ window.atualizarProdutoRow = function (element) {
         if (badge) badge.textContent = '';
         if (baixaPreview) baixaPreview.textContent = 'Selecione um insumo para ver a unidade e cálculo de baixa.';
         if (custoPreview) custoPreview.textContent = '';
+        if (qtdInput) qtdInput.classList.remove('!border-rose-500', '!text-rose-500');
         return;
     }
 
@@ -782,10 +783,13 @@ window.atualizarProdutoRow = function (element) {
     const unArm = meta.unidade_armazenamento || 'L';
     const fator = meta.fator || 1;
     const preco = meta.preco || 0;
+    const saldo = typeof meta.saldo !== 'undefined' ? parseFloat(meta.saldo) : 0;
 
     if (badge) badge.textContent = unApl;
 
     const qtd = parseFloat(qtdInput ? qtdInput.value : 0) || 0;
+    const saldoStr = saldo.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+
     if (qtd > 0) {
         const fracao = fator > 0 ? (qtd / fator) : qtd;
         const custo = fracao * preco;
@@ -793,18 +797,72 @@ window.atualizarProdutoRow = function (element) {
         let fracaoStr = fracao.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
         let custoStr = custo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        if (baixaPreview) {
-            baixaPreview.innerHTML = `📉 <strong>Baixa no estoque:</strong> ${fracaoStr} ${unArm} (utilizado: ${qtd} ${unApl})`;
+        if (fracao > (saldo + 0.00001)) {
+            if (qtdInput) {
+                qtdInput.classList.add('!border-rose-500', '!text-rose-500');
+                qtdInput.setAttribute('title', `Estoque insuficiente! Saldo disponível: ${saldoStr} ${unArm}`);
+            }
+            if (baixaPreview) {
+                baixaPreview.innerHTML = `⚠️ <strong class="text-rose-500 font-bold">Estoque insuficiente!</strong> Saldo disponível: <strong>${saldoStr} ${unArm}</strong> (solicitado: ${fracaoStr} ${unArm})`;
+            }
+        } else {
+            if (qtdInput) {
+                qtdInput.classList.remove('!border-rose-500', '!text-rose-500');
+                qtdInput.removeAttribute('title');
+            }
+            const restante = Math.max(0, saldo - fracao);
+            let restanteStr = restante.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+            if (baixaPreview) {
+                baixaPreview.innerHTML = `📉 <strong>Baixa no estoque:</strong> ${fracaoStr} ${unArm} (utilizado: ${qtd} ${unApl}) &bull; <span class="text-emerald-500 dark:text-emerald-400 font-medium">Restará: ${restanteStr} ${unArm}</span>`;
+            }
         }
+
         if (custoPreview) {
             custoPreview.innerHTML = `Custo proporcional: <strong class="text-emerald-400">R$ ${custoStr}</strong>`;
         }
     } else {
+        if (qtdInput) {
+            qtdInput.classList.remove('!border-rose-500', '!text-rose-500');
+            qtdInput.removeAttribute('title');
+        }
         if (baixaPreview) {
-            baixaPreview.innerHTML = `Aplicação informada em <strong>${unApl}</strong>. Estoque em <strong>${unArm}</strong>. Aceita valores fracionados (ex: 50 ou 0,5).`;
+            baixaPreview.innerHTML = `Aplicação informada em <strong>${unApl}</strong>. Saldo em estoque: <strong>${saldoStr} ${unArm}</strong>.`;
         }
         if (custoPreview) custoPreview.textContent = '';
     }
+};
+
+window.validarEstoqueVisitaForm = function (form) {
+    let temErro = false;
+    let msgErro = '';
+
+    const rows = form.querySelectorAll('.produto-row');
+    rows.forEach(row => {
+        const sel = row.querySelector('.produto-select');
+        const qtdInput = row.querySelector('.produto-qtd');
+        if (sel && sel.value && qtdInput) {
+            const prodId = sel.value;
+            const meta = (window.__produtosMetadata && window.__produtosMetadata[prodId]) || {};
+            const fator = meta.fator || 1;
+            const saldo = typeof meta.saldo !== 'undefined' ? parseFloat(meta.saldo) : 0;
+            const unArm = meta.unidade_armazenamento || 'L';
+            const qtd = parseFloat(qtdInput.value) || 0;
+            const fracao = fator > 0 ? (qtd / fator) : qtd;
+
+            if (fracao > (saldo + 0.00001)) {
+                temErro = true;
+                const saldoStr = saldo.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+                const fracaoStr = fracao.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+                msgErro = `O insumo selecionado não possui estoque suficiente disponível!\nSaldo disponível: ${saldoStr} ${unArm}\nQuantidade solicitada: ${fracaoStr} ${unArm}`;
+            }
+        }
+    });
+
+    if (temErro) {
+        alert(msgErro);
+        return false;
+    }
+    return true;
 };
 
 // ── Preenchimento automático da diária do técnico selecionado ──

@@ -5,7 +5,7 @@
 @section('content')
     <div class="max-w-3xl">
         <div class="card p-6">
-            <form method="POST" action="{{ route('visitas.store') }}" class="space-y-6">
+            <form method="POST" action="{{ route('visitas.store') }}" class="space-y-6" onsubmit="return window.validarEstoqueVisitaForm ? window.validarEstoqueVisitaForm(this) : true;">
                 @csrf
                 <input type="hidden" name="comodato_id" value="{{ old('comodato_id', request('comodato_id')) }}">
 
@@ -146,7 +146,7 @@
                             <h3 class="text-xs font-bold uppercase tracking-wider text-white"
                                 style="color: var(--color-primary-400);">2. Insumos Químicos & Doses Fracionadas</h3>
                             <p class="text-[11px]" style="color: var(--color-surface-400);">Informe as doses aplicadas em
-                                mL, gramas ou unidades. O sistema converterá e debitará automaticamente do estoque.</p>
+                                mL, gramas ou unidades. O sistema valida o saldo e debita atomicamente do estoque ao criar a OS. Se a OS for cancelada, os insumos retornam ao estoque.</p>
                         </div>
                         <button type="button" onclick="addProdutoRow()" class="btn btn-secondary btn-sm shrink-0">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -156,6 +156,13 @@
                             Adicionar Insumo
                         </button>
                     </div>
+
+                    @error('produtos')
+                        <div class="mb-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2 animate-fadeIn">
+                            <svg class="w-4 h-4 shrink-0 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                            <span class="font-medium">{{ $message }}</span>
+                        </div>
+                    @enderror
 
                     <div id="produtos-container" class="space-y-3">
                         @if (old('produtos'))
@@ -174,9 +181,9 @@
                                                 <option value="">Selecione o insumo / defensivo...</option>
                                                 @foreach ($produtos as $p)
                                                     <option value="{{ $p->id }}"
-                                                        {{ ($item['id'] ?? '') == $p->id ? 'selected' : '' }}>
-                                                        {{ $p->nome }} (Saldo: {{ $p->quantidade_estoque_formatada }}
-                                                        {{ $p->unidade_armazenamento ?? $p->unidade }} &bull; Uso em:
+                                                        {{ ($item['id'] ?? '') == $p->id ? 'selected' : '' }}
+                                                        class="{{ $p->quantidade_estoque <= 0 ? 'text-rose-500 font-semibold' : '' }}">
+                                                        {{ $p->nome }} ({{ $p->quantidade_estoque <= 0 ? 'SEM ESTOQUE' : 'Saldo: ' . $p->quantidade_estoque_formatada . ' ' . ($p->unidade_armazenamento ?? $p->unidade) }} &bull; Uso em:
                                                         {{ $p->unidade_aplicacao ?? 'mL' }})
                                                     </option>
                                                 @endforeach
@@ -347,7 +354,7 @@
             @endforeach
         };
         window.__produtosOptions =
-            `@foreach ($produtos as $p)<option value="{{ $p->id }}">{{ $p->nome }} (Saldo: {{ $p->quantidade_estoque_formatada }} {{ $p->unidade_armazenamento ?? $p->unidade }} &bull; Uso em: {{ $p->unidade_aplicacao ?? 'mL' }})</option>@endforeach`;
+            `@foreach ($produtos as $p)<option value="{{ $p->id }}" class="{{ $p->quantidade_estoque <= 0 ? 'text-rose-500 font-semibold' : '' }}">{{ $p->nome }} ({{ $p->quantidade_estoque <= 0 ? 'SEM ESTOQUE' : 'Saldo: ' . $p->quantidade_estoque_formatada . ' ' . ($p->unidade_armazenamento ?? $p->unidade) }} &bull; Uso em: {{ $p->unidade_aplicacao ?? 'mL' }})</option>@endforeach`;
 
         document.addEventListener('DOMContentLoaded', function() {
             if (window.recalcularFinanceiroVisita) {

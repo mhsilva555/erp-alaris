@@ -50,12 +50,17 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 > - O botão e a rota de *"Proposta Comercial (Sigilosa)"* são estritamente bloqueados para usuários com papel `tecnico` (`abort(403)`).
 > - Essas informações de custo compõem a inteligência interna do ERP e são visíveis **exclusivamente no painel administrativo** por usuários com perfil `admin`.
 
-### 3.2. Ciclo de Vida da Visita, Conversão Fracionada e Baixa de Estoque
+### 3.2. Ciclo de Vida da Visita, Conversão Fracionada e Controle Imediato de Estoque
 - Os produtos possuem unidade de armazenamento (`L`, `Kg`, `Un`) e unidade de aplicação (`mL`, `g`, `Un`) com um `fator_conversao` (ex.: 1000).
-- Ao concluir uma visita com status `concluida`:
-  1. A quantidade aplicada em dose fracionada deve ser convertida para a unidade de estoque: $\text{baixa} = \text{dose} / \text{fator\_conversao}$.
-  2. O custo proporcional é apurado: $\text{custo} = \text{baixa} \times \text{preco\_custo\_unitario}$.
-  3. A baixa de saldo no estoque e o registro do custo na visita devem ser executados sob transação atômica `DB::transaction()`.
+- **Validação de Saldo e Reserva Imediata na Abertura da OS**:
+  1. A dose aplicada requerida é convertida para a unidade de estoque: $\text{baixa} = \text{dose} / \text{fator\_conversao}$.
+  2. Ao criar ou editar uma OS ativa (`agendada`, `em_andamento`, `concluida`), o sistema valida se há saldo suficiente em estoque (`quantidade_estoque >= baixa`). Se insuficiente, rejeita a operação com erro de validação descritivo.
+  3. Havendo saldo, a baixa é debitada imediatamente do estoque no momento da adição/criação da OS e registrada na pivot `visita_produto` em `fracao_baixada`, impedindo que múltiplas OSs concorram por saldo indisponível.
+  4. Na conclusão da OS (`concluida` ou `finalizar`), o sistema debita apenas eventuais frações pendentes (evitando qualquer dupla baixa).
+- **Estorno Automático no Cancelamento ou Exclusão da OS**:
+  - Se uma OS for cancelada (via endpoint dedicado `visitas.cancelar`, alteração de status para `cancelada` na edição, ou remoção na agenda), todas as frações consumidas (`fracao_baixada`) são devolvidas atomicamente ao saldo do produto (`quantidade_estoque`) e `fracao_baixada` é resetada para `0`.
+  - Se a OS for excluída (`destroy`), qualquer saldo baixado é estornado antes da exclusão.
+  - Se uma OS cancelada for reaberta (`agendada`), o sistema valida novamente a disponibilidade atual do estoque antes de permitir a reativação.
 
 ### 3.3. Gestão de Comodato e Reposição Preventiva
 - Equipamentos alocados em clientes (ex.: Porta-iscas) possuem campo de **periodicidade de reposição em dias** (editável pelo operador).

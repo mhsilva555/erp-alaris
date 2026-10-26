@@ -65,7 +65,7 @@ class Produto extends Model
     public function visitas(): BelongsToMany
     {
         return $this->belongsToMany(Visita::class, 'visita_produto')
-            ->withPivot('quantidade', 'custo_proporcional');
+            ->withPivot('quantidade', 'custo_proporcional', 'fracao_baixada');
     }
 
     public function comodatos(): HasMany

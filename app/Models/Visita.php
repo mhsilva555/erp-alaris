@@ -104,10 +104,36 @@ class Visita extends Model
         return $this->belongsTo(Tecnico::class);
     }
 
+    protected static function booted(): void
+    {
+        static::deleting(function (Visita $visita) {
+            $visita->estornarEstoqueProdutos();
+        });
+    }
+
     public function produtos(): BelongsToMany
     {
         return $this->belongsToMany(Produto::class, 'visita_produto')
-            ->withPivot('quantidade', 'custo_proporcional');
+            ->withPivot('quantidade', 'custo_proporcional', 'fracao_baixada');
+    }
+
+    /**
+     * Estorna e devolve ao saldo físico do produto qualquer fração de insumo
+     * que tenha sido baixada por esta ordem de serviço.
+     */
+    public function estornarEstoqueProdutos(): void
+    {
+        $this->loadMissing('produtos');
+        foreach ($this->produtos as $produto) {
+            $fracao = (float) ($produto->pivot->fracao_baixada ?? 0);
+            if ($fracao > 0) {
+                $produto->increment('quantidade_estoque', $fracao);
+                $produto->pivot->fracao_baixada = 0;
+                $this->produtos()->updateExistingPivot($produto->id, [
+                    'fracao_baixada' => 0,
+                ]);
+            }
+        }
     }
 
     public function movimentacoes(): HasMany

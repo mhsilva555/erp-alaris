@@ -58,64 +58,18 @@ This skill documents the core domain logic, data models, and business operations
 
 ## 2. Business Workflows & Invariants
 
-### 2.1. Fractional Stock Decrement & Cost Calculation on Completion
-```php
-DB::transaction(function () use ($visita, $validated, $statusAnterior) {
-    $custoProdutos = 0.0;
-    $sync = [];
-
-    if (!empty($validated['produtos'])) {
-        foreach ($validated['produtos'] as $item) {
-            $produto = Produto::findOrFail($item['id']);
-            $dose = (float) $item['quantidade'];
-            $custoItem = ($dose / $produto->fator_conversao) * $produto->preco_custo_unitario;
-            $custoProdutos += $custoItem;
-
-            $sync[$produto->id] = [
-                'quantidade_aplicada' => $dose,
-                'custo_proporcional'  => $custoItem,
-            ];
-        }
-        $visita->produtos()->sync($sync);
-    }
-
-    // Costing calculations
-    $custoMaoDeObra = (float) ($validated['custo_mao_de_obra'] ?? 50.00);
-    $custoDeslocamento = (float) ($validated['custo_deslocamento'] ?? 0.00);
-    $gastosAdicionais = (float) ($validated['gastos_adicionais'] ?? 0.00);
-    $valorCobrado = (float) ($validated['valor_cobrado'] ?? 0.00);
-    $exigeNf = (bool) ($validated['exige_nota_fiscal'] ?? false);
-    
-    $percentualImposto = $exigeNf ? (float) config('alaris.aliquota_imposto', 14.00) : 0.00;
-    $valorImposto = $valorCobrado * ($percentualImposto / 100);
-    $custoTotal = $custoProdutos + $custoMaoDeObra + $custoDeslocamento + $gastosAdicionais;
-    $lucroBruto = $valorCobrado - ($custoTotal + $valorImposto);
-
-    $visita->update(array_merge($validated, [
-        'custo_produtos'           => $custoProdutos,
-        'custo_mao_de_obra'        => $custoMaoDeObra,
-        'custo_deslocamento'       => $custoDeslocamento,
-        'gastos_adicionais'        => $gastosAdicionais,
-        'motivo_gastos_adicionais' => $validated['motivo_gastos_adicionais'] ?? null,
-        'percentual_imposto'       => $percentualImposto,
-        'valor_imposto'            => $valorImposto,
-        'lucro_bruto'              => $lucroBruto,
-    ]));
-
-    // Atomic stock deduction when transitioning to concluida
-    if ($statusAnterior !== Visita::STATUS_CONCLUIDA && $visita->status === Visita::STATUS_CONCLUIDA) {
-        $visita->load('produtos');
-        foreach ($visita->produtos as $prod) {
-            $fracaoBaixa = $prod->pivot->quantidade / $prod->fator_conversao;
-            $prod->decrement('quantidade_estoque', $fracaoBaixa);
-        }
-    }
-
-    // Atomic cash flow synchronization (store, update, and finalize)
-    // Synchronizes Revenue, Daily fee, and Extra expenses with data_competencia = data_hora
-    $this->sincronizarMovimentacoesFinanceiras($visita);
-});
-```
+### 2.1. Immediate Stock Reservation, Availability Validation & Cancellation Refund
+- Products have a storage unit (`L`, `Kg`, `Un`) and an application unit (`mL`, `g`, `Un`) with a conversion factor (`fator_conversao`).
+- When a Work Order (OS) is created or edited:
+  1. The system validates available stock: `($dose / $fator) <= $produto->quantidade_estoque`.
+  2. If sufficient, the required fraction is deducted immediately upon creation/assignment to the OS (`status != cancelada`).
+  3. The deducted fraction is recorded on `visita_produto.fracao_baixada`.
+  4. Subsequent OSs immediately see the reduced balance, preventing overbooking of chemical stock.
+  5. When finalizing an OS (`finalizar` or `concluida`), any remaining fraction not yet deducted is processed without double decrement.
+- When an OS is cancelled or deleted:
+  1. Any deducted fraction (`fracao_baixada > 0`) is refunded atomically to `produtos.quantidade_estoque`.
+  2. `fracao_baixada` is reset to 0.
+  3. Reopening a cancelled OS validates current stock availability before re-deducting.
 
 ### 2.2. Commercial Proposal View (Absolute Secrecy Rule)
 - When generating proposals (`/visitas/{id}/proposta`):

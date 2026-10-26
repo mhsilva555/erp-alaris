@@ -49,6 +49,20 @@
                 @endpermissao
 
                 @permissao('visitas.editar')
+                @if ($visita->status !== 'cancelada')
+                    <form id="cancelar-visita-{{ $visita->id }}" action="{{ route('visitas.cancelar', $visita) }}"
+                        method="POST" class="inline">
+                        @csrf
+                    </form>
+                    <button onclick="if(confirm('Tem certeza que deseja cancelar esta Ordem de Serviço? Os insumos alocados voltarão automaticamente ao estoque disponível.')) document.getElementById('cancelar-visita-{{ $visita->id }}').submit();"
+                        class="btn btn-warning-soft text-sm font-semibold" title="Cancelar OS e devolver insumos ao estoque">
+                        <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                        </svg>
+                        Cancelar OS
+                    </button>
+                @endif
                 <a href="{{ route('visitas.edit', $visita) }}" class="btn btn-primary text-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -281,9 +295,20 @@
                                     <td class=" text-emerald-400 font-semibold">
                                         {{ number_format($dose, 2, ',', '.') }} {{ $produto->unidade_aplicacao }}
                                     </td>
-                                    <td class=" text-xs" style="color: var(--color-surface-300);">
-                                        -{{ number_format($baixa, 4, ',', '.') }} {{ $produto->unidade_armazenamento }}
-                                    </td>
+                                    @if ($visita->status === \App\Models\Visita::STATUS_CANCELADA)
+                                        <td class="text-xs">
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                                                Estornado ao estoque
+                                            </span>
+                                        </td>
+                                    @else
+                                        <td class=" text-xs" style="color: var(--color-surface-300);">
+                                            -{{ number_format($baixa, 4, ',', '.') }} {{ $produto->unidade_armazenamento }}
+                                            @if (($produto->pivot->fracao_baixada ?? 0) > 0)
+                                                <span class="text-[10px] text-emerald-400 font-semibold block">(Baixado do estoque)</span>
+                                            @endif
+                                        </td>
+                                    @endif
                                     @permissao('visitas.acessar_dados')
                                         <td class=" text-right font-medium" style="color: var(--color-surface-200);">
                                             R$ {{ number_format($produto->pivot->custo_proporcional ?? 0, 2, ',', '.') }}

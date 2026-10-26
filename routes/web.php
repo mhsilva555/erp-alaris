@@ -69,6 +69,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/visitas/{visita}/os', [VisitaController::class, 'ordemServico'])->name('visitas.os');
     Route::get('/visitas/{visita}/proposta', [VisitaController::class, 'propostaCliente'])->name('visitas.proposta');
     Route::post('/visitas/{visita}/finalizar', [VisitaController::class, 'finalizar'])->name('visitas.finalizar');
+    Route::post('/visitas/{visita}/cancelar', [VisitaController::class, 'cancelar'])->name('visitas.cancelar');
 
     // Agenda Geral Unificada
     Route::get('/agendamentos', [AgendamentoController::class, 'index'])->name('agendamentos.index');

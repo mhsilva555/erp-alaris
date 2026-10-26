@@ -113,10 +113,37 @@ class VisitaController extends Controller
         $aliquotaImposto = $exigeNf ? (float) Configuracao::get('aliquota_imposto_padrao', '14.0') : 0.00;
         $valorImposto = round($valorCobrado * ($aliquotaImposto / 100), 2);
 
+        $statusVisita = $validated['status'] ?? Visita::STATUS_AGENDADA;
+
+        // 1. Agrupar doses solicitadas por produto e validar disponibilidade de estoque
+        $dosesPorProduto = [];
+        if (! empty($validated['produtos'])) {
+            foreach ($validated['produtos'] as $item) {
+                $prodId = $item['id'] ?? $item['produto_id'] ?? null;
+                if ($prodId) {
+                    $dosesPorProduto[$prodId] = ($dosesPorProduto[$prodId] ?? 0.0) + (float) $item['quantidade'];
+                }
+            }
+        }
+
+        if ($statusVisita !== Visita::STATUS_CANCELADA) {
+            foreach ($dosesPorProduto as $prodId => $doseTotal) {
+                $produto = Produto::findOrFail($prodId);
+                $fracaoNecessaria = $produto->calcularFracaoBaixa($doseTotal);
+                $saldoDisponivel = (float) $produto->quantidade_estoque;
+                if ($fracaoNecessaria > $saldoDisponivel) {
+                    return back()->withInput()->withErrors([
+                        'produtos' => "O insumo '{$produto->nome}' não possui saldo suficiente em estoque. Disponível: {$produto->quantidade_estoque_formatada} {$produto->unidade_armazenamento}, Solicitado: ".number_format($fracaoNecessaria, 4, ',', '.')." {$produto->unidade_armazenamento} ({$doseTotal} {$produto->unidade_aplicacao}).",
+                    ]);
+                }
+            }
+        }
+
         $visitaCriada = null;
-        DB::transaction(function () use ($validated, $valorCobrado, $custoMaoDeObra, $custoDeslocamento, $gastosAdicionais, $exigeNf, $aliquotaImposto, $valorImposto, &$visitaCriada) {
+        DB::transaction(function () use ($validated, $statusVisita, $valorCobrado, $custoMaoDeObra, $custoDeslocamento, $gastosAdicionais, $exigeNf, $aliquotaImposto, $valorImposto, &$visitaCriada) {
             $custoProdutos = 0.0;
             $sync = [];
+            $deveBaixar = $statusVisita !== Visita::STATUS_CANCELADA;
 
             if (! empty($validated['produtos'])) {
                 foreach ($validated['produtos'] as $item) {
@@ -128,10 +155,13 @@ class VisitaController extends Controller
                     $dose = (float) $item['quantidade'];
                     $custoItem = $prod->calcularCustoDose($dose);
                     $custoProdutos += $custoItem;
+                    $fracao = $prod->calcularFracaoBaixa($dose);
+                    $fracaoBaixar = $deveBaixar ? $fracao : 0.0;
 
                     $sync[$prod->id] = [
                         'quantidade' => $dose,
                         'custo_proporcional' => $custoItem,
+                        'fracao_baixada' => $fracaoBaixar,
                     ];
                 }
             }
@@ -156,19 +186,21 @@ class VisitaController extends Controller
 
             if (! empty($sync)) {
                 $visita->produtos()->sync($sync);
+
+                if ($deveBaixar) {
+                    foreach ($sync as $prodId => $pivotData) {
+                        $fracao = $pivotData['fracao_baixada'];
+                        if ($fracao > 0) {
+                            Produto::where('id', $prodId)->decrement('quantidade_estoque', $fracao);
+                        }
+                    }
+                }
             }
 
-            // Se criada já como concluída, debitar frações do estoque, atualizar comodato e sincronizar financeiro
+            // Se criada já como concluída, atualizar comodato e sincronizar financeiro
             if ($visita->status === Visita::STATUS_CONCLUIDA) {
                 if ($visita->comodato_id) {
                     $visita->comodato?->registrarReposicao($visita->data_hora ?? now());
-                }
-
-                $visita->load('produtos');
-                foreach ($visita->produtos as $produto) {
-                    $dose = (float) $produto->pivot->quantidade;
-                    $fracao = $produto->calcularFracaoBaixa($dose);
-                    $produto->decrement('quantidade_estoque', $fracao);
                 }
 
                 $this->sincronizarMovimentacoesFinanceiras($visita);
@@ -255,25 +287,105 @@ class VisitaController extends Controller
         $aliquotaImposto = $exigeNf ? (float) Configuracao::get('aliquota_imposto_padrao', '14.0') : 0.00;
         $valorImposto = round($valorCobrado * ($aliquotaImposto / 100), 2);
 
-        DB::transaction(function () use ($validated, $visita, $statusAnterior, $valorCobrado, $custoMaoDeObra, $custoDeslocamento, $gastosAdicionais, $exigeNf, $aliquotaImposto, $valorImposto) {
+        $novoStatus = $validated['status'];
+
+        // 1. Agrupar doses solicitadas por produto
+        $dosesPorProduto = [];
+        if (! empty($validated['produtos'])) {
+            foreach ($validated['produtos'] as $item) {
+                $prodId = $item['id'] ?? $item['produto_id'] ?? null;
+                if ($prodId) {
+                    $dosesPorProduto[$prodId] = ($dosesPorProduto[$prodId] ?? 0.0) + (float) $item['quantidade'];
+                }
+            }
+        }
+
+        $visita->loadMissing('produtos');
+        $antigasFracoes = [];
+        foreach ($visita->produtos as $p) {
+            $antigasFracoes[$p->id] = (float) ($p->pivot->fracao_baixada ?? 0.0);
+        }
+
+        // Se o novo status não for 'cancelada', valida se há estoque suficiente para acréscimos
+        if ($novoStatus !== Visita::STATUS_CANCELADA) {
+            foreach ($dosesPorProduto as $prodId => $doseTotal) {
+                $produto = Produto::findOrFail($prodId);
+                $novaFracao = $produto->calcularFracaoBaixa($doseTotal);
+                $antigaFracao = $antigasFracoes[$prodId] ?? 0.0;
+                $delta = round($novaFracao - $antigaFracao, 4);
+
+                if ($delta > 0 && $delta > (float) $produto->quantidade_estoque) {
+                    return back()->withInput()->withErrors([
+                        'produtos' => "O insumo '{$produto->nome}' não possui saldo suficiente para acréscimo. Disponível: {$produto->quantidade_estoque_formatada} {$produto->unidade_armazenamento}, Necessário adicional: ".number_format($delta, 4, ',', '.')." {$produto->unidade_armazenamento}.",
+                    ]);
+                }
+            }
+        }
+
+        DB::transaction(function () use ($validated, $visita, $statusAnterior, $novoStatus, $antigasFracoes, $valorCobrado, $custoMaoDeObra, $custoDeslocamento, $gastosAdicionais, $exigeNf, $aliquotaImposto, $valorImposto) {
             $custoProdutos = 0.0;
             $sync = [];
 
-            if (! empty($validated['produtos'])) {
-                foreach ($validated['produtos'] as $item) {
-                    $prodId = $item['id'] ?? $item['produto_id'] ?? null;
-                    if (! $prodId) {
-                        continue;
-                    }
-                    $prod = Produto::findOrFail($prodId);
-                    $dose = (float) $item['quantidade'];
-                    $custoItem = $prod->calcularCustoDose($dose);
-                    $custoProdutos += $custoItem;
+            if ($novoStatus === Visita::STATUS_CANCELADA) {
+                // Ao cancelar a OS, estorna qualquer fração que tenha sido baixada previamente
+                if ($statusAnterior !== Visita::STATUS_CANCELADA) {
+                    $visita->estornarEstoqueProdutos();
+                }
 
-                    $sync[$prod->id] = [
-                        'quantidade' => $dose,
-                        'custo_proporcional' => $custoItem,
-                    ];
+                if (! empty($validated['produtos'])) {
+                    foreach ($validated['produtos'] as $item) {
+                        $prodId = $item['id'] ?? $item['produto_id'] ?? null;
+                        if (! $prodId) {
+                            continue;
+                        }
+                        $prod = Produto::findOrFail($prodId);
+                        $dose = (float) $item['quantidade'];
+                        $custoItem = $prod->calcularCustoDose($dose);
+                        $custoProdutos += $custoItem;
+
+                        $sync[$prod->id] = [
+                            'quantidade' => $dose,
+                            'custo_proporcional' => $custoItem,
+                            'fracao_baixada' => 0.0,
+                        ];
+                    }
+                }
+            } else {
+                // OS ativa: ajusta diferenças de estoque e preserva a rastreabilidade
+                if (! empty($validated['produtos'])) {
+                    foreach ($validated['produtos'] as $item) {
+                        $prodId = $item['id'] ?? $item['produto_id'] ?? null;
+                        if (! $prodId) {
+                            continue;
+                        }
+                        $prod = Produto::findOrFail($prodId);
+                        $dose = (float) $item['quantidade'];
+                        $custoItem = $prod->calcularCustoDose($dose);
+                        $custoProdutos += $custoItem;
+                        $novaFracao = $prod->calcularFracaoBaixa($dose);
+                        $antigaFracao = $antigasFracoes[$prodId] ?? 0.0;
+                        $delta = round($novaFracao - $antigaFracao, 4);
+
+                        if ($delta > 0) {
+                            $prod->decrement('quantidade_estoque', $delta);
+                        } elseif ($delta < 0) {
+                            $prod->increment('quantidade_estoque', abs($delta));
+                        }
+
+                        $sync[$prod->id] = [
+                            'quantidade' => $dose,
+                            'custo_proporcional' => $custoItem,
+                            'fracao_baixada' => $novaFracao,
+                        ];
+                    }
+                }
+
+                // Devolver ao estoque insumos que foram retirados desta visita
+                foreach ($antigasFracoes as $oldProdId => $oldFracao) {
+                    if (! isset($sync[$oldProdId]) && $oldFracao > 0) {
+                        $oldProd = Produto::find($oldProdId);
+                        $oldProd?->increment('quantidade_estoque', $oldFracao);
+                    }
                 }
             }
 
@@ -295,17 +407,10 @@ class VisitaController extends Controller
             $visita->update($visitaData);
             $visita->produtos()->sync($sync);
 
-            // Se transicionou para concluída, descontar frações do estoque e atualizar comodato
+            // Se transicionou para concluída, atualizar comodato
             if ($statusAnterior !== Visita::STATUS_CONCLUIDA && $visita->status === Visita::STATUS_CONCLUIDA) {
                 if ($visita->comodato_id) {
                     $visita->comodato?->registrarReposicao($visita->data_hora ?? now());
-                }
-
-                $visita->load('produtos');
-                foreach ($visita->produtos as $produto) {
-                    $dose = (float) $produto->pivot->quantidade;
-                    $fracao = $produto->calcularFracaoBaixa($dose);
-                    $produto->decrement('quantidade_estoque', $fracao);
                 }
             }
 
@@ -393,12 +498,21 @@ class VisitaController extends Controller
                 $visita->comodato?->registrarReposicao($visita->data_hora ?? now());
             }
 
-            // Baixa atômica de frações do estoque dos insumos aplicados
+            // Baixa atômica de frações restantes do estoque dos insumos aplicados
+            // (se a OS já baixou na criação/edição, faltaBaixar será 0 e não haverá dupla baixa)
             $visita->load('produtos');
             foreach ($visita->produtos as $produto) {
-                $dose = (float) $produto->pivot->quantidade;
-                $fracao = $produto->calcularFracaoBaixa($dose);
-                $produto->decrement('quantidade_estoque', $fracao);
+                $dose = (float) ($produto->pivot->quantidade ?? 0);
+                $fracaoDesejada = $produto->calcularFracaoBaixa($dose);
+                $fracaoJaBaixada = (float) ($produto->pivot->fracao_baixada ?? 0);
+                $faltaBaixar = round($fracaoDesejada - $fracaoJaBaixada, 4);
+
+                if ($faltaBaixar > 0) {
+                    $produto->decrement('quantidade_estoque', $faltaBaixar);
+                    $visita->produtos()->updateExistingPivot($produto->id, [
+                        'fracao_baixada' => $fracaoDesejada,
+                    ]);
+                }
             }
 
             // Sincroniza lançamentos financeiros (faturamento, gastos adicionais e diária do técnico)
@@ -409,18 +523,45 @@ class VisitaController extends Controller
             ->with('sucesso', 'Visita finalizada com sucesso! Baixa de insumos realizada e financeiro atualizado.');
     }
 
+    /**
+     * Cancela a Ordem de Serviço e estorna atomicamente qualquer consumo de produto ao estoque.
+     */
+    public function cancelar(Visita $visita)
+    {
+        $this->autorizarAcessoVisita($visita);
+
+        if ($visita->status === Visita::STATUS_CANCELADA) {
+            return redirect()->route('visitas.show', $visita)
+                ->with('alerta', 'Esta visita já está marcada como cancelada.');
+        }
+
+        DB::transaction(function () use ($visita) {
+            $visita->estornarEstoqueProdutos();
+            $visita->status = Visita::STATUS_CANCELADA;
+            $visita->save();
+
+            $this->sincronizarMovimentacoesFinanceiras($visita);
+        });
+
+        NotificacaoAgendamento::notificarOsCancelada($visita);
+
+        return redirect()->route('visitas.show', $visita)
+            ->with('sucesso', 'Ordem de Serviço cancelada com sucesso! O consumo dos insumos foi estornado ao estoque.');
+    }
+
     public function destroy(Visita $visita)
     {
         $this->autorizarAcessoVisita($visita);
 
         DB::transaction(function () use ($visita) {
+            $visita->estornarEstoqueProdutos();
             $visita->movimentacoes()->delete();
             $visita->produtos()->detach();
             $visita->delete();
         });
 
         return redirect()->route('visitas.index')
-            ->with('sucesso', 'Visita removida com sucesso.');
+            ->with('sucesso', 'Visita removida com sucesso. O saldo de insumos foi estornado ao estoque.');
     }
 
     /**
