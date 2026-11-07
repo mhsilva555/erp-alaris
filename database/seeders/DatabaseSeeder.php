@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             PerfilPermissaoSeeder::class,
+            MeioPagamentoSeeder::class,
             NotificationsTestSeeder::class,
         ]);
     }

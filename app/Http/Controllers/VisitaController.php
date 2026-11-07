@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Cliente;
 use App\Models\Configuracao;
+use App\Models\Contrato;
 use App\Models\EquipamentoComodato;
 use App\Models\MovimentacaoFinanceira;
 use App\Models\NotificacaoAgendamento;
@@ -17,7 +18,7 @@ class VisitaController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Visita::with(['cliente', 'tecnico']);
+        $query = Visita::with(['cliente', 'tecnico', 'contrato']);
 
         // Se for técnico, filtra estritamente as suas próprias visitas
         if ($request->user() && $request->user()->isTecnico()) {
@@ -63,8 +64,10 @@ class VisitaController extends Controller
         $aliquotaPadrao = (float) Configuracao::get('aliquota_imposto_padrao', '14.0');
         $diariaPadrao = (float) Configuracao::get('diaria_tecnico_padrao', '50.00');
         $comodato = $request->filled('comodato_id') ? EquipamentoComodato::with(['cliente', 'produto', 'equipamento'])->find($request->comodato_id) : null;
+        $contrato = $request->filled('contrato_id') ? Contrato::with(['cliente', 'itens'])->find($request->contrato_id) : null;
+        $contratos = Contrato::where('status', Contrato::STATUS_ATIVO)->orderBy('numero')->get();
 
-        return view('visitas.create', compact('clientes', 'produtos', 'tecnicos', 'aliquotaPadrao', 'diariaPadrao', 'comodato'));
+        return view('visitas.create', compact('clientes', 'produtos', 'tecnicos', 'aliquotaPadrao', 'diariaPadrao', 'comodato', 'contrato', 'contratos'));
     }
 
     public function store(Request $request)
@@ -73,6 +76,7 @@ class VisitaController extends Controller
 
         $validated = $request->validate([
             'cliente_id' => 'required|exists:clientes,id',
+            'contrato_id' => 'nullable|exists:contratos,id',
             'comodato_id' => 'nullable|exists:equipamentos_comodato,id',
             'data_hora' => 'required|date',
             'status' => 'required|in:agendada,em_andamento,concluida,cancelada',
@@ -245,6 +249,7 @@ class VisitaController extends Controller
 
         $validated = $request->validate([
             'cliente_id' => 'required|exists:clientes,id',
+            'contrato_id' => 'nullable|exists:contratos,id',
             'comodato_id' => 'nullable|exists:equipamentos_comodato,id',
             'data_hora' => 'required|date',
             'status' => 'required|in:agendada,em_andamento,concluida,cancelada',
@@ -571,7 +576,7 @@ class VisitaController extends Controller
     {
         $this->autorizarAcessoVisita($visita);
 
-        $visita->load(['cliente.comodatos.produto', 'tecnico', 'produtos']);
+        $visita->load(['cliente.comodatos.produto', 'tecnico', 'produtos', 'contrato.itens']);
 
         return view('visitas.os', compact('visita'));
     }

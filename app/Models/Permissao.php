@@ -39,6 +39,22 @@ class Permissao extends Model
                 ],
             ],
 
+            'contratos' => [
+                'nome' => 'Contratos de Prestação de Serviços',
+                'descricao' => 'Gestão de contratos, periodicidades, vigências e geração de visitas.',
+                'permissoes' => [
+                    'contratos.ver' => ['nome' => 'Ver Contratos', 'descricao' => 'Visualizar listagem e detalhes dos contratos.'],
+                    'contratos.criar' => ['nome' => 'Criar Contratos', 'descricao' => 'Cadastrar novos contratos de prestação de serviços.'],
+                    'contratos.editar' => ['nome' => 'Editar Contratos', 'descricao' => 'Editar condições, periodicidade, vigência e itens do contrato.'],
+                    'contratos.deletar' => ['nome' => 'Deletar Contratos', 'descricao' => 'Excluir contratos do sistema.'],
+                    'contratos.acessar_dados' => ['nome' => 'Acessar Dados Comerciais', 'descricao' => 'Visualizar valores, modelos de cobrança e condições comerciais.'],
+                    'contratos.ativar' => ['nome' => 'Ativar Contrato', 'descricao' => 'Ativar contrato e habilitar agendamentos automáticos.'],
+                    'contratos.suspender' => ['nome' => 'Suspender Contrato', 'descricao' => 'Pausar contrato e suspender visitas futuras.'],
+                    'contratos.cancelar' => ['nome' => 'Cancelar Contrato', 'descricao' => 'Cancelar contrato e estornar agendamentos pendentes.'],
+                    'contratos.gerar_visitas' => ['nome' => 'Gerar Visitas da Agenda', 'descricao' => 'Acionar manualmente o cálculo e geração de novas visitas.'],
+                ],
+            ],
+
             'equipamentos' => [
                 'nome' => 'Equipamentos do Inventário',
                 'descricao' => 'Controle de armadilhas, porta-iscas e patrimônio em estoque.',

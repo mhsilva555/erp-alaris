@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Models\Contrato;
 use App\Models\EquipamentoComodato;
 use App\Models\MovimentacaoFinanceira;
 use App\Models\NotificacaoAgendamento;
@@ -29,7 +30,7 @@ class AgendamentoController extends Controller
         $dataFim = Carbon::parse($mes.'-01')->endOfMonth();
 
         // 1. Visitas Agendadas no período
-        $visitasQuery = Visita::with(['cliente', 'tecnico'])
+        $visitasQuery = Visita::with(['cliente', 'tecnico', 'contrato'])
             ->whereBetween('data_hora', [$dataInicio, $dataFim])
             ->where('status', '!=', Visita::STATUS_CANCELADA);
 
@@ -46,11 +47,12 @@ class AgendamentoController extends Controller
 
         $visitas = $visitasQuery->orderBy('data_hora')->get();
 
-        // 1.1. Visitas Contratuais Recorrentes Projetadas para Clientes Ativos
+        // 1.1. Visitas Contratuais Recorrentes Projetadas para Clientes Ativos (Fallback Legado sem Contrato Ativo)
         $itensVisitasRecorrentes = collect();
         if ((! $user || $user->isAdmin()) && ! $tecnicoId) {
             $clientesRecorrentes = Cliente::with('visitas')
                 ->where('status_prospeccao', Cliente::STATUS_ATIVO)
+                ->whereDoesntHave('contratos', fn ($q) => $q->where('status', Contrato::STATUS_ATIVO))
                 ->whereIn('periodicidade', ['quinzenal', 'mensal', 'bimestral', 'trimestral', 'semestral', 'anual'])
                 ->get();
 
@@ -266,11 +268,12 @@ class AgendamentoController extends Controller
             'tipo_item' => 'visita',
             'data_hora' => $v->data_hora,
             'titulo' => "OS #{$v->id} — {$v->cliente->nome}",
-            'subtitulo' => $v->tipoServicoLabel().' • '.($v->tecnico?->nome ?? 'Sem técnico').($v->comodato_id ? ' • Reposição de Comodato' : ''),
+            'subtitulo' => $v->tipoServicoLabel().' • '.($v->tecnico?->nome ?? 'Sem técnico').($v->contrato ? " • Contrato: {$v->contrato->numero}" : '').($v->comodato_id ? ' • Reposição de Comodato' : ''),
             'detalhes' => $v->area_tratada ? "Área: {$v->area_tratada}" : ($v->tipo_praga ?? 'Monitoramento'),
             'status' => $v->statusLabel(),
             'url' => route('visitas.show', $v),
             'model' => $v,
+            'contrato' => $v->contrato,
             'eh_recorrente_projetado' => false,
         ]);
 

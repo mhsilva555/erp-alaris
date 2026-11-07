@@ -50,6 +50,7 @@ class Visita extends Model
 
     protected $fillable = [
         'cliente_id',
+        'contrato_id',
         'comodato_id',
         'tecnico_id',
         'data_hora',
@@ -92,6 +93,11 @@ class Visita extends Model
     public function cliente(): BelongsTo
     {
         return $this->belongsTo(Cliente::class);
+    }
+
+    public function contrato(): BelongsTo
+    {
+        return $this->belongsTo(Contrato::class);
     }
 
     public function comodato(): BelongsTo

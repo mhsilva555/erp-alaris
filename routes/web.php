@@ -6,6 +6,7 @@ use App\Http\Controllers\CategoriaEquipamentoController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\ComodatoController;
 use App\Http\Controllers\ConfiguracaoController;
+use App\Http\Controllers\ContratoController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EquipamentoController;
 use App\Http\Controllers\FinanceiroController;
@@ -48,6 +49,14 @@ Route::middleware('auth')->group(function () {
 
     // Clientes
     Route::resource('clientes', ClienteController::class);
+
+    // Contratos de Prestação de Serviços
+    Route::resource('contratos', ContratoController::class);
+    Route::post('/contratos/{contrato}/ativar', [ContratoController::class, 'ativar'])->name('contratos.ativar');
+    Route::post('/contratos/{contrato}/suspender', [ContratoController::class, 'suspender'])->name('contratos.suspender');
+    Route::post('/contratos/{contrato}/cancelar', [ContratoController::class, 'cancelar'])->name('contratos.cancelar');
+    Route::post('/contratos/{contrato}/encerrar', [ContratoController::class, 'encerrar'])->name('contratos.encerrar');
+    Route::post('/contratos/{contrato}/gerar-visitas', [ContratoController::class, 'gerarVisitasManuais'])->name('contratos.gerar-visitas');
 
     // Categorias de Equipamentos
     Route::get('/equipamentos/categorias', [CategoriaEquipamentoController::class, 'index'])->name('equipamentos.categorias.index');

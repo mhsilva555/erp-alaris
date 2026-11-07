@@ -29,6 +29,25 @@
                     </div>
                 @endif
 
+                @if (isset($contrato) && $contrato)
+                    <input type="hidden" name="contrato_id" value="{{ $contrato->id }}">
+                    <div
+                        class="p-4 rounded-lg flex items-start gap-3 bg-indigo-50 border border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-800/50">
+                        <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <div class="text-xs">
+                            <span class="font-bold text-indigo-700 dark:text-indigo-300 block text-sm">Ordem de Serviço Vinculada ao Contrato {{ $contrato->numero }}</span>
+                            <p class="text-slate-600 dark:text-surface-300 mt-0.5">
+                                Cliente: <strong>{{ $contrato->cliente->nome }}</strong> • Periodicidade: <strong>{{ $contrato->periodicidadeLabel() }}</strong>.
+                                Esta visita é vinculada ao histórico e aos agendamentos contratuais.
+                            </p>
+                        </div>
+                    </div>
+                @endif
+
                 {{-- Informações Operacionais da Visita --}}
                 <div>
                     <h3 class="text-xs font-bold uppercase tracking-wider text-white mb-3"
@@ -46,6 +65,21 @@
                                 @endforeach
                             </select>
                         </div>
+
+                        @if (!isset($contrato) && isset($contratos) && $contratos->isNotEmpty())
+                            <div class="sm:col-span-2">
+                                <label class="form-label" for="contrato_id">Contrato de Origem (Opcional)</label>
+                                <select id="contrato_id" name="contrato_id" class="form-select">
+                                    <option value="">Nenhum (Visita Avulsa / Pontual)</option>
+                                    @foreach ($contratos as $ctr)
+                                        <option value="{{ $ctr->id }}"
+                                            {{ old('contrato_id', request('contrato_id')) == $ctr->id ? 'selected' : '' }}>
+                                            {{ $ctr->numero }} — {{ $ctr->cliente->nome }} ({{ $ctr->periodicidadeLabel() }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
 
                         <div>
                             <label class="form-label" for="tipo_visita">Categoria da Visita *</label>

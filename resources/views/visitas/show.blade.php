@@ -139,6 +139,19 @@
                     <p class="text-xs mt-0.5" style="color: var(--color-surface-400);">
                         {{ $visita->tecnico?->especialidade ?? 'Geral' }}</p>
                 </div>
+                @if ($visita->contrato)
+                    <div>
+                        <span class="form-label">Contrato de Origem</span>
+                        <a href="{{ route('contratos.show', $visita->contrato) }}"
+                            class="text-indigo-400 hover:underline font-semibold flex items-center gap-1.5">
+                            <span class="badge badge-neutral text-xs">{{ $visita->contrato->numero }}</span>
+                            {{ $visita->contrato->titulo ?: 'Contrato Recorrente' }}
+                        </a>
+                        <p class="text-xs mt-0.5" style="color: var(--color-surface-400);">
+                            Periodicidade: {{ $visita->contrato->periodicidadeLabel() }} • {{ $visita->contrato->vigenciaLabel() }}
+                        </p>
+                    </div>
+                @endif
                 @if ($visita->tipo_praga)
                     <div>
                         <span class="form-label">Alvo / Tipo de Praga</span>

@@ -16,11 +16,16 @@ This skill documents the core domain logic, data models, and business operations
 ## 1. Core Domain Models & Roles
 
 1. **Cliente (`App\Models\Cliente`)**:
-   - Fields: `nome`, `documento` (CPF/CNPJ), `email`, `telefone`, `endereco`, `cidade`, `estado`, `cep`, `origem` (lead source), `periodicidade`, `status_prospeccao`, `data_followup`, `observacoes`.
-   - Relationships: `hasMany(Visita::class)`, `hasMany(EquipamentoComodato::class)`.
-   - **Rule**: When `data_followup` is set (e.g. for `retornar_3_meses` or `contrato_concorrente`), an automatic reminder event is injected into the Unified Agenda.
+   - Fields: `nome`, `documento` (CPF/CNPJ), `email`, `telefone`, `endereco`, `cidade`, `estado`, `cep`, `origem` (lead source), `status_prospeccao`, `data_followup`, `observacoes`.
+   - Relationships: `hasMany(Contrato::class)`, `hasMany(Visita::class)`, `hasMany(EquipamentoComodato::class)`.
+   - **Rule**: Periodicity is decoupled from Cliente and managed under Contratos. A client can have zero, one, or multiple active contracts. When `data_followup` is set, an automatic reminder is injected into the Unified Agenda.
 
-2. **Tecnico (`App\Models\Tecnico`)**:
+2. **Contrato (`App\Models\Contrato`) & ContratoItem (`App\Models\ContratoItem`)**:
+   - Fields: `cliente_id`, `numero`, `tipo_vigencia` (`determinado`, `indeterminado`), `data_inicio`, `data_fim`, `permite_renovacao`, `periodicidade` (`atendimento_unico`, `semanal`, `quinzenal`, `mensal`, `bimestral`, `trimestral`, `semestral`, `anual`, `personalizado`), `dia_preferencial`, `dia_semana`, `intervalo_dias`, `status` (`rascunho`, `ativo`, `suspenso`, `encerrado`, `cancelado`, `expirado`), `valor_total`, `desconto`, `modelo_cobranca`, `condicoes_pagamento`, `observacoes`, `observacoes_comerciais`, `proxima_geracao_ate`.
+   - Relationships: `belongsTo(Cliente::class)`, `hasMany(ContratoItem::class)`, `hasMany(Visita::class)`.
+   - ContratoItem fields: `contrato_id`, `tipo_servico`, `descricao_servico`, `quantidade`, `valor_unitario`, `valor_total`.
+
+3. **Tecnico (`App\Models\Tecnico`)**:
    - Fields: `nome`, `telefone`, `email`, `especialidade`, `valor_diaria_padrao`, `ativo`.
    - Relationships: `hasMany(Visita::class)`, `hasOne(User::class)`.
    - **Rule**: Only technicians with `ativo == true` appear in service scheduling dropdowns.
@@ -105,6 +110,17 @@ Always use `whereDate()` for date boundaries to avoid string comparison truncati
   - Main scroll area has `pb-24 lg:pb-8` offset.
   - Notification dropdown is bound to viewport edges on mobile (`left: 0.75rem; right: 0.75rem; width: auto; max-width: calc(100vw - 1.5rem)`).
 - Orders of service with status `agendada` and `em_andamento` have operational precedence at the top of the visits list.
+
+### 2.8. Contract Lifecycle & Progressive Auto-Scheduling (`ContratoAgendamentoService`)
+- Flow: `Cliente -> Contrato -> Visitas Agendadas -> Ordem de Serviço`.
+- Contract statuses: `rascunho`, `ativo`, `suspenso`, `encerrado`, `cancelado`, `expirado`.
+- Activation triggers automatic, idempotent visit generation:
+  - Indeterminate contracts maintain a rolling 90-day window (`proxima_geracao_ate`).
+  - Determinate contracts generate visits until `data_fim`.
+  - Non-existent dates (e.g. day 31 in Feb/Apr) clamp to `min($diaPreferencial, $mesRef->daysInMonth)`.
+- Updates to periodicity/dates sync future unexecuted visits (`sincronizarAgendamentosFuturos`), preserving in-progress and completed visits.
+- Suspending/cancelling a contract cleans/cancels unexecuted visits and restores reserved stock (`tratarSuspensaoOuCancelamento`).
+- Daily maintenance via Artisan command `php artisan contratos:gerar-visitas {--dias=90}`.
 
 ---
 

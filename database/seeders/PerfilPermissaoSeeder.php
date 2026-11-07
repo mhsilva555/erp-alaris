@@ -89,6 +89,8 @@ class PerfilPermissaoSeeder extends Seeder
             'notificacoes.ver', 'notificacoes.criar', 'notificacoes.editar', 'notificacoes.deletar', 'notificacoes.acessar_dados', 'notificacoes.alertas_navegador',
             // Clientes
             'clientes.ver', 'clientes.criar', 'clientes.editar', 'clientes.deletar', 'clientes.acessar_dados',
+            // Contratos
+            'contratos.ver', 'contratos.criar', 'contratos.editar', 'contratos.deletar', 'contratos.acessar_dados', 'contratos.ativar', 'contratos.suspender', 'contratos.cancelar', 'contratos.gerar_visitas',
             // Equipamentos
             'equipamentos.ver', 'equipamentos.criar', 'equipamentos.editar', 'equipamentos.deletar', 'equipamentos.acessar_dados', 'equipamentos.gerenciar_categorias',
             // Comodatos
@@ -122,6 +124,7 @@ class PerfilPermissaoSeeder extends Seeder
             'financeiro.ver', 'financeiro.criar', 'financeiro.editar', 'financeiro.deletar', 'financeiro.acessar_dados', 'financeiro.alterar_status', 'financeiro.relatorio_dre', 'financeiro.exportar_pdf',
             // Clientes e Visitas para faturamento
             'clientes.ver', 'clientes.acessar_dados',
+            'contratos.ver', 'contratos.acessar_dados',
             'visitas.ver', 'visitas.acessar_dados', 'visitas.proposta_comercial',
             'comodatos.ver', 'comodatos.acessar_dados',
             'produtos.ver', 'produtos.acessar_dados',

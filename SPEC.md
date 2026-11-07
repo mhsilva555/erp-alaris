@@ -46,8 +46,10 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 - **Dados Cadastrais Principais**: Nome/Razão Social, Documento (CPF/CNPJ), E-mail, Telefone/WhatsApp, Endereço completo, Cidade, Estado (UF obrigatória) e Observações de acesso.
 - **Canal de Origem / Aquisição (`origem`)**:
   - Identificação de onde o lead veio: `Trafego Pago`, `Indicacao`, `Prospeccao Ativa`, `Redes Sociais`, `Site/Organico`, `Parceria`, `Outros`.
-- **Periodicidade de Atendimento (`periodicidade`)**:
-  - Frequência contratual ou recomendada para aquele cliente: `Avulso`, `Quinzenal`, `Mensal`, `Bimestral`, `Trimestral`, `Semestral`, `Anual`.
+- **Desacoplamento da Periodicidade de Atendimento**:
+  - A periodicidade de atendimento foi desacoplada do cadastro de clientes e transferida integralmente para o novo módulo de **Contratos**.
+  - A coluna legada `periodicidade` é mantida no banco para compatibilidade histórica, mas removida dos formulários de criação e edição de clientes.
+  - Um cliente pode existir sem contratos ou possuir múltiplos contratos vigentes, cada um com condições comerciais, vigências e periodicidades independentes.
 - **Funil de Prospecção e Status (`status_prospeccao`)**:
   - `ativo`: Cliente com serviços vigentes ou contratos recorrentes.
   - `em_negociacao`: Proposta enviada aguardando aceite.
@@ -58,9 +60,44 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 - **Data de Follow-up (`data_followup`)**:
   - Quando preenchida (ex.: nos casos de retorno futuro ou vencimento do concorrente), injeta automaticamente uma entrada de lembrete na **Agenda Geral Unificada**.
 - **Dossiê do Cliente (`clientes.show`)**:
-  - Painel com histórico completo: visitas realizadas, equipamentos em comodato ativos, histórico de orçamentos e linha do tempo de interações.
+  - Painel com histórico completo: botão de ação direta "+ Novo Contrato", seção dedicada de **Contratos de Prestação de Serviços** com status badges e visualização de itens, visitas realizadas, equipamentos em comodato ativos e histórico de orçamentos.
 - **Filtros da Listagem (`clientes.index`)**:
-  - Busca textual (nome, CPF/CNPJ, telefone, cidade), filtro por `status_prospeccao`, filtro por `periodicidade` (avulso, quinzenal, mensal, bimestral, trimestral, semestral, anual) e filtro por `origem`, com botão de limpeza rápida de filtros.
+  - Busca textual (nome, CPF/CNPJ, telefone, cidade), filtro por `status_prospeccao` e filtro por `origem`, com botão de limpeza rápida de filtros.
+
+### 2.3. Módulo de Contratos e Reestruturação do Fluxo de Atendimento
+- **Novo Fluxo Operacional**:
+  $$\text{Cliente} \longrightarrow \text{Contrato} \longrightarrow \text{Visitas Agendadas} \longrightarrow \text{Ordem de Serviço (OS)}$$
+- **Identificação do Contrato**:
+  - `numero`: Código único sequencial anual (ex.: `CTR-2026-0001`).
+  - `cliente_id`: Cliente contratante vinculado.
+  - `data_inicio`: Início da vigência do contrato.
+  - `data_fim`: Término da vigência (opcional para prazo indeterminado).
+  - `tipo_vigencia`: `determinado` ou `indeterminado`.
+  - `permite_renovacao`: Booleano para renovação contratual.
+- **Situações do Contrato (Máquina de Estados)**:
+  - `rascunho`: Contrato em elaboração, sem geração de visitas na agenda.
+  - `ativo`: Contrato vigente com visitas agendadas automaticamente.
+  - `suspenso`: Temporariamente interrompido; cancela visitas futuras pendentes e libera estoque.
+  - `encerrado`: Finalizado formalmente; visitas concluídas permanecem intactas no histórico.
+  - `cancelado`: Cancelado; expurga/cancela agendamentos futuros sem afetar histórico executado.
+  - `expirado`: Contrato determinado cuja vigência chegou ao fim.
+- **Periodicidade e Frequência de Atendimento**:
+  - Frequências suportadas: `atendimento_unico`, `semanal`, `quinzenal`, `mensal`, `bimestral`, `trimestral`, `semestral`, `anual`, `personalizado`.
+  - Parâmetros de cálculo: `dia_preferencial` (1 a 31), `dia_semana` (0=Domingo a 6=Sábado), `intervalo_dias` (para periodicidade personalizada).
+  - **Tratamento de Datas Inexistentes**: Em meses curtos (ex.: 28/29 de Fevereiro, 30 de Abril/Junho/Setembro/Novembro) para contratos configurados no dia 31, o sistema ajusta automaticamente para o último dia válido do mês (`min($diaPreferencial, $mesRef->daysInMonth)`), prevenindo exceções e perdas de agendamento.
+- **Itens do Contrato (`contrato_itens`)**:
+  - Composição multiproduto/serviço: `tipo_servico` (`controle_pragas`, `limpeza`), `descricao_servico`, `quantidade`, `valor_unitario` e `valor_total`.
+  - O valor total do contrato espelha a soma dos itens deduzida de eventuais descontos.
+- **Informações Comerciais**:
+  - `valor_total`, `desconto`, `modelo_cobranca` (`por_visita`, `mensal_fixo`, `anual`), `condicoes_pagamento` e `observacoes_comerciais`.
+- **Geração Automática e Progressiva de Visitas (`ContratoAgendamentoService`)**:
+  - **Prazo Indeterminado**: Horizonte móvel de 90 dias a partir da data de ativação ou execução da rotina.
+  - **Prazo Determinado**: Gera todas as visitas dentro do período de vigência (`data_inicio` até `data_fim`).
+  - **Idempotência**: Verifica agendamentos existentes no mesmo dia e contrato para evitar duplicação.
+  - **Comando Agendado**: `php artisan contratos:gerar-visitas {--dias=90}` executa diariamente via console/scheduler para manter a agenda futura abastecida e expirar contratos com vigência vencida.
+- **Alterações Contratuais & Sincronização**:
+  - Edição de vigência ou periodicidade chama `sincronizarAgendamentosFuturos()`, que remove com segurança apenas visitas pendentes (`agendada`), preservando absolutamente atendimentos `em_andamento` ou `concluida` e Ordens de Serviço executadas.
+  - Suspensão ou cancelamento aciona `tratarSuspensaoOuCancelamento()`, cancelando visitas pendentes e estornando eventuais frações baixadas do estoque.
 
 ### 2.3. Módulo Técnico: Gestão de Equipamentos, Comodato e O.S.
 - **Catálogo & Gestão de Equipamentos (`equipamentos`)**:
@@ -310,11 +347,59 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `observacoes` | TEXT | Sim | NULL | Localização dos pontos na planta do cliente |
 | `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
 
-### 3.8. Tabela `visitas`
+### 3.8. Tabela `contratos`
+| Coluna | Tipo | Nulo | Default | Descrição |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único do contrato |
+| `cliente_id` | BIGINT UNSIGNED | Não | - | FK -> `clientes.id` (cascade) |
+| `numero` | VARCHAR(50) | Não | - | Código único (ex.: CTR-2026-0001) |
+| `tipo_vigencia` | VARCHAR(20) | Não | `'determinado'` | `'determinado'` ou `'indeterminado'` |
+| `data_inicio` | DATE | Não | - | Início da vigência |
+| `data_fim` | DATE | Sim | NULL | Fim da vigência (obrigatório se determinado) |
+| `permite_renovacao` | BOOLEAN | Não | `true` | Habilita renovação contratual |
+| `periodicidade` | VARCHAR(30) | Não | `'mensal'` | Frequência de atendimento |
+| `dia_preferencial` | INT UNSIGNED | Sim | NULL | Dia do mês preferencial (1-31) |
+| `dia_semana` | INT UNSIGNED | Sim | NULL | Dia da semana (0=Dom, 1=Seg... 6=Sáb) |
+| `intervalo_dias` | INT UNSIGNED | Sim | NULL | Intervalo para periodicidade personalizada |
+| `status` | VARCHAR(20) | Não | `'rascunho'` | `rascunho`, `ativo`, `suspenso`, `encerrado`, `cancelado`, `expirado` |
+| `valor_total` | DECIMAL(10,2) | Não | `0.00` | Valor global do contrato |
+| `desconto` | DECIMAL(10,2) | Não | `0.00` | Desconto comercial aplicado |
+| `modelo_cobranca` | VARCHAR(30) | Sim | `'mensal'` | `mensal`, `por_visita`, `fechamento_periodo`, `fixo_anual` |
+| `meio_pagamento_id` | BIGINT UNSIGNED | Sim | NULL | FK -> `meios_pagamento.id` (null on delete) |
+| `condicoes_pagamento` | VARCHAR(255) | Sim | NULL | Prazos e forma de pagamento acordada |
+| `observacoes` | TEXT | Sim | NULL | Instruções gerais |
+| `observacoes_comerciais` | TEXT | Sim | NULL | Detalhes e termos comerciais |
+| `proxima_geracao_ate` | DATE | Sim | NULL | Limite temporal da última geração de visitas |
+| `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
+
+### 3.9. Tabela `contrato_itens`
+| Coluna | Tipo | Nulo | Default | Descrição |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único do item |
+| `contrato_id` | BIGINT UNSIGNED | Não | - | FK -> `contratos.id` (cascade) |
+| `tipo_servico` | VARCHAR(50) | Não | `'controle_pragas'` | Categoria do serviço prestado |
+| `descricao_servico` | VARCHAR(255) | Não | - | Descrição específica do escopo contratado |
+| `quantidade` | INT UNSIGNED | Não | `1` | Quantidade / unidades de atendimento |
+| `valor_unitario` | DECIMAL(10,2) | Não | `0.00` | Preço unitário do serviço |
+| `valor_total` | DECIMAL(10,2) | Não | `0.00` | `quantidade * valor_unitario` |
+| `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
+
+### 3.10. Tabela `meios_pagamento`
+| Coluna | Tipo | Nulo | Default | Descrição |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único |
+| `nome` | VARCHAR(100) | Não | - | Nome exibido (Boleto Bancário, PIX, etc.) |
+| `codigo` | VARCHAR(50) | Não | - | Código/slug único (boleto, pix, etc.) |
+| `descricao` | VARCHAR(255) | Sim | NULL | Descrição detalhada do método |
+| `ativo` | BOOLEAN | Não | `true` | Disponível para seleção em contratos |
+| `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
+
+### 3.11. Tabela `visitas`
 | Coluna | Tipo | Nulo | Default | Descrição |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único |
 | `cliente_id` | BIGINT UNSIGNED | Não | - | FK -> `clientes.id` (cascade) |
+| `contrato_id` | BIGINT UNSIGNED | Sim | NULL | FK -> `contratos.id` (origem contratual) |
 | `tecnico_id` | BIGINT UNSIGNED | Sim | NULL | FK -> `tecnicos.id` |
 | `comodato_id` | BIGINT UNSIGNED | Sim | NULL | FK -> `equipamentos_comodato.id` (null on delete) |
 | `data_hora` | DATETIME | Não | - | Horário agendado |
@@ -337,7 +422,7 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `observacoes` | TEXT | Sim | NULL | Observações de campo |
 | `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
 
-### 3.9. Tabela `visita_produto` (Pivot com Custo Fracionado)
+### 3.11. Tabela `visita_produto` (Pivot com Custo Fracionado)
 | Coluna | Tipo | Nulo | Default | Descrição |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único |
@@ -346,7 +431,7 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `quantidade_aplicada`| DECIMAL(10,2)| Não | - | Dose utilizada na unidade de aplicação (ex.: 25 mL) |
 | `custo_proporcional` | DECIMAL(10,2)| Não | `0.00` | Custo calculado da dose aplicada |
 
-### 3.10. Tabela `movimentacoes_financeiras` (Fluxo de Caixa)
+### 3.12. Tabela `movimentacoes_financeiras` (Fluxo de Caixa)
 | Coluna | Tipo | Nulo | Default | Descrição |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador da movimentação |
@@ -360,7 +445,7 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `status` | VARCHAR(20) | Não | `'pendente'` | `'pendente'`, `'pago'`, `'cancelado'` |
 | `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
 
-### 3.11. Tabela `configuracoes`
+### 3.13. Tabela `configuracoes`
 | Coluna | Tipo | Nulo | Default | Descrição |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador |
@@ -369,7 +454,7 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `descricao` | VARCHAR(255) | Sim | NULL | Explicação do parâmetro |
 | `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
 
-### 3.12. Tabela `notificacoes_agendamentos`
+### 3.14. Tabela `notificacoes_agendamentos`
 | Coluna | Tipo | Nulo | Default | Descrição |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único da notificação |

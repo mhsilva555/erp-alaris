@@ -145,9 +145,57 @@ erDiagram
         timestamp updated_at
     }
 
+    CONTRATOS {
+        bigint id PK
+        bigint cliente_id FK
+        bigint meio_pagamento_id FK "nullable"
+        string numero "Ex: CTR-2026-0001"
+        string tipo_vigencia "determinado | indeterminado"
+        date data_inicio
+        date data_fim "nullable"
+        boolean permite_renovacao
+        string periodicidade "mensal, semanal, quinzenal, personalizado..."
+        int dia_preferencial "1-31"
+        int dia_semana "0-6"
+        int intervalo_dias "para personalizado"
+        string status "rascunho | ativo | suspenso | encerrado | cancelado | expirado"
+        decimal valor_total
+        decimal desconto
+        string modelo_cobranca "por_visita | mensal_fixo | anual"
+        string condicoes_pagamento
+        text observacoes
+        text observacoes_comerciais
+        date proxima_geracao_ate
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    MEIOS_PAGAMENTO {
+        bigint id PK
+        string nome "Boleto, PIX, Cartão..."
+        string codigo "boleto, pix, etc."
+        string descricao
+        boolean ativo
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    CONTRATO_ITENS {
+        bigint id PK
+        bigint contrato_id FK
+        string tipo_servico "controle_pragas | limpeza"
+        string descricao_servico
+        int quantidade
+        decimal valor_unitario
+        decimal valor_total
+        timestamp created_at
+        timestamp updated_at
+    }
+
     VISITAS {
         bigint id PK
         bigint cliente_id FK
+        bigint contrato_id FK "nullable (origem contratual)"
         bigint tecnico_id FK
         bigint comodato_id FK "nullable"
         datetime data_hora
@@ -219,6 +267,10 @@ erDiagram
         timestamp updated_at
     }
 
+    CLIENTES ||--o{ CONTRATOS : "possui (1:N)"
+    MEIOS_PAGAMENTO ||--o{ CONTRATOS : "utilizado_em (1:N)"
+    CONTRATOS ||--|{ CONTRATO_ITENS : "compoe (1:N)"
+    CONTRATOS ||--o{ VISITAS : "origina_visitas (1:N)"
     CLIENTES ||--o{ VISITAS : "possui (1:N)"
     CLIENTES ||--o{ EQUIPAMENTOS_COMODATO : "aloca (1:N)"
     CATEGORIA_EQUIPAMENTOS ||--o{ EQUIPAMENTOS : "classifica (1:N)"
@@ -236,6 +288,40 @@ erDiagram
 ---
 
 ## 3. Fluxos Operacionais e de Negócio Críticos
+
+### 3.0. Novo Fluxo Estrutural: Cliente → Contrato → Visitas Agendadas → Ordem de Serviço
+
+```mermaid
+flowchart TD
+    A["Cliente Cadastrado"] --> B["Criação do Contrato (Rascunho)"]
+    B --> C["Adição de Itens & Serviços"]
+    C --> D["Configuração da Periodicidade & Vigência"]
+    D --> E{"Ativação do Contrato"}
+    E -->|Ativar| F["ContratoAgendamentoService"]
+    F -->|Cálculo de Datas Idempotente| G["Geração de Visitas Agendadas"]
+    G --> H["Agenda Geral Unificada"]
+    H --> I["Atribuição de Técnico & Data/Hora"]
+    I --> J["Emissão da Ordem de Serviço (OS)"]
+    J --> K["Execução de Campo"]
+    K --> L["Conclusão da OS & Baixa de Estoque"]
+```
+
+#### Ciclo de Vida do Contrato (State Machine)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Rascunho: Criar Contrato
+    Rascunho --> Ativo: Ativar (Gera Visitas)
+    Ativo --> Suspenso: Suspender (Cancela pendentes)
+    Suspenso --> Ativo: Reativar (Regera futuras)
+    Ativo --> Encerrado: Encerrar
+    Ativo --> Cancelado: Cancelar (Expurga pendentes)
+    Suspenso --> Cancelado: Cancelar
+    Ativo --> Expirado: Vencimento Vigência (Cron Diária)
+    Encerrado --> [*]
+    Cancelado --> [*]
+    Expirado --> [*]
+```
 
 ### 3.1. Ciclo de Conclusão de Visita, Conversão Fracionada e Formação de Custo
 

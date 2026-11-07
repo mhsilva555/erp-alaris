@@ -535,6 +535,19 @@
                 </div>
             </div>
 
+            @if ($visita->contrato)
+                <div class="grid-2" style="margin-top: 6px; padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
+                    <div class="info-group">
+                        <span class="info-label">Contrato Vinculado</span>
+                        <span class="info-val" style="color: #0e7ca8;">{{ $visita->contrato->numero }} — {{ $visita->contrato->titulo ?? 'Contrato de Prestação de Serviços' }}</span>
+                    </div>
+                    <div class="info-group">
+                        <span class="info-label">Periodicidade & Vigência</span>
+                        <span class="info-val">{{ $visita->contrato->periodicidadeLabel() }} • {{ $visita->contrato->vigenciaLabel() }}</span>
+                    </div>
+                </div>
+            @endif
+
             {{-- Produtos Utilizados na Aplicação --}}
             <div class="section-title">3. Insumos e Defensivos Químicos Aplicados</div>
             @if ($visita->produtos->isNotEmpty())

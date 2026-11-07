@@ -86,6 +86,16 @@ class Cliente extends Model
         return $this->hasMany(Visita::class);
     }
 
+    public function contratos(): HasMany
+    {
+        return $this->hasMany(Contrato::class);
+    }
+
+    public function contratosAtivos(): HasMany
+    {
+        return $this->hasMany(Contrato::class)->where('status', Contrato::STATUS_ATIVO);
+    }
+
     public function comodatos(): HasMany
     {
         return $this->hasMany(EquipamentoComodato::class);

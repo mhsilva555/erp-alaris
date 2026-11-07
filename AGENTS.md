@@ -10,7 +10,8 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 - **Cliente**: Alaris Service
 - **Domínio de Negócio**: Gestão operacional e financeira de empresas de **Controle de Pragas Urbanas, Dedetização e Serviços de Higienização/Limpeza**.
 - **Módulos Principais**:
-  - **Clientes & Funil de Prospecção**: Origem do cliente, periodicidade de serviço, status de prospecção com data de follow-up integrada à agenda geral, geocadastro com cidade e estado.
+  - **Clientes & Funil de Prospecção**: Origem do cliente, status de prospecção com data de follow-up integrada à agenda geral, geocadastro com cidade e estado (desacoplado de periodicidade direta).
+  - **Contratos & Gestão Recorrente**: Contratos vinculados a clientes com prazo determinado ou indeterminado, itens de serviço contratados, periodicidades flexíveis (semanal, quinzenal, mensal, bimestral, trimestral, semestral, anual, personalizado com ajuste de dias inexistentes), geração automática de visitas com horizonte móvel de 90 dias e ciclo de vida completo.
   - **Técnicos & Perfis de Usuário**: Usuários vinculados a técnicos com permissões restritas (apenas visitas próprias, sem acesso a dados financeiros globais).
   - **Equipamentos em Comodato**: Controle de porta-iscas e armadilhas no cliente, periodicidade de reposição em dias (editável), vínculo com produto do estoque e geração de OS.
   - **Estoque & Conversão Fracionada**: Naturezas líquida, sólida e unidade, com cálculo de custo proporcional por dose fracionada (mL, g) baseado no custo base.
@@ -149,9 +150,17 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 - **Barra Inferior Nativa (`#mobile-bottom-nav`)**: Aplicação móvel fixa na base com 5 destinos (Início, Agenda, Visitas, Clientes/Comodatos, Mais), suporte a safe area (`env(safe-area-inset-bottom)`) e compensação no container principal (`<main class="... pb-24 lg:pb-8">`).
 - **Central de Notificações Mobile**: A classe `.notif-dropdown` deve manter no mobile posicionamento fixo ancorado nas bordas da viewport (`left: 0.75rem; right: 0.75rem; width: auto; max-width: calc(100vw - 1.5rem)`), prevenindo cortes fora da tela.
 
-### 3.13. Ações em Massa no Fluxo de Caixa e Precedência de Visitas
-- **Ações em Lote**: A listagem financeira conta com checkboxes de seleção múltipla permitindo que administradores liquidem, reabram ou excluam múltiplos lançamentos de forma atômica.
-- **Precedência Operacional**: Na listagem de visitas e ordens de serviço (`/visitas`), atendimentos com status `agendada` e `em_andamento` são exibidos com precedência prioritária no topo da listagem, independente da data agendada.
+### 3.14. Gestão de Contratos, Periodicidade e Ciclo de Vida de Agendamentos
+- **Fluxo Estrutural**:
+  $$\text{Cliente} \longrightarrow \text{Contrato} \longrightarrow \text{Visitas Agendadas} \longrightarrow \text{Ordem de Serviço (OS)}$$
+- **Desacoplamento do Cliente**: O cadastro de clientes não dita mais a periodicidade de atendimento. Um cliente pode existir sem contratos ou gerenciar múltiplos contratos simultâneos com vigências, serviços e frequências distintas.
+- **Geração Automática e Progressiva (`ContratoAgendamentoService`)**:
+  - Contratos ativos geram visitas automáticas idempotentes.
+  - Para contratos por prazo indeterminado, adota-se um horizonte móvel progressivo de 90 dias, mantido diariamente via `php artisan contratos:gerar-visitas`.
+  - Tratamento seguro de datas inexistentes (ex.: dia 31 em meses de 28, 29 ou 30 dias ajustado via `min($dia, $mes->daysInMonth)`).
+- **Invariante de Preservação de Histórico Operacional**:
+  - Ao alterar, suspender ou cancelar um contrato, o sistema expurga/cancela exclusivamente visitas futuras pendentes (`agendada`).
+  - Visitas em andamento ou concluídas (`em_andamento`, `concluida`) e movimentações financeiras geradas são **estritamente preservadas**, mantendo a integridade e rastreabilidade contábil.
 
 ---
 
@@ -183,6 +192,7 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 | **Instalar Cron no SO** | `php artisan cron:install` |
 | **Status da Cron** | `php artisan cron:install --status` |
 | **Verificar Notificações Manuais** | `php artisan agendamentos:verificar-notificacoes` |
+| **Gerar Visitas de Contratos (90 dias)** | `php artisan contratos:gerar-visitas` |
 
 ---
 

@@ -81,18 +81,6 @@
                         </select>
                     </div>
 
-                    <div>
-                        <label class="form-label" for="periodicidade">Periodicidade de Atendimento</label>
-                        <select id="periodicidade" name="periodicidade" class="form-select">
-                            <option value="avulso" {{ old('periodicidade', 'avulso') === 'avulso' ? 'selected' : '' }}>Avulso / Pontual</option>
-                            <option value="quinzenal" {{ old('periodicidade') === 'quinzenal' ? 'selected' : '' }}>Quinzenal</option>
-                            <option value="mensal" {{ old('periodicidade') === 'mensal' ? 'selected' : '' }}>Mensal</option>
-                            <option value="bimestral" {{ old('periodicidade') === 'bimestral' ? 'selected' : '' }}>Bimestral</option>
-                            <option value="trimestral" {{ old('periodicidade') === 'trimestral' ? 'selected' : '' }}>Trimestral</option>
-                            <option value="semestral" {{ old('periodicidade') === 'semestral' ? 'selected' : '' }}>Semestral</option>
-                            <option value="anual" {{ old('periodicidade') === 'anual' ? 'selected' : '' }}>Anual</option>
-                        </select>
-                    </div>
 
                     <div>
                         <label class="form-label" for="status_prospeccao">Status do Funil / Situação</label>

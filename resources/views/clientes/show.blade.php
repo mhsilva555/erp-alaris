@@ -50,8 +50,14 @@
                     Alocar Comodato
                 </a>
                 @endpermissao
+                @permissao('contratos.criar')
+                <a href="{{ route('contratos.create', ['cliente_id' => $cliente->id]) }}" class="btn btn-primary btn-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    Novo Contrato
+                </a>
+                @endpermissao
                 @permissao('visitas.criar')
-                <a href="{{ route('visitas.create', ['cliente_id' => $cliente->id]) }}" class="btn btn-primary btn-sm">
+                <a href="{{ route('visitas.create', ['cliente_id' => $cliente->id]) }}" class="btn btn-secondary btn-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     Nova Visita / OS
                 </a>
@@ -79,8 +85,15 @@
                 <p class="text-white">{{ $cliente->origem ?? 'Outros' }}</p>
             </div>
             <div>
-                <span class="form-label">Periodicidade de Atendimento</span>
-                <p class="text-white font-medium capitalize">{{ $cliente->periodicidade ?? 'Avulso' }}</p>
+                <span class="form-label">Contratos Ativos</span>
+                <p class="text-white font-medium">
+                    @php $ativosQtd = $cliente->contratos->where('status', 'ativo')->count(); @endphp
+                    @if($ativosQtd > 0)
+                        <span class="badge badge-success">{{ $ativosQtd }} Contrato(s) Vigente(s)</span>
+                    @else
+                        <span class="text-xs" style="color: var(--color-surface-400);">Nenhum contrato ativo</span>
+                    @endif
+                </p>
             </div>
             <div>
                 <span class="form-label">Endereço</span>
@@ -110,6 +123,105 @@
             <div class="mt-4 pt-4 border-t" style="border-color: var(--color-surface-800);">
                 <span class="form-label">Observações Técnicas / Acesso</span>
                 <p class="text-sm mt-1 whitespace-pre-line" style="color: var(--color-surface-300);">{{ $cliente->observacoes }}</p>
+            </div>
+        @endif
+    </div>
+
+    {{-- Seção: Contratos de Prestação de Serviços --}}
+    <div class="card p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Contratos de Prestação de Serviços ({{ $cliente->contratos->count() }})
+            </h3>
+            @permissao('contratos.criar')
+            <a href="{{ route('contratos.create', ['cliente_id' => $cliente->id]) }}" class="btn btn-secondary btn-sm">
+                + Novo Contrato
+            </a>
+            @endpermissao
+        </div>
+
+        @if($cliente->contratos->isEmpty())
+            <div class="empty-state py-6">
+                <div class="empty-state-icon">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                </div>
+                <h4 class="empty-state-title">Nenhum contrato cadastrado</h4>
+                <p class="empty-state-desc">Este cliente ainda não possui contratos de prestação de serviços recorrentes.</p>
+                @permissao('contratos.criar')
+                <a href="{{ route('contratos.create', ['cliente_id' => $cliente->id]) }}" class="btn btn-primary btn-sm mt-3">
+                    Cadastrar Contrato
+                </a>
+                @endpermissao
+            </div>
+        @else
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Contrato</th>
+                            <th>Vigência & Datas</th>
+                            <th>Periodicidade</th>
+                            <th>Serviço Central</th>
+                            <th>Valor Total</th>
+                            <th>Status</th>
+                            <th class="text-right">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($cliente->contratos as $ctr)
+                            <tr class="animate-fadeIn">
+                                <td>
+                                    <div class="font-bold text-white flex items-center gap-1.5">
+                                        <a href="{{ route('contratos.show', $ctr) }}" class="hover:underline text-primary-400">
+                                            {{ $ctr->numero }}
+                                        </a>
+                                    </div>
+                                    <div class="text-xs" style="color: var(--color-surface-400);">{{ $ctr->titulo ?? 'Sem título complementar' }}</div>
+                                </td>
+                                <td>
+                                    <span class="font-medium text-white">{{ $ctr->vigenciaLabel() }}</span>
+                                    <div class="text-xs" style="color: var(--color-surface-400);">
+                                        Início: {{ $ctr->data_inicio->format('d/m/Y') }}
+                                        @if($ctr->data_fim)
+                                            • Término: {{ $ctr->data_fim->format('d/m/Y') }}
+                                        @endif
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge badge-neutral text-xs">{{ $ctr->periodicidadeLabel() }}</span>
+                                </td>
+                                <td>
+                                    <span class="text-xs text-white">{{ $ctr->tipoServicoLabel() }}</span>
+                                    <div class="text-xs" style="color: var(--color-surface-400);">{{ $ctr->itens->count() }} item(ns)</div>
+                                </td>
+                                <td class="font-mono font-bold text-white">
+                                    R$ {{ number_format($ctr->valor_total, 2, ',', '.') }}
+                                    <span class="block text-[10px] font-normal" style="color: var(--color-surface-400);">{{ $ctr->modeloCobrancaLabel() }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge {{ $ctr->statusBadge() }}">
+                                        {{ $ctr->statusLabel() }}
+                                    </span>
+                                </td>
+                                <td class="text-right">
+                                    <div class="flex items-center justify-end gap-1">
+                                        <a href="{{ route('contratos.show', $ctr) }}" class="btn btn-secondary btn-sm text-xs">
+                                            Detalhes
+                                        </a>
+                                        @permissao('visitas.criar')
+                                        <a href="{{ route('visitas.create', ['cliente_id' => $cliente->id, 'contrato_id' => $ctr->id]) }}" class="btn btn-outline btn-sm text-xs" title="Agendar nova visita para este contrato">
+                                            + OS
+                                        </a>
+                                        @endpermissao
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         @endif
     </div>

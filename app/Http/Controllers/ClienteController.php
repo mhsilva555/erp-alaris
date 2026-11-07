@@ -93,7 +93,10 @@ class ClienteController extends Controller
     {
         $cliente->load([
             'visitas' => function ($q) {
-                $q->orderByDesc('data_hora')->with(['produtos', 'tecnico']);
+                $q->orderByDesc('data_hora')->with(['produtos', 'tecnico', 'contrato']);
+            },
+            'contratos' => function ($q) {
+                $q->orderByDesc('created_at')->with(['itens', 'visitas']);
             },
             'comodatos.produto',
         ]);
