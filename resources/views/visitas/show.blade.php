@@ -407,11 +407,11 @@
                         </div>
 
                         @if ($visita->gastos_adicionais > 0)
-                            <div class="mb-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 flex items-center gap-2">
-                                <svg class="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="mb-3 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 text-xs text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <span>Gastos extras já registrados na abertura da OS: <strong>R$ {{ number_format($visita->gastos_adicionais, 2, ',', '.') }}</strong>@if ($visita->motivo_gastos_adicionais) ({{ $visita->motivo_gastos_adicionais }})@endif. Deixe como está para manter, ou altere se necessário.</span>
+                                <span>Gastos extras já registrados na abertura da OS: <strong class="text-amber-950 dark:text-white">R$ {{ number_format($visita->gastos_adicionais, 2, ',', '.') }}</strong>@if ($visita->motivo_gastos_adicionais) ({{ $visita->motivo_gastos_adicionais }})@endif. Deixe como está para manter, ou altere se necessário.</span>
                             </div>
                         @endif
 

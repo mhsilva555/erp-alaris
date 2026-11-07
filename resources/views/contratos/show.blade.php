@@ -123,30 +123,29 @@
 
         @if($contrato->ehProposta())
             {{-- Banner Destacado para Proposta Comercial --}}
-            <div class="p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm"
-                style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35);">
+            <div class="p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 shadow-xs">
                 <div class="flex items-center gap-3">
-                    <div class="p-2.5 rounded-lg bg-amber-500/20 text-amber-400 shrink-0">
+                    <div class="p-2.5 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-400 shrink-0">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                     </div>
                     <div>
-                        <strong class="text-amber-300 block text-sm">Proposta Comercial Aguardando Aprovação do Cliente</strong>
-                        <p class="text-xs text-slate-300 mt-0.5">
-                            Este documento é uma proposta comercial. Os atendimentos previstos <strong>NÃO geram eventos na Agenda Geral</strong> até que você aprove e ative a proposta.
+                        <strong class="text-amber-950 dark:text-amber-200 block text-sm font-bold">Proposta Comercial Aguardando Aprovação do Cliente</strong>
+                        <p class="text-xs text-amber-900/90 dark:text-slate-200 mt-0.5">
+                            Este documento é uma proposta comercial. Os atendimentos previstos <strong class="text-amber-950 dark:text-white font-bold">NÃO geram eventos na Agenda Geral</strong> até que você aprove e ative a proposta.
                         </p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
-                    <a href="{{ route('contratos.pdf', $contrato) }}" target="_blank" class="btn btn-secondary btn-sm text-xs">
-                        <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <a href="{{ route('contratos.pdf', $contrato) }}" target="_blank" class="btn btn-secondary btn-sm text-xs font-semibold">
+                        <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         Ver PDF (1 Folha)
                     </a>
                     @permissao('contratos.ativar')
                     <form action="{{ route('contratos.ativar', $contrato) }}" method="POST" class="inline">
                         @csrf
-                        <button type="submit" class="btn btn-success btn-sm text-xs font-bold"
+                        <button type="submit" class="btn btn-success btn-sm text-xs font-bold shadow-xs"
                             onclick="return confirm('Confirma a aprovação da proposta pelo cliente? O contrato será ativado imediatamente e seus atendimentos passarão a constar na Agenda.');">
                             ✓ Aprovar Proposta
                         </button>
@@ -326,7 +325,7 @@
                             </div>
                             <div>
                                 <span class="text-[11px] text-slate-400 block">Imposto Deduzido</span>
-                                <span class=" text-amber-300 font-semibold">
+                                <span class="text-amber-600 dark:text-amber-300 font-semibold">
                                     R$ {{ number_format($contrato->valorImposto(), 2, ',', '.') }}
                                 </span>
                             </div>

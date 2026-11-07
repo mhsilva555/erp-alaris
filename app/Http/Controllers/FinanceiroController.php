@@ -19,7 +19,10 @@ class FinanceiroController extends Controller
         $status = $request->get('status'); // pendente, pago, null
         $mes = $request->get('mes', now()->format('Y-m'));
 
-        $query = MovimentacaoFinanceira::with('visita.cliente');
+        // Sincroniza receitas de mensalidade dos contratos ativos no mês visualizado
+        Contrato::sincronizarContratosAtivosNoMes($mes);
+
+        $query = MovimentacaoFinanceira::with(['visita.cliente', 'contrato.cliente', 'cliente']);
 
         if ($tipo) {
             $query->where('tipo', $tipo);
@@ -60,7 +63,7 @@ class FinanceiroController extends Controller
         $despesasPagas = $totalDespesasPagas;
         $despesasPendentes = $totalDespesasPendentes;
 
-        // Dados de conciliação com as OSs concluídas do mês (Regime de Competência DRE vs Fluxo de Caixa)
+        // Dados de conciliação com as OSs concluídas e Contratos Ativos do mês (Regime de Competência DRE vs Fluxo de Caixa)
         $visitasMes = Visita::where('status', Visita::STATUS_CONCLUIDA)
             ->whereDate('data_hora', '>=', $inicioMes)
             ->whereDate('data_hora', '<=', $fimMes)
@@ -78,8 +81,40 @@ class FinanceiroController extends Controller
             ? round(($faturamentoOSRecebido / $faturamentoOSMes) * 100, 1)
             : 0;
 
+        // Contratos ativos no mês visualizado
+        $contratosMes = Contrato::with('cliente')
+            ->where('status', Contrato::STATUS_ATIVO)
+            ->where('valor_total', '>', 0)
+            ->whereDate('data_inicio', '<=', $fimMes)
+            ->where(function ($q) use ($inicioMes) {
+                $q->whereNull('data_fim')
+                    ->orWhereDate('data_fim', '>=', $inicioMes);
+            })
+            ->get();
+
+        $faturamentoContratosMes = (float) $contratosMes->sum('valor_total');
+        $qtdContratosAtivosMes = $contratosMes->count();
+        $contratoIdsMes = $contratosMes->pluck('id');
+
+        $faturamentoContratosRecebido = (float) MovimentacaoFinanceira::receitas()->pagas()
+            ->whereIn('contrato_id', $contratoIdsMes)
+            ->whereBetween('data_competencia', [$inicioMes, $fimMes])
+            ->sum('valor');
+        $faturamentoContratosPendente = (float) MovimentacaoFinanceira::receitas()->pendentes()
+            ->whereIn('contrato_id', $contratoIdsMes)
+            ->whereBetween('data_competencia', [$inicioMes, $fimMes])
+            ->sum('valor');
+
+        $faturamentoTotalDRE = $faturamentoOSMes + $faturamentoContratosMes;
+        $faturamentoTotalRecebido = $faturamentoOSRecebido + $faturamentoContratosRecebido;
+        $faturamentoTotalPendente = $faturamentoOSPendente + $faturamentoContratosPendente;
+        $taxaLiquidacaoDRE = $faturamentoTotalDRE > 0
+            ? round(($faturamentoTotalRecebido / $faturamentoTotalDRE) * 100, 1)
+            : 0;
+
         $clientes = Cliente::orderBy('nome')->get();
         $visitas = Visita::with('cliente')->where('status', Visita::STATUS_CONCLUIDA)->orderByDesc('data_hora')->limit(50)->get();
+        $contratos = Contrato::with('cliente')->where('status', Contrato::STATUS_ATIVO)->orderBy('numero')->get();
 
         return view('financeiro.fluxo', compact(
             'movimentacoes',
@@ -98,11 +133,20 @@ class FinanceiroController extends Controller
             'despesasPendentes',
             'clientes',
             'visitas',
+            'contratos',
             'faturamentoOSMes',
             'qtdOSConcluidasMes',
             'faturamentoOSRecebido',
             'faturamentoOSPendente',
-            'taxaLiquidacaoOS'
+            'taxaLiquidacaoOS',
+            'faturamentoContratosMes',
+            'qtdContratosAtivosMes',
+            'faturamentoContratosRecebido',
+            'faturamentoContratosPendente',
+            'faturamentoTotalDRE',
+            'faturamentoTotalRecebido',
+            'faturamentoTotalPendente',
+            'taxaLiquidacaoDRE'
         ));
     }
 
@@ -114,8 +158,12 @@ class FinanceiroController extends Controller
             'descricao' => 'required|string|max:255',
             'valor' => 'required|numeric|min:0.01',
             'data_competencia' => 'required|date',
+            'data_vencimento' => 'nullable|date',
             'data_pagamento' => 'nullable|date',
             'status' => 'required|in:pendente,pago',
+            'cliente_id' => 'nullable|exists:clientes,id',
+            'visita_id' => 'nullable|exists:visitas,id',
+            'contrato_id' => 'nullable|exists:contratos,id',
         ]);
 
         if ($validated['status'] === 'pago' && empty($validated['data_pagamento'])) {
@@ -369,16 +417,30 @@ class FinanceiroController extends Controller
         $margemBruta = $totalFaturado > 0 ? round(($lucroBrutoTotal / $totalFaturado) * 100, 1) : 0;
 
         // Indicadores de Conciliação DRE (Competência) vs Fluxo de Caixa (Realizado)
+        $contratoIdsAtivos = $contratosAtivos->pluck('id');
+
         $faturamentoRecebido = (float) MovimentacaoFinanceira::receitas()->pagas()
-            ->whereIn('visita_id', $visitaIds)
+            ->where(function ($q) use ($visitaIds, $contratoIdsAtivos, $inicio, $fim) {
+                $q->whereIn('visita_id', $visitaIds)
+                    ->orWhere(function ($sub) use ($contratoIdsAtivos, $inicio, $fim) {
+                        $sub->whereIn('contrato_id', $contratoIdsAtivos)
+                            ->whereBetween('data_competencia', [$inicio->toDateString(), $fim->toDateString()]);
+                    });
+            })
             ->sum('valor');
 
         $faturamentoPendente = (float) MovimentacaoFinanceira::receitas()->pendentes()
-            ->whereIn('visita_id', $visitaIds)
+            ->where(function ($q) use ($visitaIds, $contratoIdsAtivos, $inicio, $fim) {
+                $q->whereIn('visita_id', $visitaIds)
+                    ->orWhere(function ($sub) use ($contratoIdsAtivos, $inicio, $fim) {
+                        $sub->whereIn('contrato_id', $contratoIdsAtivos)
+                            ->whereBetween('data_competencia', [$inicio->toDateString(), $fim->toDateString()]);
+                    });
+            })
             ->sum('valor');
 
-        $taxaLiquidacaoReceita = $faturamentoVisitas > 0
-            ? round(($faturamentoRecebido / $faturamentoVisitas) * 100, 1)
+        $taxaLiquidacaoReceita = $totalFaturado > 0
+            ? round(($faturamentoRecebido / $totalFaturado) * 100, 1)
             : 0;
 
         $diariasPagas = (float) MovimentacaoFinanceira::despesas()->pagas()

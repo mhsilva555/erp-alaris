@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Contrato;
+use App\Models\MovimentacaoFinanceira;
 use App\Models\Visita;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -272,6 +273,12 @@ class ContratoAgendamentoService
                     $vf->save();
                 }
             }
+
+            // Remove movimentações financeiras de mensalidade pendentes a partir do mês corrente
+            $contrato->movimentacoes()
+                ->where('status', MovimentacaoFinanceira::STATUS_PENDENTE)
+                ->whereDate('data_competencia', '>=', now()->startOfMonth()->toDateString())
+                ->delete();
 
             $contrato->update(['status' => $novoStatus]);
         });

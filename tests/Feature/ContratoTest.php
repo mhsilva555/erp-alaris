@@ -2,6 +2,7 @@
 
 use App\Models\Cliente;
 use App\Models\Contrato;
+use App\Models\ContratoItem;
 use App\Models\MeioPagamento;
 use App\Models\MovimentacaoFinanceira;
 use App\Models\Tecnico;
@@ -852,6 +853,15 @@ test('18. emissao de pdf de contrato e proposta mantendo sigilo comercial', func
         'custo_diaria_padrao' => 120.00,
         'percentual_imposto' => 14.00,
         'exige_nota_fiscal' => true,
+        'descricao' => 'Cláusulas adicionais de monitoramento contínuo hospitalar.',
+    ]);
+
+    ContratoItem::create([
+        'contrato_id' => $contrato->id,
+        'descricao' => 'Controle de Pragas Hospitalar',
+        'quantidade' => 1,
+        'valor_unitario' => 1200.00,
+        'valor_total' => 1200.00,
     ]);
 
     // Visualização da Proposta com PWA Action Bar
@@ -863,6 +873,10 @@ test('18. emissao de pdf de contrato e proposta mantendo sigilo comercial', func
     $response->assertSee('Voltar');
     $response->assertSee('Compartilhar');
     $response->assertSee('Imprimir / PDF');
+    $response->assertSee('5. Recomendações Preventivas');
+    $response->assertSee('Manter ambientes limpos, higienizados e organizados.');
+    $response->assertSee('Comunicar à equipe técnica qualquer sinal de infestação.');
+    $response->assertSee('Cláusulas adicionais de monitoramento contínuo hospitalar.');
 
     // Regra de Sigilo Comercial Absoluto
     $response->assertDontSee('120,00'); // diária interna nunca aparece

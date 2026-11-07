@@ -146,20 +146,24 @@
                         <div>
                             <div class="flex items-center gap-2">
                                 <h4 class="text-xs font-bold text-white uppercase tracking-wider">
-                                    Conciliação com Ordens de Serviço —
+                                    Conciliação com Ordens de Serviço & Contratos (DRE) —
                                     {{ \Carbon\Carbon::parse($mes . '-01')->translatedFormat('F \d\e Y') }}
                                 </h4>
                                 <span class="badge badge-success text-[10px]">{{ $qtdOSConcluidasMes }}
                                     {{ $qtdOSConcluidasMes === 1 ? 'OS Concluída' : 'OSs Concluídas' }}</span>
+                                @if (isset($qtdContratosAtivosMes) && $qtdContratosAtivosMes > 0)
+                                    <span class="badge badge-info text-[10px]">{{ $qtdContratosAtivosMes }}
+                                        {{ $qtdContratosAtivosMes === 1 ? 'Contrato Ativo' : 'Contratos Ativos' }}</span>
+                                @endif
                             </div>
                             <p class="text-xs mt-0.5" style="color: var(--color-surface-400);">
                                 Faturamento Apurado no DRE: <strong class="text-white">R$
-                                    {{ number_format($faturamentoOSMes, 2, ',', '.') }}</strong>
+                                    {{ number_format($faturamentoTotalDRE, 2, ',', '.') }}</strong>
                                 &bull; Recebido em Caixa: <strong class="text-emerald-400">R$
-                                    {{ number_format($faturamentoOSRecebido, 2, ',', '.') }}
-                                    ({{ $taxaLiquidacaoOS }}%)</strong>
+                                    {{ number_format($faturamentoTotalRecebido, 2, ',', '.') }}
+                                    ({{ $taxaLiquidacaoDRE }}%)</strong>
                                 &bull; Em Aberto: <strong class="text-amber-400">R$
-                                    {{ number_format($faturamentoOSPendente, 2, ',', '.') }}</strong>
+                                    {{ number_format($faturamentoTotalPendente, 2, ',', '.') }}</strong>
                             </p>
                         </div>
                     </div>
@@ -315,7 +319,12 @@
                                             style="color: var(--color-surface-400);">{{ $mov->categoria }}</span>
                                     </td>
                                     <td>
-                                        @if ($mov->visita)
+                                        @if ($mov->contrato)
+                                            <a href="{{ route('contratos.show', $mov->contrato) }}"
+                                                class="text-primary-400 hover:underline text-xs block font-medium">
+                                                Contrato #{{ $mov->contrato->numero }} — {{ $mov->contrato->cliente->nome ?? ($mov->cliente->nome ?? 'Cliente') }}
+                                            </a>
+                                        @elseif ($mov->visita)
                                             <a href="{{ route('visitas.show', $mov->visita) }}"
                                                 class="text-emerald-400 hover:underline text-xs block font-medium">
                                                 OS #{{ $mov->visita->id }} — {{ $mov->visita->cliente->nome }}
@@ -466,13 +475,23 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div>
                             <label class="form-label" for="cliente_id">Cliente (Opcional)</label>
                             <select name="cliente_id" id="cliente_id" class="form-select">
                                 <option value="">Nenhum cliente</option>
                                 @foreach ($clientes as $cli)
                                     <option value="{{ $cli->id }}">{{ $cli->nome }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label" for="contrato_id">Contrato (Opcional)</label>
+                            <select name="contrato_id" id="contrato_id" class="form-select">
+                                <option value="">Nenhum contrato</option>
+                                @foreach ($contratos as $ctr)
+                                    <option value="{{ $ctr->id }}">Contrato #{{ $ctr->numero }} — {{ $ctr->cliente->nome }}
+                                    </option>
                                 @endforeach
                             </select>
                         </div>

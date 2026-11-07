@@ -123,6 +123,21 @@
                     </div>
 
                     {{-- Endereço Completo --}}
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <label for="empresa_cep" class="form-label mb-1">CEP da Sede</label>
+                            <span id="empresa-cep-status" class="text-xs text-sky-400 font-medium hidden">Buscando...</span>
+                        </div>
+                        <div class="relative">
+                            <input type="text" id="empresa_cep" name="empresa_cep"
+                                value="{{ old('empresa_cep', $empresa['cep']) }}"
+                                class="form-input" placeholder="00000-000" data-mask="cep" autocomplete="postal-code">
+                            <span id="empresa-cep-spinner" class="hidden absolute right-3 top-2.5 text-sky-400">
+                                <svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            </span>
+                        </div>
+                    </div>
+
                     <div class="sm:col-span-2">
                         <label for="empresa_endereco" class="form-label">Endereço da Sede (Logradouro e Número)</label>
                         <input type="text" id="empresa_endereco" name="empresa_endereco"
@@ -149,13 +164,6 @@
                         <input type="text" id="empresa_estado" name="empresa_estado" maxlength="2"
                             value="{{ old('empresa_estado', $empresa['estado']) }}"
                             class="form-input uppercase" placeholder="MA">
-                    </div>
-
-                    <div>
-                        <label for="empresa_cep" class="form-label">CEP</label>
-                        <input type="text" id="empresa_cep" name="empresa_cep"
-                            value="{{ old('empresa_cep', $empresa['cep']) }}"
-                            class="form-input" placeholder="00000-000" data-mask="cep">
                     </div>
                 </div>
             </div>
@@ -233,4 +241,94 @@
         </form>
 
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const cepInput = document.getElementById('empresa_cep');
+            const enderecoInput = document.getElementById('empresa_endereco');
+            const bairroInput = document.getElementById('empresa_bairro');
+            const cidadeInput = document.getElementById('empresa_cidade');
+            const estadoInput = document.getElementById('empresa_estado');
+            const hintEl = document.getElementById('empresa-cep-hint');
+            const spinnerEl = document.getElementById('empresa-cep-spinner');
+            const statusEl = document.getElementById('empresa-cep-status');
+
+            if (!cepInput) return;
+
+            let ultimoCepConsultado = '';
+
+            async function consultarViaCep(cep) {
+                const cepLimpo = cep.replace(/\D/g, '');
+                if (cepLimpo.length !== 8) return;
+                if (cepLimpo === ultimoCepConsultado) return;
+
+                ultimoCepConsultado = cepLimpo;
+
+                if (spinnerEl) spinnerEl.classList.remove('hidden');
+                if (statusEl) {
+                    statusEl.textContent = 'Buscando endereço...';
+                    statusEl.classList.remove('hidden');
+                }
+                if (hintEl) hintEl.textContent = 'Consultando ViaCEP...';
+
+                try {
+                    const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+                    if (!response.ok) throw new Error('Falha na consulta');
+
+                    const data = await response.json();
+
+                    if (data.erro) {
+                        if (hintEl) {
+                            hintEl.textContent = 'CEP não encontrado.';
+                            hintEl.classList.add('text-amber-400');
+                        }
+                        if (statusEl) statusEl.textContent = 'Não encontrado';
+                        return;
+                    }
+
+                    if (enderecoInput && data.logradouro) {
+                        enderecoInput.value = data.logradouro;
+                    }
+                    if (bairroInput && data.bairro) {
+                        bairroInput.value = data.bairro;
+                    }
+                    if (cidadeInput && data.localidade) {
+                        cidadeInput.value = data.localidade;
+                    }
+                    if (estadoInput && data.uf) {
+                        estadoInput.value = data.uf.toUpperCase();
+                    }
+
+                    if (hintEl) {
+                        hintEl.textContent = 'Endereço carregado via CEP!';
+                        hintEl.classList.remove('text-amber-400');
+                        hintEl.classList.add('text-emerald-400');
+                    }
+
+                    if (enderecoInput) {
+                        enderecoInput.focus();
+                    }
+                } catch (e) {
+                    if (hintEl) hintEl.textContent = 'Erro ao consultar ViaCEP.';
+                } finally {
+                    if (spinnerEl) spinnerEl.classList.add('hidden');
+                    if (statusEl) statusEl.classList.add('hidden');
+                }
+            }
+
+            cepInput.addEventListener('input', function () {
+                const cepLimpo = this.value.replace(/\D/g, '');
+                if (cepLimpo.length === 8) {
+                    consultarViaCep(this.value);
+                }
+            });
+
+            cepInput.addEventListener('blur', function () {
+                const cepLimpo = this.value.replace(/\D/g, '');
+                if (cepLimpo.length === 8) {
+                    consultarViaCep(this.value);
+                }
+            });
+        });
+    </script>
 @endsection

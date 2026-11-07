@@ -157,6 +157,10 @@ class ContratoController extends Controller
             $valorFinal = max(0, $subtotalItens - $dataContrato['desconto']);
             $contrato->update(['valor_total' => $valorFinal]);
 
+            if ($contrato->estaAtivo()) {
+                $contrato->sincronizarMovimentacaoMes(now());
+            }
+
             return $contrato;
         });
 
@@ -292,6 +296,10 @@ class ContratoController extends Controller
             $valorFinal = max(0, $subtotalItens - $dataContrato['desconto']);
             $contrato->update(['valor_total' => $valorFinal]);
 
+            if ($contrato->status === Contrato::STATUS_ATIVO) {
+                $contrato->sincronizarMovimentacaoMes(now());
+            }
+
             // Se for ativo e houve alteração na frequência ou datas, sincroniza visitas futuras não executadas
             if ($contrato->status === Contrato::STATUS_ATIVO && $periodicidadeMudou) {
                 $service->sincronizarAgendamentosFuturos($contrato);
@@ -313,7 +321,10 @@ class ContratoController extends Controller
 
         $eraProposta = $contrato->ehProposta();
 
-        $contrato->update(['status' => Contrato::STATUS_ATIVO]);
+        DB::transaction(function () use ($contrato) {
+            $contrato->update(['status' => Contrato::STATUS_ATIVO]);
+            $contrato->sincronizarMovimentacaoMes(now());
+        });
 
         $mensagem = $eraProposta
             ? "Proposta comercial {$contrato->numero} aprovada com sucesso! O contrato agora está ativo e seus atendimentos foram integrados à Agenda."
@@ -426,6 +437,7 @@ class ContratoController extends Controller
                 $v->estornarEstoqueProdutos();
                 $v->delete();
             }
+            $contrato->movimentacoes()->delete();
             $contrato->itens()->delete();
             $contrato->delete();
         });

@@ -170,6 +170,11 @@ class Contrato extends Model
         return $this->hasMany(Visita::class);
     }
 
+    public function movimentacoes(): HasMany
+    {
+        return $this->hasMany(MovimentacaoFinanceira::class);
+    }
+
     public function scopeAtivos(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_ATIVO);
@@ -341,6 +346,90 @@ class Contrato extends Model
     public function saldoVerbaNoPeriodo(Carbon $inicio, Carbon $fim): float
     {
         return round($this->valorLiquidoDisponivel() - $this->custoTotalVisitasNoPeriodo($inicio, $fim), 2);
+    }
+
+    public function sincronizarMovimentacaoMes(string|Carbon $mes): ?MovimentacaoFinanceira
+    {
+        if (! $this->estaAtivo() || (float) $this->valor_total <= 0) {
+            return null;
+        }
+
+        $mesRef = is_string($mes)
+            ? Carbon::parse($mes.(strlen($mes) === 7 ? '-01' : ''))
+            : $mes->copy();
+
+        $inicioMes = $mesRef->copy()->startOfMonth();
+        $fimMes = $mesRef->copy()->endOfMonth();
+
+        // Se o contrato começa após este mês, não gera
+        if ($this->data_inicio && $this->data_inicio->gt($fimMes)) {
+            return null;
+        }
+
+        // Se tem data de término e o mês é posterior ao término, não gera
+        if ($this->tipo_vigencia === self::VIGENCIA_DETERMINADO && $this->data_fim && $this->data_fim->lt($inicioMes)) {
+            return null;
+        }
+
+        $dia = $this->dia_preferencial ?: ($this->data_inicio ? $this->data_inicio->day : 1);
+        $diaAjustado = min((int) $dia, $inicioMes->daysInMonth);
+        $dataVencimento = $inicioMes->copy()->day($diaAjustado)->toDateString();
+        $dataCompetencia = $inicioMes->toDateString();
+
+        $this->loadMissing('cliente');
+        $descricao = "Mensalidade Contrato #{$this->numero}".($this->cliente ? " — {$this->cliente->nome}" : '');
+
+        $mov = MovimentacaoFinanceira::where('contrato_id', $this->id)
+            ->whereBetween('data_competencia', [$inicioMes->toDateString(), $fimMes->toDateString()])
+            ->first();
+
+        if ($mov) {
+            if ($mov->status === MovimentacaoFinanceira::STATUS_PENDENTE) {
+                $mov->valor = (float) $this->valor_total;
+                $mov->descricao = $descricao;
+                $mov->data_vencimento = $dataVencimento;
+                $mov->cliente_id = $this->cliente_id;
+                $mov->save();
+            }
+
+            return $mov;
+        }
+
+        return MovimentacaoFinanceira::create([
+            'contrato_id' => $this->id,
+            'cliente_id' => $this->cliente_id,
+            'tipo' => MovimentacaoFinanceira::TIPO_RECEITA,
+            'categoria' => 'mensalidade_contrato',
+            'descricao' => $descricao,
+            'valor' => (float) $this->valor_total,
+            'data_competencia' => $dataCompetencia,
+            'data_vencimento' => $dataVencimento,
+            'status' => MovimentacaoFinanceira::STATUS_PENDENTE,
+        ]);
+    }
+
+    public static function sincronizarContratosAtivosNoMes(string|Carbon $mes): void
+    {
+        $mesRef = is_string($mes)
+            ? Carbon::parse($mes.(strlen($mes) === 7 ? '-01' : ''))
+            : $mes->copy();
+
+        $inicioMes = $mesRef->copy()->startOfMonth();
+        $fimMes = $mesRef->copy()->endOfMonth();
+
+        $contratos = self::with('cliente')
+            ->where('status', self::STATUS_ATIVO)
+            ->where('valor_total', '>', 0)
+            ->whereDate('data_inicio', '<=', $fimMes->toDateString())
+            ->where(function ($q) use ($inicioMes) {
+                $q->whereNull('data_fim')
+                    ->orWhereDate('data_fim', '>=', $inicioMes->toDateString());
+            })
+            ->get();
+
+        foreach ($contratos as $contrato) {
+            $contrato->sincronizarMovimentacaoMes($mesRef);
+        }
     }
 
     public static function gerarProximoNumero(): string

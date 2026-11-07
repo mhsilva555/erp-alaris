@@ -28,6 +28,10 @@ class Cliente extends Model
         'email',
         'telefone',
         'endereco',
+        'logradouro',
+        'numero',
+        'bairro',
+        'complemento',
         'cidade',
         'estado',
         'cep',
@@ -79,6 +83,39 @@ class Cliente extends Model
     public function getCepFormatadoAttribute(): ?string
     {
         return MascaraHelper::formatarCep($this->cep);
+    }
+
+    public function getEnderecoAttribute(?string $value): ?string
+    {
+        if (! empty($this->logradouro)) {
+            $partes = [$this->logradouro];
+            if (! empty($this->numero)) {
+                $partes[] = $this->numero;
+            }
+            $enderecoFormatado = implode(', ', $partes);
+
+            if (! empty($this->complemento)) {
+                $enderecoFormatado .= " ({$this->complemento})";
+            }
+            if (! empty($this->bairro)) {
+                $enderecoFormatado .= " - Bairro {$this->bairro}";
+            }
+
+            return $enderecoFormatado;
+        }
+
+        return $value;
+    }
+
+    public function getEnderecoCompletoAttribute(): string
+    {
+        $partes = array_filter([
+            $this->endereco,
+            $this->cidade_estado,
+            $this->cep_formatado ? "CEP: {$this->cep_formatado}" : null,
+        ]);
+
+        return implode(' • ', $partes);
     }
 
     public function visitas(): HasMany

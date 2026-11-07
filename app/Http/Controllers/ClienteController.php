@@ -19,7 +19,10 @@ class ClienteController extends Controller
                     ->orWhere('documento', 'like', "%{$busca}%")
                     ->orWhere('email', 'like', "%{$busca}%")
                     ->orWhere('telefone', 'like', "%{$busca}%")
-                    ->orWhere('cidade', 'like', "%{$busca}%");
+                    ->orWhere('cidade', 'like', "%{$busca}%")
+                    ->orWhere('bairro', 'like', "%{$busca}%")
+                    ->orWhere('logradouro', 'like', "%{$busca}%")
+                    ->orWhere('endereco', 'like', "%{$busca}%");
 
                 if ($buscaLimpa) {
                     $q->orWhere('documento', 'like', "%{$buscaLimpa}%")
@@ -69,6 +72,10 @@ class ClienteController extends Controller
             'email' => 'nullable|email|max:255',
             'telefone' => 'nullable|string|max:20',
             'endereco' => 'nullable|string|max:255',
+            'logradouro' => 'nullable|string|max:255',
+            'numero' => 'nullable|string|max:50',
+            'bairro' => 'nullable|string|max:100',
+            'complemento' => 'nullable|string|max:100',
             'cidade' => 'nullable|string|max:100',
             'estado' => 'nullable|string|max:2',
             'cep' => 'nullable|string|max:10',
@@ -78,6 +85,21 @@ class ClienteController extends Controller
             'data_followup' => 'nullable|date',
             'observacoes' => 'nullable|string',
         ]);
+
+        if (! empty($validated['logradouro']) && empty($validated['endereco'])) {
+            $partes = [$validated['logradouro']];
+            if (! empty($validated['numero'])) {
+                $partes[] = $validated['numero'];
+            }
+            $end = implode(', ', $partes);
+            if (! empty($validated['complemento'])) {
+                $end .= " ({$validated['complemento']})";
+            }
+            if (! empty($validated['bairro'])) {
+                $end .= " - Bairro {$validated['bairro']}";
+            }
+            $validated['endereco'] = $end;
+        }
 
         $validated['origem'] = $validated['origem'] ?? 'outros';
         $validated['periodicidade'] = $validated['periodicidade'] ?? 'avulso';
@@ -127,6 +149,10 @@ class ClienteController extends Controller
             'email' => 'nullable|email|max:255',
             'telefone' => 'nullable|string|max:20',
             'endereco' => 'nullable|string|max:255',
+            'logradouro' => 'nullable|string|max:255',
+            'numero' => 'nullable|string|max:50',
+            'bairro' => 'nullable|string|max:100',
+            'complemento' => 'nullable|string|max:100',
             'cidade' => 'nullable|string|max:100',
             'estado' => 'nullable|string|max:2',
             'cep' => 'nullable|string|max:10',
@@ -136,6 +162,21 @@ class ClienteController extends Controller
             'data_followup' => 'nullable|date',
             'observacoes' => 'nullable|string',
         ]);
+
+        if (! empty($validated['logradouro']) && empty($validated['endereco'])) {
+            $partes = [$validated['logradouro']];
+            if (! empty($validated['numero'])) {
+                $partes[] = $validated['numero'];
+            }
+            $end = implode(', ', $partes);
+            if (! empty($validated['complemento'])) {
+                $end .= " ({$validated['complemento']})";
+            }
+            if (! empty($validated['bairro'])) {
+                $end .= " - Bairro {$validated['bairro']}";
+            }
+            $validated['endereco'] = $end;
+        }
 
         $cliente->update($validated);
 

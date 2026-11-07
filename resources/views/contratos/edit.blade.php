@@ -369,7 +369,7 @@
                         </div>
                         <div>
                             <span class="text-xs font-semibold uppercase tracking-wider block" style="color: var(--color-surface-400);">Impostos Retidos (NF)</span>
-                            <div class="text-xl  font-bold text-amber-300" id="display-imposto">
+                            <div class="text-xl font-bold text-amber-500 dark:text-amber-300" id="display-imposto">
                                 R$ {{ number_format($contrato->valorImposto(), 2, ',', '.') }}
                             </div>
                             <span class="text-[11px] text-slate-400" id="display-imposto-hint">Alíquota: 14%</span>

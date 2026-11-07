@@ -22,11 +22,14 @@ class MovimentacaoFinanceira extends Model
 
     protected $fillable = [
         'visita_id',
+        'contrato_id',
+        'cliente_id',
         'tipo',
         'categoria',
         'descricao',
         'valor',
         'data_competencia',
+        'data_vencimento',
         'data_pagamento',
         'status',
     ];
@@ -36,6 +39,7 @@ class MovimentacaoFinanceira extends Model
         return [
             'valor' => 'decimal:2',
             'data_competencia' => 'date',
+            'data_vencimento' => 'date',
             'data_pagamento' => 'date',
         ];
     }
@@ -43,6 +47,16 @@ class MovimentacaoFinanceira extends Model
     public function visita(): BelongsTo
     {
         return $this->belongsTo(Visita::class);
+    }
+
+    public function contrato(): BelongsTo
+    {
+        return $this->belongsTo(Contrato::class);
+    }
+
+    public function cliente(): BelongsTo
+    {
+        return $this->belongsTo(Cliente::class);
     }
 
     public function scopeReceitas(Builder $query): Builder

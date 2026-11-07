@@ -319,7 +319,7 @@
                         </div>
                         <div>
                             <span class="text-xs font-semibold uppercase tracking-wider block" style="color: var(--color-surface-400);">Impostos Retidos (NF)</span>
-                            <div class="text-xl  font-bold text-amber-300" id="display-imposto">
+                            <div class="text-xl font-bold text-amber-500 dark:text-amber-300" id="display-imposto">
                                 R$ 49,00
                             </div>
                             <span class="text-[11px] text-slate-400" id="display-imposto-hint">Alíquota: 14%</span>
@@ -360,7 +360,7 @@
                     Cancelar
                 </a>
                 <button type="submit" class="btn btn-primary px-6">
-                    Salvar e Ativar Contrato
+                    Salvar Contrato
                 </button>
             </div>
         </form>

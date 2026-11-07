@@ -22,12 +22,80 @@
     <style>
         @page {
             size: A4 portrait;
-            margin: 12mm 15mm 10mm 15mm;
+            margin: 8mm 12mm 8mm 12mm;
         }
 
         * {
             box-sizing: border-box;
         }
+
+        @if ($isPdfEngine)
+        html, body {
+            background: #ffffff !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            font-size: 10.5px !important;
+            line-height: 1.35 !important;
+        }
+        .pwa-action-bar, .no-print, .pwa-toast {
+            display: none !important;
+        }
+        .document-viewport {
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        .proposal-container {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            max-width: 100% !important;
+            border-radius: 0 !important;
+        }
+        .header {
+            display: table !important;
+            width: 100% !important;
+        }
+        .header > .logo-box {
+            display: table-cell !important;
+            vertical-align: middle !important;
+        }
+        .header > .meta-box {
+            display: table-cell !important;
+            vertical-align: middle !important;
+            text-align: right !important;
+        }
+        .grid-2 {
+            display: table !important;
+            width: 100% !important;
+        }
+        .grid-2 > div {
+            display: table-cell !important;
+            width: 50% !important;
+            vertical-align: top !important;
+        }
+        .pricing-box {
+            display: table !important;
+            width: 100% !important;
+        }
+        .pricing-box > div:first-child {
+            display: table-cell !important;
+            vertical-align: middle !important;
+        }
+        .pricing-box > .pricing-amount {
+            display: table-cell !important;
+            vertical-align: middle !important;
+            text-align: right !important;
+        }
+        .signatures {
+            display: table !important;
+            width: 100% !important;
+        }
+        .signatures > .sig-box {
+            display: table-cell !important;
+            width: 50% !important;
+            vertical-align: top !important;
+        }
+        @endif
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -35,7 +103,7 @@
             background: #f1f5f9;
             margin: 0;
             padding: 0;
-            font-size: 13px;
+            font-size: 12.5px;
             line-height: 1.45;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
@@ -194,9 +262,11 @@
             background: #ffffff;
             border: 1px solid #e5e7eb;
             border-radius: 12px;
-            padding: 36px 40px;
+            padding: 30px 36px;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
             overflow: hidden;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
         .watermark-container {
@@ -205,7 +275,7 @@
             left: 50%;
             transform: translate(-50%, -50%);
             width: 65%;
-            max-width: 480px;
+            max-width: 460px;
             opacity: 0.045;
             pointer-events: none;
             z-index: 0;
@@ -232,8 +302,8 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 2px solid #23b4eb;
-            padding-bottom: 16px;
-            margin-bottom: 20px;
+            padding-bottom: 14px;
+            margin-bottom: 14px;
         }
 
         .logo-box {
@@ -254,12 +324,13 @@
             color: #0f172a;
             margin: 0;
             letter-spacing: -0.3px;
+            line-height: 1.2;
         }
 
         .brand-sub {
             font-size: 11px;
             color: #64748b;
-            margin: 1px 0 0 0;
+            margin: 2px 0 0 0;
             text-transform: uppercase;
             letter-spacing: 0.4px;
         }
@@ -273,11 +344,12 @@
             background: {{ $ehProposta ? '#ecfdf5' : '#f0f9ff' }};
             color: {{ $ehProposta ? '#065f46' : '#0369a1' }};
             border: 1px solid {{ $ehProposta ? '#a7f3d0' : '#bae6fd' }};
-            padding: 4px 10px;
+            padding: 5px 12px;
             border-radius: 6px;
             font-weight: 700;
             font-size: 12.5px;
             letter-spacing: 0.3px;
+            line-height: 1.2;
         }
 
         .meta-date {
@@ -300,36 +372,40 @@
             letter-spacing: 0.5px;
             color: #23b4eb;
             background: #f0f9ff;
-            padding: 5px 10px;
+            padding: 4px 10px;
             border-left: 3px solid #23b4eb;
-            margin-top: 18px;
-            margin-bottom: 10px;
+            margin-top: 11px;
+            margin-bottom: 6px;
             border-radius: 0 4px 4px 0;
+            line-height: 1.25;
         }
 
         .grid-2 {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
+            gap: 8px 20px;
         }
 
         .info-group {
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
 
         .info-label {
-            font-size: 9.5px;
+            font-size: 9px;
             font-weight: 600;
             color: #64748b;
             text-transform: uppercase;
             letter-spacing: 0.3px;
             display: block;
+            line-height: 1.2;
+            margin-bottom: 1px;
         }
 
         .info-val {
-            font-size: 12.5px;
+            font-size: 12px;
             font-weight: 600;
             color: #111827;
+            line-height: 1.35;
         }
 
         /* Tabela de Itens */
@@ -337,7 +413,7 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 6px;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             border-radius: 6px;
             overflow: hidden;
             border: 1px solid #e5e7eb;
@@ -349,16 +425,18 @@
             font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;
-            padding: 7px 10px;
+            padding: 5px 10px;
             border-bottom: 1px solid #e2e8f0;
             text-align: left;
+            line-height: 1.2;
         }
 
         .items-table td {
-            padding: 7px 10px;
-            font-size: 12px;
+            padding: 5px 10px;
+            font-size: 11.5px;
             border-bottom: 1px solid #f1f5f9;
             color: #1e293b;
+            line-height: 1.35;
         }
 
         .items-table tr:last-child td {
@@ -372,14 +450,14 @@
         .scope-card {
             background: #f8fafc;
             border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 12px 14px;
+            border-radius: 6px;
+            padding: 10px 12px;
             margin-top: 6px;
         }
 
         .scope-card h4 {
-            margin: 0 0 4px 0;
-            font-size: 13px;
+            margin: 0 0 3px 0;
+            font-size: 12.5px;
             color: #111827;
             font-weight: 700;
         }
@@ -387,27 +465,58 @@
         .scope-card p {
             margin: 0;
             color: #4b5563;
-            font-size: 12px;
+            font-size: 11.5px;
             line-height: 1.4;
         }
 
         /* Metodologia Técnica */
         .method-box {
-            margin-top: 8px;
-            font-size: 11.5px;
+            margin-top: 6px;
+            font-size: 11px;
             color: #4b5563;
         }
 
         .terms-list {
-            margin: 4px 0;
-            padding-left: 18px;
-            font-size: 11.5px;
+            margin: 3px 0;
+            padding-left: 16px;
+            font-size: 10.5px;
             color: #4b5563;
-            line-height: 1.4;
+            line-height: 1.38;
         }
 
         .terms-list li {
-            margin-bottom: 3px;
+            margin-bottom: 2px;
+        }
+
+        /* Recomendações Preventivas */
+        .preventive-box {
+            margin-top: 3px;
+        }
+
+        .preventive-intro {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: #475569;
+            margin: 0 0 3px 0;
+            line-height: 1.35;
+        }
+
+        .preventive-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: none;
+            margin: 0;
+        }
+
+        .preventive-col {
+            width: 50%;
+            vertical-align: top;
+            border: none;
+            padding: 0 10px 0 0;
+        }
+
+        .preventive-col:last-child {
+            padding: 0 0 0 10px;
         }
 
         /* Box de Preço e Condições (Destaque Verde) */
@@ -415,41 +524,44 @@
             background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
             border: 1.5px solid #a7f3d0;
             border-radius: 8px;
-            padding: 16px 20px;
-            margin-top: 14px;
+            padding: 10px 16px;
+            margin-top: 9px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
         .pricing-label {
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 700;
             color: #065f46;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            line-height: 1.2;
         }
 
         .pricing-desc {
-            font-size: 11px;
+            font-size: 10.5px;
             color: #047857;
             margin-top: 2px;
         }
 
         .pricing-amount {
-            font-size: 26px;
+            font-size: 23px;
             font-weight: 800;
             color: #065f46;
             letter-spacing: -0.5px;
+            line-height: 1;
         }
 
         /* Assinaturas */
         .signatures {
-            margin-top: 36px;
+            margin-top: 22px;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 40px;
+            gap: 32px;
             page-break-inside: avoid;
+            break-inside: avoid;
         }
 
         .sig-box {
@@ -458,26 +570,38 @@
 
         .sig-line {
             border-top: 1px solid #475569;
-            margin-top: 40px;
-            margin-bottom: 5px;
+            margin-top: 28px;
+            margin-bottom: 4px;
         }
 
         .sig-name {
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 700;
             color: #0f172a;
+            line-height: 1.25;
         }
 
         .sig-title {
             font-size: 10px;
             color: #64748b;
+            line-height: 1.25;
+        }
+
+        .sig-date {
+            margin-top: 8px;
+            font-size: 10.5px;
+            font-weight: 500;
+            color: #475569;
+            letter-spacing: 0.5px;
         }
 
         .footer-note {
             text-align: center;
-            font-size: 9px;
+            font-size: 8.5px;
             color: #94a3b8;
-            margin-top: 20px;
+            margin-top: 12px;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
         /* Responsividade Mobile & PWA */
@@ -496,7 +620,7 @@
             }
 
             .proposal-container {
-                padding: 20px 16px;
+                padding: 18px 14px;
                 border-radius: 8px;
             }
 
@@ -513,18 +637,24 @@
 
             .signatures {
                 grid-template-columns: 1fr;
-                gap: 24px;
-                margin-top: 24px;
+                gap: 20px;
+                margin-top: 20px;
             }
         }
 
         /* Impressão Direta e Exportação em PDF Limpa */
         @media print {
-            body {
+            @page {
+                size: A4 portrait;
+                margin: 7mm 12mm 7mm 12mm;
+            }
+
+            html, body {
                 background: #ffffff !important;
                 padding: 0 !important;
                 margin: 0 !important;
-                font-size: 11.5px;
+                font-size: 11px !important;
+                line-height: 1.35 !important;
             }
 
             .pwa-action-bar,
@@ -544,6 +674,157 @@
                 padding: 0 !important;
                 max-width: 100% !important;
                 border-radius: 0 !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            .header {
+                padding-bottom: 8px !important;
+                margin-bottom: 10px !important;
+            }
+
+            .header-logo-img {
+                height: 38px !important;
+            }
+
+            .brand-title {
+                font-size: 16px !important;
+            }
+
+            .brand-sub {
+                font-size: 10px !important;
+            }
+
+            .section-title {
+                font-size: 11px !important;
+                padding: 3.5px 8px !important;
+                margin-top: 9px !important;
+                margin-bottom: 5px !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                background: #f0f9ff !important;
+            }
+
+            .grid-2 {
+                gap: 5px 16px !important;
+            }
+
+            .info-group {
+                margin-bottom: 3px !important;
+            }
+
+            .info-label {
+                font-size: 8.5px !important;
+            }
+
+            .info-val {
+                font-size: 11.5px !important;
+            }
+
+            .items-table {
+                margin-top: 4px !important;
+                margin-bottom: 4px !important;
+            }
+
+            .items-table th {
+                padding: 4px 8px !important;
+                font-size: 9.5px !important;
+            }
+
+            .items-table td {
+                padding: 4px 8px !important;
+                font-size: 11px !important;
+            }
+
+            .method-box {
+                margin-top: 4px !important;
+            }
+
+            .terms-list {
+                margin: 2px 0 !important;
+                padding-left: 14px !important;
+                font-size: 10px !important;
+                line-height: 1.35 !important;
+            }
+
+            .terms-list li {
+                margin-bottom: 1.5px !important;
+            }
+
+            .preventive-box {
+                margin-top: 2px !important;
+            }
+
+            .preventive-intro {
+                font-size: 9.5px !important;
+                margin-bottom: 2px !important;
+            }
+
+            .preventive-table {
+                margin: 0 !important;
+            }
+
+            .preventive-col {
+                padding: 0 8px 0 0 !important;
+            }
+
+            .preventive-col:last-child {
+                padding: 0 0 0 8px !important;
+            }
+
+            .pricing-box {
+                padding: 9px 15px !important;
+                margin-top: 8px !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                background: #f0fdf4 !important;
+                border-color: #86efac !important;
+            }
+
+            .pricing-label {
+                font-size: 11px !important;
+            }
+
+            .pricing-desc {
+                font-size: 10px !important;
+            }
+
+            .pricing-amount {
+                font-size: 22px !important;
+            }
+
+            .signatures {
+                margin-top: 20px !important;
+                gap: 30px !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            .sig-line {
+                margin-top: 26px !important;
+                margin-bottom: 4px !important;
+            }
+
+            .sig-name {
+                font-size: 11px !important;
+            }
+
+            .sig-title {
+                font-size: 9.5px !important;
+            }
+
+            .sig-date {
+                margin-top: 6px !important;
+                font-size: 10px !important;
+                font-weight: 600 !important;
+                color: #475569 !important;
+            }
+
+            .footer-note {
+                margin-top: 10px !important;
+                font-size: 8px !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
             }
 
             .watermark-container {
@@ -552,33 +833,10 @@
                 left: 50%;
                 transform: translate(-50%, -50%);
                 width: 65%;
-                max-width: 480px;
-                opacity: 0.05;
+                max-width: 460px;
+                opacity: 0.045;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
-            }
-
-            .pricing-box {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-                background: #f0fdf4 !important;
-                border-color: #86efac !important;
-            }
-
-            .section-title {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-                background: #f0f9ff !important;
-            }
-
-            .proposal-badge {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-
-            .signatures {
-                margin-top: 28px;
-                page-break-inside: avoid;
             }
         }
     </style>
@@ -587,6 +845,7 @@
 <body>
 
     {{-- Barra de Navegação Superior Nativa PWA --}}
+    @if (!$isPdfEngine)
     <header class="pwa-action-bar no-print">
         <div class="pwa-bar-inner">
             <div class="pwa-bar-left">
@@ -623,6 +882,7 @@
             </div>
         </div>
     </header>
+    @endif
 
     <div class="document-viewport">
         <div class="proposal-container">
@@ -738,6 +998,12 @@
                             @endforeach
                         </tbody>
                     </table>
+
+                    @if ($contrato->descricao)
+                        <div class="scope-description-box" style="margin: 4px 0 5px 0; font-size: 10.5px; color: #374151; line-height: 1.35;">
+                            <strong style="color: #1f2937;">Cláusulas Adicionais / Detalhamento:</strong> {!! nl2br(e($contrato->descricao)) !!}
+                        </div>
+                    @endif
                 @else
                     <div class="scope-card">
                         <h4>{{ $contrato->titulo ?: 'Controle Integrado de Pragas & Higienização Técnica' }}</h4>
@@ -824,19 +1090,50 @@
                     </ul>
                 </div>
 
-                {{-- 5. Assinaturas e De Acordo --}}
+                {{-- 5. Recomendações Preventivas --}}
+                <div class="section-title">5. Recomendações Preventivas</div>
+                <div class="preventive-box">
+                    <p class="preventive-intro">
+                        Para auxiliar na eficácia do controle de pragas, recomendamos:
+                    </p>
+                    <table class="preventive-table">
+                        <tr>
+                            <td class="preventive-col">
+                                <ul class="terms-list">
+                                    <li>Manter ambientes limpos, higienizados e organizados.</li>
+                                    <li>Evitar o acúmulo de lixo, restos de alimentos e materiais sem utilização.</li>
+                                    <li>Manter lixeiras tampadas e realizar o descarte frequente dos resíduos.</li>
+                                </ul>
+                            </td>
+                            <td class="preventive-col">
+                                <ul class="terms-list">
+                                    <li>Armazenar alimentos em recipientes fechados e adequados.</li>
+                                    <li>Manter ralos protegidos e vedar possíveis pontos de acesso de pragas.</li>
+                                    <li>Comunicar à equipe técnica qualquer sinal de infestação.</li>
+                                </ul>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                {{-- Assinaturas e De Acordo --}}
                 <div class="signatures">
                     <div class="sig-box">
                         <div class="sig-line"></div>
                         <div class="sig-name">{{ $empresa['razaoSocial'] }}</div>
                         <div class="sig-title">CNPJ: {{ $empresa['cnpj'] }} &bull; Departamento Comercial & Técnico</div>
+                        <div class="sig-date" style="visibility: hidden;">
+                            Data: _____ / _____ / _________
+                        </div>
                     </div>
                     <div class="sig-box">
                         <div class="sig-line"></div>
                         <div class="sig-name">{{ $contrato->cliente->nome }}</div>
                         <div class="sig-title">
                             {{ $ehProposta ? 'De Acordo / Aceite da Proposta Comercial' : 'Contratante / Representante Legal' }}
-                            <br><span style="font-size: 9px; color: #94a3b8;">Data: ____/____/________</span>
+                        </div>
+                        <div class="sig-date">
+                            Data: _____ / _____ / _________
                         </div>
                     </div>
                 </div>
