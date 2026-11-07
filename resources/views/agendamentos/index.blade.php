@@ -17,7 +17,7 @@
                         Agenda Geral Unificada
                     </h2>
                     <p class="text-sm mt-1" style="color: var(--color-surface-400);">
-                        Consolidação de Ordens de Serviço, Reposições de Comodato e Follow-ups Comerciais.
+                        Consolidação de Ordens de Serviço, Reposições de Comodato e Retornos Comerciais.
                     </p>
                 </div>
 
@@ -65,7 +65,7 @@
                         </a>
                         <a href="{{ route('agendamentos.index', ['mes' => $mes, 'tipo' => 'followups', 'modo' => $modo]) }}"
                             class="tab-pill {{ $tipoFiltro === 'followups' ? 'active' : '' }}">
-                            Follow-ups ({{ $totais['total_followups'] }})
+                            Retornos ({{ $totais['total_followups'] }})
                         </a>
                     </div>
                 </form>
@@ -168,7 +168,7 @@
                 <div class="stat-card">
                     <div class="flex items-center justify-between">
                         <div>
-                            <span class="stat-label text-purple-400">Follow-ups</span>
+                            <span class="stat-label text-purple-400">Retornos</span>
                             <div class="stat-value text-purple-400">{{ $totais['total_followups'] }}</div>
                             <div class="stat-helper">Prospecção ativa</div>
                         </div>

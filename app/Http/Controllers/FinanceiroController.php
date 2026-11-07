@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Models\Contrato;
 use App\Models\MovimentacaoFinanceira;
 use App\Models\Visita;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -232,6 +233,11 @@ class FinanceiroController extends Controller
         $mes = $request->get('mes', now()->format('Y-m'));
         $periodo = $request->get('periodo', 'mensal'); // semanal, mensal, anual
         $statusFiltro = $request->get('status', 'todas'); // todas, concluida, agendada
+        $visao = $request->get('visao', 'projetado'); // projetado (orçado/provisão), realizado (executado estrito)
+
+        if (! in_array($visao, ['projetado', 'realizado'], true)) {
+            $visao = 'projetado';
+        }
 
         try {
             $dataReferencia = Carbon::parse($mes.'-01');
@@ -255,8 +261,8 @@ class FinanceiroController extends Controller
             $tituloPeriodo = 'Mês de '.ucfirst($dataReferencia->translatedFormat('F \d\e Y'));
         }
 
-        // Visitas no período com cliente, técnico, comodato e movimentações financeiras
-        $visitasQuery = Visita::with(['cliente', 'tecnico', 'comodato', 'movimentacoes'])
+        // Visitas no período com cliente, técnico, comodato, contrato e movimentações financeiras
+        $visitasQuery = Visita::with(['cliente', 'tecnico', 'comodato', 'contrato', 'movimentacoes'])
             ->whereDate('data_hora', '>=', $inicio->toDateString())
             ->whereDate('data_hora', '<=', $fim->toDateString());
 
@@ -280,14 +286,87 @@ class FinanceiroController extends Controller
         $custoOperacionalVisitas = $custoProdutos + $custoMaoDeObra + $custoDeslocamento + $gastosAdicionais;
         $lucroBrutoVisitas = $faturamentoVisitas - ($custoOperacionalVisitas + $valorImpostos);
 
+        // Contratos ativos no período sob modelo de mensalidade fixa / preço fechado
+        $contratosAtivos = Contrato::with('cliente')
+            ->where('status', Contrato::STATUS_ATIVO)
+            ->whereIn('modelo_cobranca', [
+                Contrato::MODELO_MENSAL,
+                Contrato::MODELO_FIXO_ANUAL,
+                Contrato::MODELO_FECHAMENTO_PERIODO,
+            ])
+            ->whereDate('data_inicio', '<=', $fim->toDateString())
+            ->where(function ($q) use ($inicio) {
+                $q->whereNull('data_fim')
+                    ->orWhereDate('data_fim', '>=', $inicio->toDateString());
+            })
+            ->get();
+
+        $faturamentoContratos = (float) $contratosAtivos->sum('valor_total');
+        $impostosContratos = (float) $contratosAtivos->sum(fn ($c) => $c->valorImposto());
+
+        // Apuração das provisões operacionais dos contratos ativos
+        $provisaoDiariasContratos = 0.0;
+        $provisaoDeslocamentoContratos = 0.0;
+
+        foreach ($contratosAtivos as $ctr) {
+            $visitasPlanejadas = $ctr->visitasPrevistasPorCiclo();
+
+            $visitasExecutadasQuery = $ctr->visitas()
+                ->whereDate('data_hora', '>=', $inicio->toDateString())
+                ->whereDate('data_hora', '<=', $fim->toDateString());
+
+            if ($statusFiltro === 'concluida') {
+                $visitasExecutadasQuery->where('status', Visita::STATUS_CONCLUIDA);
+            } else {
+                $visitasExecutadasQuery->where('status', '!=', Visita::STATUS_CANCELADA);
+            }
+
+            $visitasExecutadasCount = $visitasExecutadasQuery->count();
+            $visitasRestantes = max(0, $visitasPlanejadas - $visitasExecutadasCount);
+
+            $diariaPadrao = (float) ($ctr->custo_diaria_padrao ?? 0.0);
+            $deslocamentoPadrao = (float) ($ctr->custo_deslocamento_padrao ?? 0.0);
+
+            $provisaoDiariasContratos += ($visitasRestantes * $diariaPadrao);
+            $provisaoDeslocamentoContratos += ($visitasRestantes * $deslocamentoPadrao);
+
+            $custoExecutado = $ctr->custoTotalVisitasNoPeriodo($inicio, $fim);
+            $provisaoRestante = $visitasRestantes * ($diariaPadrao + $deslocamentoPadrao);
+
+            $ctr->visitasPlanejadas = $visitasPlanejadas;
+            $ctr->visitasExecutadasCount = $visitasExecutadasCount;
+            $ctr->visitasRestantes = $visitasRestantes;
+            $ctr->custoExecutado = $custoExecutado;
+            $ctr->provisaoRestante = $provisaoRestante;
+            $ctr->custoTotalProjetado = $custoExecutado + $provisaoRestante;
+            $ctr->saldoProjetado = round($ctr->valorLiquidoDisponivel() - $ctr->custoTotalProjetado, 2);
+        }
+
+        $provisaoOperacionalContratos = $provisaoDiariasContratos + $provisaoDeslocamentoContratos;
+
+        if ($visao === 'projetado') {
+            $totalCustoMaoDeObra = $custoMaoDeObra + $provisaoDiariasContratos;
+            $totalCustoDeslocamento = $custoDeslocamento + $provisaoDeslocamentoContratos;
+            $custoOperacionalEfetivo = $custoOperacionalVisitas + $provisaoOperacionalContratos;
+        } else {
+            $totalCustoMaoDeObra = $custoMaoDeObra;
+            $totalCustoDeslocamento = $custoDeslocamento;
+            $custoOperacionalEfetivo = $custoOperacionalVisitas;
+        }
+
+        $totalFaturado = $faturamentoVisitas + $faturamentoContratos;
+        $totalImpostos = $valorImpostos + $impostosContratos;
+        $totalCustoOperacional = $custoOperacionalEfetivo + $totalImpostos;
+        $lucroBrutoTotal = $totalFaturado - $totalCustoOperacional;
+
         // Despesas operacionais avulsas no período (sem vínculo com OS)
         $despesasGerais = (float) MovimentacaoFinanceira::despesas()
             ->whereNull('visita_id')
             ->whereBetween('data_competencia', [$inicio->toDateString(), $fim->toDateString()])
             ->sum('valor');
 
-        $lucroLiquidoGeral = $lucroBrutoVisitas - $despesasGerais;
-        $margemBruta = $faturamentoVisitas > 0 ? round(($lucroBrutoVisitas / $faturamentoVisitas) * 100, 1) : 0;
+        $lucroLiquidoGeral = $lucroBrutoTotal - $despesasGerais;
+        $margemBruta = $totalFaturado > 0 ? round(($lucroBrutoTotal / $totalFaturado) * 100, 1) : 0;
 
         // Indicadores de Conciliação DRE (Competência) vs Fluxo de Caixa (Realizado)
         $faturamentoRecebido = (float) MovimentacaoFinanceira::receitas()->pagas()
@@ -335,14 +414,8 @@ class FinanceiroController extends Controller
 
         $dataInicio = $inicio;
         $dataFim = $fim;
-        $totalFaturado = $faturamentoVisitas;
         $totalCustoProdutos = $custoProdutos;
-        $totalCustoMaoDeObra = $custoMaoDeObra;
-        $totalCustoDeslocamento = $custoDeslocamento;
         $totalGastosAdicionais = $gastosAdicionais;
-        $totalImpostos = $valorImpostos;
-        $totalCustoOperacional = $custoOperacionalVisitas + $valorImpostos;
-        $lucroBrutoTotal = $lucroBrutoVisitas;
         $margemMedia = $margemBruta;
         $lucroLiquidoEstimado = $lucroLiquidoGeral;
 
@@ -350,17 +423,25 @@ class FinanceiroController extends Controller
             'mes',
             'periodo',
             'statusFiltro',
+            'visao',
             'tituloPeriodo',
             'visitas',
+            'contratosAtivos',
             'dataInicio',
             'dataFim',
             'faturamentoVisitas',
+            'faturamentoContratos',
+            'impostosContratos',
             'custoProdutos',
             'custoMaoDeObra',
             'custoDeslocamento',
+            'provisaoDiariasContratos',
+            'provisaoDeslocamentoContratos',
+            'provisaoOperacionalContratos',
             'valorImpostos',
             'gastosAdicionais',
             'custoOperacionalVisitas',
+            'custoOperacionalEfetivo',
             'lucroBrutoVisitas',
             'despesasGerais',
             'lucroLiquidoGeral',

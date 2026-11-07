@@ -26,6 +26,27 @@
                     if ($contratoVinculado && $contratoVinculado->modelo_cobranca === \App\Models\Contrato::MODELO_POR_VISITA) {
                         $valorCobradoInicial = number_format((float) $contratoVinculado->valor_total, 2, '.', '');
                     }
+
+                    $diariaInicial = old('custo_mao_de_obra');
+                    if ($diariaInicial === null) {
+                        if ($contratoVinculado && $contratoVinculado->custo_diaria_padrao !== null) {
+                            $diariaInicial = number_format((float) $contratoVinculado->custo_diaria_padrao, 2, '.', '');
+                        } else {
+                            $tec = $tecnicos->firstWhere('id', old('tecnico_id'));
+                            $diariaInicial = ($tec && (float) $tec->valor_diaria_padrao > 0)
+                                ? number_format((float) $tec->valor_diaria_padrao, 2, '.', '')
+                                : number_format($diariaPadrao, 2, '.', '');
+                        }
+                    }
+
+                    $deslocamentoInicial = old('custo_deslocamento');
+                    if ($deslocamentoInicial === null) {
+                        if ($contratoVinculado && $contratoVinculado->custo_deslocamento_padrao !== null) {
+                            $deslocamentoInicial = number_format((float) $contratoVinculado->custo_deslocamento_padrao, 2, '.', '');
+                        } else {
+                            $deslocamentoInicial = '0.00';
+                        }
+                    }
                 @endphp
 
                 @if (isset($comodato) && $comodato)
@@ -102,6 +123,10 @@
                                             data-numero="{{ $ctr->numero }}"
                                             data-cliente-id="{{ $ctr->cliente_id }}"
                                             data-tipo-servico="{{ $ctr->tipo_servico }}"
+                                            data-diaria="{{ $ctr->custo_diaria_padrao !== null ? number_format((float) $ctr->custo_diaria_padrao, 2, '.', '') : '' }}"
+                                            data-deslocamento="{{ $ctr->custo_deslocamento_padrao !== null ? number_format((float) $ctr->custo_deslocamento_padrao, 2, '.', '') : '' }}"
+                                            data-exige-nf="{{ $ctr->exige_nota_fiscal ? '1' : '0' }}"
+                                            data-aliquota-nf="{{ $ctr->percentual_imposto }}"
                                             {{ old('contrato_id', request('contrato_id')) == $ctr->id ? 'selected' : '' }}>
                                             {{ $ctr->numero }} — {{ $ctr->cliente->nome }} ({{ $ctr->periodicidadeLabel() }} • {{ $ctr->modeloCobrancaLabel() }})
                                         </option>
@@ -319,19 +344,18 @@
 
                             <div>
                                 <div class="flex items-center justify-between">
-                                    <label class="form-label mb-0" for="custo_mao_de_obra">Diária / Mão de Obra Técnico
-                                        (R$)</label>
+                                    <label class="form-label mb-0" for="custo_mao_de_obra">Diária / Mão de Obra Técnico (R$)</label>
                                     <span id="label-diaria-tecnico" class="text-[11px] text-emerald-400 font-medium"></span>
                                 </div>
                                 <input type="number" id="custo_mao_de_obra" name="custo_mao_de_obra"
-                                    value="{{ old('custo_mao_de_obra', $tecnicos->firstWhere('id', old('tecnico_id'))?->valor_diaria_padrao > 0 ? $tecnicos->firstWhere('id', old('tecnico_id'))->valor_diaria_padrao : $diariaPadrao) }}"
+                                    value="{{ $diariaInicial }}"
                                     step="0.01" min="0" class="form-input" oninput="recalcularFinanceiroVisita()">
                             </div>
 
                             <div>
                                 <label class="form-label" for="custo_deslocamento">Deslocamento / Transporte (R$)</label>
                                 <input type="number" id="custo_deslocamento" name="custo_deslocamento"
-                                    value="{{ old('custo_deslocamento', '0.00') }}" step="0.01" min="0"
+                                    value="{{ $deslocamentoInicial }}" step="0.01" min="0"
                                     class="form-input" oninput="recalcularFinanceiroVisita()">
                             </div>
 
@@ -343,15 +367,30 @@
                             </div>
 
                             <div class="sm:col-span-2">
-                                <label class="form-label" for="motivo_gastos_adicionais">Motivo dos Gastos Extras /
-                                    Adicionais</label>
+                                <label class="form-label" for="motivo_gastos_adicionais">Motivo dos Gastos Extras / Adicionais</label>
                                 <input type="text" id="motivo_gastos_adicionais" name="motivo_gastos_adicionais"
                                     value="{{ old('motivo_gastos_adicionais') }}" class="form-input"
                                     placeholder="Ex: Pedágio, compras extras, estacionamento">
                             </div>
                         </div>
 
-                        <div class="mt-4 flex items-center justify-between p-3 rounded-lg"
+                        {{-- Tributação Centralizada no Contrato (Preço Fechado) --}}
+                        <div id="container-nf-contrato" class="{{ $ehMensalidadeFixa ? '' : 'hidden' }} mt-4 p-3.5 rounded-lg flex items-center justify-between"
+                            style="background: var(--color-surface-900); border: 1px solid var(--color-surface-800);">
+                            <div class="flex items-center gap-2.5">
+                                <svg class="w-4 h-4 text-sky-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div>
+                                    <span class="text-xs font-bold text-white block">Tributação Centralizada no Contrato (Preço Fechado)</span>
+                                    <span class="text-[11px]" style="color: var(--color-surface-400);">O imposto (NFS-e) é descontado diretamente da receita única do contrato. Esta O.S. não gera imposto avulso.</span>
+                                </div>
+                            </div>
+                            <span class="text-xs font-semibold text-sky-400 bg-sky-500/15 px-2.5 py-1 rounded shrink-0">Retido no Contrato</span>
+                        </div>
+
+                        {{-- Seleção de NF para Atendimentos Avulsos --}}
+                        <div id="container-nf-avulsa" class="{{ $ehMensalidadeFixa ? 'hidden' : '' }} mt-4 flex items-center justify-between p-3 rounded-lg"
                             style="background: var(--color-surface-900); border: 1px solid var(--color-surface-800);">
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" id="exige_nota_fiscal" name="exige_nota_fiscal" value="1"
@@ -363,29 +402,39 @@
                             </label>
                         </div>
 
-                        {{-- Painel de Lucro em Tempo Real --}}
+                        {{-- Painel de Custos / Resumo em Tempo Real --}}
                         <div class="mt-4 p-4 rounded-lg grid grid-cols-2 sm:grid-cols-4 gap-3 text-center"
                             style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                             <div>
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Custo
-                                    Insumos</span>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Custo Insumos</span>
                                 <span id="preview-custo-insumos" class="text-xs font-semibold text-white">R$ 0,00</span>
                             </div>
                             <div>
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Custo
-                                    Operacional</span>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block" id="label-custo-operacional">
+                                    {{ $ehMensalidadeFixa ? 'Custo Deste Atendimento' : 'Custo Operacional' }}
+                                </span>
                                 <span id="preview-custo-operacional" class="text-xs font-semibold text-white">R$ 0,00</span>
                             </div>
                             <div>
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Impostos
-                                    (NF)</span>
-                                <span id="preview-imposto" class="text-xs font-semibold text-amber-300">R$ 0,00</span>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block" id="label-preview-imposto">
+                                    {{ $ehMensalidadeFixa ? 'Tributação (NF)' : 'Impostos (NF)' }}
+                                </span>
+                                <span id="preview-imposto" class="text-xs font-semibold {{ $ehMensalidadeFixa ? 'text-sky-300' : 'text-amber-300' }}">
+                                    {{ $ehMensalidadeFixa ? 'Incluso no Contrato' : 'R$ 0,00' }}
+                                </span>
                             </div>
                             <div>
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Lucro
-                                    Estimado</span>
-                                <span id="preview-lucro-bruto" class="text-sm font-bold text-emerald-400">R$ 0,00</span>
-                                <span id="preview-margem" class="text-[10px] block text-emerald-400">0%</span>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block" id="label-resultado-visita">
+                                    {{ $ehMensalidadeFixa ? 'Impacto no Contrato' : 'Lucro Estimado' }}
+                                </span>
+                                <div id="container-resultado-visita">
+                                    <span id="preview-lucro-bruto" class="text-sm font-bold {{ $ehMensalidadeFixa ? 'text-sky-400' : 'text-emerald-400' }}">
+                                        {{ $ehMensalidadeFixa ? 'Atendimento Coberto' : 'R$ 0,00' }}
+                                    </span>
+                                    <span id="preview-margem" class="text-[10px] block {{ $ehMensalidadeFixa ? 'text-sky-400 font-medium' : 'text-emerald-400' }}">
+                                        {{ $ehMensalidadeFixa ? 'Deduzido do Contrato' : '0%' }}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -457,22 +506,39 @@
             const bannerIncluso = document.getElementById('banner-contrato-incluso');
             const badgeIncluso = document.getElementById('badge-incluso-contrato');
             const hintNumero = document.getElementById('hint-contrato-numero');
+            const containerNfContrato = document.getElementById('container-nf-contrato');
+            const containerNfAvulsa = document.getElementById('container-nf-avulsa');
+            const inputDiaria = document.getElementById('custo_mao_de_obra');
+            const inputDeslocamento = document.getElementById('custo_deslocamento');
+
+            const diariaContrato = opt.getAttribute('data-diaria');
+            const deslocamentoContrato = opt.getAttribute('data-deslocamento');
 
             if (opt.value && modelo) {
                 const ehMensal = ['mensal', 'fixo_anual', 'fechamento_periodo'].includes(modelo);
                 if (ehMensal) {
                     if (bannerIncluso) bannerIncluso.classList.remove('hidden');
                     if (badgeIncluso) badgeIncluso.classList.remove('hidden');
+                    if (containerNfContrato) containerNfContrato.classList.remove('hidden');
+                    if (containerNfAvulsa) containerNfAvulsa.classList.add('hidden');
                     if (hintNumero) hintNumero.textContent = numero;
                     if (inputValor) {
                         inputValor.value = '0.00';
                         inputValor.setAttribute('readonly', 'readonly');
                         inputValor.classList.add('opacity-70', 'cursor-not-allowed', '!bg-surface-900', 'pr-28');
                     }
+                    if (inputDiaria && diariaContrato) {
+                        inputDiaria.value = parseFloat(diariaContrato).toFixed(2);
+                    }
+                    if (inputDeslocamento && deslocamentoContrato) {
+                        inputDeslocamento.value = parseFloat(deslocamentoContrato).toFixed(2);
+                    }
                 } else {
                     // Por visita executada
                     if (bannerIncluso) bannerIncluso.classList.add('hidden');
                     if (badgeIncluso) badgeIncluso.classList.add('hidden');
+                    if (containerNfContrato) containerNfContrato.classList.add('hidden');
+                    if (containerNfAvulsa) containerNfAvulsa.classList.remove('hidden');
                     if (inputValor) {
                         inputValor.value = parseFloat(valor || 0).toFixed(2);
                         inputValor.removeAttribute('readonly');
@@ -483,6 +549,8 @@
                 // Nenhum contrato selecionado
                 if (bannerIncluso) bannerIncluso.classList.add('hidden');
                 if (badgeIncluso) badgeIncluso.classList.add('hidden');
+                if (containerNfContrato) containerNfContrato.classList.add('hidden');
+                if (containerNfAvulsa) containerNfAvulsa.classList.remove('hidden');
                 if (inputValor) {
                     inputValor.removeAttribute('readonly');
                     inputValor.classList.remove('opacity-70', 'cursor-not-allowed', '!bg-surface-900', 'pr-28');

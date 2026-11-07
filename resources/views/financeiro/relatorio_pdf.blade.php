@@ -228,11 +228,11 @@
             <td style="vertical-align: middle;">
                 <div class="company-name">ALARIS SERVICE</div>
                 <div class="report-title">RELATÓRIO GERENCIAL DE LUCRO BRUTO & FORMAÇÃO DE PREÇO</div>
-                <div class="report-subtitle">ERP Alaris — Controle Operacional, Insumos, Mão de Obra e Apuração de Margens</div>
+                <div class="report-subtitle">ERP Alaris — Visão: {{ $visao === 'projetado' ? 'DRE Projetado / Orçado (Com Provisão Operacional de Contratos)' : 'DRE Realizado (Competência Efetiva)' }}</div>
             </td>
             <td class="meta-info" style="vertical-align: middle;">
                 <div><strong>Período:</strong> {{ $dataInicio->format('d/m/Y') }} a {{ $dataFim->format('d/m/Y') }} ({{ $tituloPeriodo }})</div>
-                <div><strong>Filtro:</strong> {{ $statusFiltro === 'concluida' ? 'Apenas Concluídas' : 'Todas as OSs (Abertas + Concluídas)' }}</div>
+                <div><strong>Visão:</strong> {{ $visao === 'projetado' ? 'Projetado (Orçado)' : 'Realizado (Executado)' }} &bull; <strong>Filtro:</strong> {{ $statusFiltro === 'concluida' ? 'Concluídas' : 'Todas' }}</div>
                 <div><strong>Emissão:</strong> {{ now()->format('d/m/Y H:i') }} &bull; <strong>OSs:</strong> {{ $visitas->count() }}</div>
             </td>
         </tr>
@@ -249,17 +249,23 @@
             <td class="kpi-card">
                 <div class="kpi-title">Custo Operacional Direto</div>
                 <div class="kpi-value red">R$ {{ number_format($totalCustoOperacional, 2, ',', '.') }}</div>
-                <div class="kpi-sub">Insumos + Diárias + Deslocamento + Tributos</div>
+                <div class="kpi-sub">
+                    @if($visao === 'projetado' && $provisaoOperacionalContratos > 0)
+                        Inclui R$ {{ number_format($provisaoOperacionalContratos, 2, ',', '.') }} provisão CTR
+                    @else
+                        Insumos + Diárias + Deslocamento + Tributos
+                    @endif
+                </div>
             </td>
             <td class="kpi-card">
-                <div class="kpi-title">Lucro Bruto Operacional</div>
+                <div class="kpi-title">{{ $visao === 'projetado' ? 'Lucro Bruto Projetado' : 'Lucro Bruto Realizado' }}</div>
                 <div class="kpi-value {{ $lucroBrutoTotal >= 0 ? 'green' : 'red' }}">
                     R$ {{ number_format($lucroBrutoTotal, 2, ',', '.') }}
                 </div>
                 <div class="kpi-sub">Margem Média: <strong>{{ number_format($margemMedia, 1) }}%</strong></div>
             </td>
             <td class="kpi-card">
-                <div class="kpi-title">Resultado Líquido Estimado</div>
+                <div class="kpi-title">{{ $visao === 'projetado' ? 'Resultado Líquido Projetado' : 'Resultado Líquido Realizado' }}</div>
                 <div class="kpi-value blue">
                     R$ {{ number_format($lucroLiquidoEstimado, 2, ',', '.') }}
                 </div>
@@ -272,9 +278,9 @@
     <div class="costs-summary">
         <table>
             <tr>
-                <td><strong>Defensivos Químicos:</strong> R$ {{ number_format($totalCustoProdutos, 2, ',', '.') }}</td>
-                <td><strong>Diárias / Mão de Obra:</strong> R$ {{ number_format($totalCustoMaoDeObra, 2, ',', '.') }}</td>
-                <td><strong>Deslocamento:</strong> R$ {{ number_format($totalCustoDeslocamento, 2, ',', '.') }}</td>
+                <td><strong>Defensivos:</strong> R$ {{ number_format($totalCustoProdutos, 2, ',', '.') }}</td>
+                <td><strong>Diárias:</strong> R$ {{ number_format($totalCustoMaoDeObra, 2, ',', '.') }} @if($visao === 'projetado' && $provisaoDiariasContratos > 0) <span style="font-size: 7px; color: #0284c7;">(Prov: R$ {{ number_format($provisaoDiariasContratos, 2, ',', '.') }})</span> @endif</td>
+                <td><strong>Deslocamento:</strong> R$ {{ number_format($totalCustoDeslocamento, 2, ',', '.') }} @if($visao === 'projetado' && $provisaoDeslocamentoContratos > 0) <span style="font-size: 7px; color: #0284c7;">(Prov: R$ {{ number_format($provisaoDeslocamentoContratos, 2, ',', '.') }})</span> @endif</td>
                 <td><strong>Gastos Extras:</strong> R$ {{ number_format($totalGastosAdicionais, 2, ',', '.') }}</td>
                 <td><strong>Tributos / NF:</strong> R$ {{ number_format($totalImpostos, 2, ',', '.') }}</td>
             </tr>
@@ -285,13 +291,81 @@
     <div style="width: 100%; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px; padding: 6px 10px; margin-bottom: 12px; font-size: 8.5px;">
         <table style="width: 100%; border-collapse: collapse;">
             <tr>
-                <td style="width: 25%;"><strong>Faturamento OS (DRE):</strong> R$ {{ number_format($totalFaturado, 2, ',', '.') }}</td>
+                <td style="width: 25%;"><strong>Faturamento Total (DRE):</strong> R$ {{ number_format($totalFaturado, 2, ',', '.') }}</td>
                 <td style="width: 25%; color: #065f46;"><strong>Recebido no Caixa:</strong> R$ {{ number_format($faturamentoRecebido, 2, ',', '.') }} ({{ $taxaLiquidacaoReceita }}%)</td>
                 <td style="width: 25%; color: #92400e;"><strong>A Receber (Pendente):</strong> R$ {{ number_format($faturamentoPendente, 2, ',', '.') }}</td>
                 <td style="width: 25%;"><strong>Diárias Pagas / Pend.:</strong> R$ {{ number_format($diariasPagas, 2, ',', '.') }} / R$ {{ number_format($diariasPendentes, 2, ',', '.') }}</td>
             </tr>
         </table>
     </div>
+
+    @if ($contratosAtivos->isNotEmpty())
+        {{-- Contratos Ativos no Período --}}
+        <div class="table-title">Contratos Recorrentes Ativos no Período (Preço Fechado)</div>
+        <table class="data-table" style="margin-bottom: 12px;">
+            <thead>
+                <tr>
+                    <th style="width: 75px;">Contrato #</th>
+                    <th>Cliente</th>
+                    <th style="width: 85px;">Periodicidade</th>
+                    <th style="width: 50px;" class="text-center">OSs Ciclo</th>
+                    <th style="width: 65px;" class="text-right">Receita Bruta</th>
+                    <th style="width: 60px;" class="text-right">NFS-e Retida</th>
+                    <th style="width: 60px;" class="text-right">Custo OSs</th>
+                    @if ($visao === 'projetado')
+                        <th style="width: 60px;" class="text-right">Provisão</th>
+                        <th style="width: 70px;" class="text-right">Saldo Projetado</th>
+                    @else
+                        <th style="width: 70px;" class="text-right">Saldo Realizado</th>
+                    @endif
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($contratosAtivos as $ctr)
+                    @php
+                        $saldoExibido = $visao === 'projetado' ? $ctr->saldoProjetado : $ctr->saldoVerbaNoPeriodo($dataInicio, $dataFim);
+                    @endphp
+                    <tr>
+                        <td><strong>{{ $ctr->numero }}</strong></td>
+                        <td>{{ $ctr->cliente->nome }}</td>
+                        <td>{{ $ctr->modeloCobrancaLabel() }} ({{ $ctr->periodicidadeLabel() }})</td>
+                        <td class="text-center">{{ $ctr->visitasExecutadasCount }}/{{ $ctr->visitasPlanejadas }}</td>
+                        <td class="text-right">R$ {{ number_format($ctr->valor_total, 2, ',', '.') }}</td>
+                        <td class="text-right">
+                            @if ($ctr->exige_nota_fiscal && $ctr->percentual_imposto > 0)
+                                R$ {{ number_format($ctr->valorImposto(), 2, ',', '.') }}
+                            @else
+                                Isento
+                            @endif
+                        </td>
+                        <td class="text-right" style="color: #dc2626;">R$ {{ number_format($ctr->custoExecutado, 2, ',', '.') }}</td>
+                        @if ($visao === 'projetado')
+                            <td class="text-right" style="color: #d97706;">
+                                R$ {{ number_format($ctr->provisaoRestante, 2, ',', '.') }}
+                            </td>
+                        @endif
+                        <td class="text-right" style="font-weight: bold; color: {{ $saldoExibido >= 0 ? '#065f46' : '#dc2626' }};">
+                            R$ {{ number_format($saldoExibido, 2, ',', '.') }}
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4">TOTAL CONTRATOS ({{ $contratosAtivos->count() }})</td>
+                    <td class="text-right">R$ {{ number_format($faturamentoContratos, 2, ',', '.') }}</td>
+                    <td class="text-right">R$ {{ number_format($impostosContratos, 2, ',', '.') }}</td>
+                    <td class="text-right" style="color: #dc2626;">R$ {{ number_format($contratosAtivos->sum('custoExecutado'), 2, ',', '.') }}</td>
+                    @if ($visao === 'projetado')
+                        <td class="text-right" style="color: #d97706;">R$ {{ number_format($provisaoOperacionalContratos, 2, ',', '.') }}</td>
+                        <td class="text-right">R$ {{ number_format($contratosAtivos->sum('saldoProjetado'), 2, ',', '.') }}</td>
+                    @else
+                        <td class="text-right">R$ {{ number_format($contratosAtivos->sum(fn($c) => $c->saldoVerbaNoPeriodo($dataInicio, $dataFim)), 2, ',', '.') }}</td>
+                    @endif
+                </tr>
+            </tfoot>
+        </table>
+    @endif
 
     {{-- Tabela Detalhada de OS --}}
     <div class="table-title">Detalhamento Unitário por Ordem de Serviço</div>
@@ -330,7 +404,9 @@
                 <tr>
                     <td>
                         <strong>#{{ $v->id }}</strong>
-                        @if ($v->comodato)
+                        @if ($v->contrato)
+                            <div style="font-size: 7px; color: #0284c7;">[{{ $v->contrato->numero }}]</div>
+                        @elseif ($v->comodato)
                             <div style="font-size: 7px; color: #23b4eb;">[COMODATO]</div>
                         @endif
                     </td>
@@ -344,10 +420,18 @@
                     <td class="text-center">
                         <span class="badge {{ $badgeClass }}">{{ $v->statusLabel() }}</span>
                     </td>
-                    <td class="text-right">R$ {{ number_format($v->valor_cobrado, 2, ',', '.') }}</td>
+                    <td class="text-right">
+                        @if ($v->ehMensalidadeFixa())
+                            <span style="color: #0284c7; font-size: 7.5px; font-weight: bold;">Incluso CTR</span>
+                        @else
+                            R$ {{ number_format($v->valor_cobrado, 2, ',', '.') }}
+                        @endif
+                    </td>
                     <td class="text-center">
                         @php $st = $v->statusRecebimento(); @endphp
-                        @if ($st === 'pago')
+                        @if ($st === 'contrato')
+                            <span class="badge badge-info">Mensalidade</span>
+                        @elseif ($st === 'pago')
                             <span class="badge badge-success">Recebido</span>
                         @elseif ($st === 'pendente')
                             <span class="badge badge-warning">A Receber</span>
@@ -370,11 +454,27 @@
                             —
                         @endif
                     </td>
-                    <td class="text-right">R$ {{ number_format($v->valor_imposto, 2, ',', '.') }}</td>
-                    <td class="text-right" style="font-weight: bold; color: {{ $v->lucro_bruto >= 0 ? '#065f46' : '#dc2626' }};">
-                        R$ {{ number_format($v->lucro_bruto, 2, ',', '.') }}
+                    <td class="text-right">
+                        @if ($v->ehMensalidadeFixa())
+                            <span style="color: #0284c7; font-size: 7.5px;">Retido CTR</span>
+                        @else
+                            R$ {{ number_format($v->valor_imposto, 2, ',', '.') }}
+                        @endif
                     </td>
-                    <td class="text-right">{{ number_format($v->margemPercentual(), 1) }}%</td>
+                    <td class="text-right" style="font-weight: bold; color: {{ $v->ehMensalidadeFixa() ? '#0284c7' : ($v->lucro_bruto >= 0 ? '#065f46' : '#dc2626') }};">
+                        @if ($v->ehMensalidadeFixa())
+                            <span style="font-size: 7.5px;">Coberto CTR</span>
+                        @else
+                            R$ {{ number_format($v->lucro_bruto, 2, ',', '.') }}
+                        @endif
+                    </td>
+                    <td class="text-right">
+                        @if ($v->ehMensalidadeFixa())
+                            <span style="color: #0284c7; font-size: 7.5px;">Contrato</span>
+                        @else
+                            {{ number_format($v->margemPercentual(), 1) }}%
+                        @endif
+                    </td>
                 </tr>
             @empty
                 <tr>

@@ -99,23 +99,47 @@ class VisitaController extends Controller
             'produtos.*.quantidade' => 'required_with:produtos|numeric|min:0.0001',
         ]);
 
-        $exigeNf = $request->has('exige_nota_fiscal');
-        $valorCobrado = (float) ($validated['valor_cobrado'] ?? 0);
+        $contrato = ! empty($validated['contrato_id']) ? Contrato::find($validated['contrato_id']) : null;
+        $ehMensalidadeContrato = $contrato && in_array($contrato->modelo_cobranca, [
+            Contrato::MODELO_MENSAL,
+            Contrato::MODELO_FIXO_ANUAL,
+            Contrato::MODELO_FECHAMENTO_PERIODO,
+        ]);
+
+        if ($ehMensalidadeContrato) {
+            $valorCobrado = 0.00;
+            $exigeNf = false;
+            $aliquotaImposto = 0.00;
+            $valorImposto = 0.00;
+        } else {
+            $exigeNf = $request->has('exige_nota_fiscal');
+            $valorCobrado = (float) ($validated['valor_cobrado'] ?? 0);
+            $aliquotaImposto = $exigeNf ? (float) Configuracao::get('aliquota_imposto_padrao', '14.0') : 0.00;
+            $valorImposto = round($valorCobrado * ($aliquotaImposto / 100), 2);
+        }
 
         $tecnico = Tecnico::find($validated['tecnico_id']);
         $diariaPadraoTecnico = ($tecnico && (float) $tecnico->valor_diaria_padrao > 0)
             ? (float) $tecnico->valor_diaria_padrao
             : (float) Configuracao::get('diaria_tecnico_padrao', '50.00');
 
-        $custoMaoDeObra = (isset($validated['custo_mao_de_obra']) && $validated['custo_mao_de_obra'] !== '' && $validated['custo_mao_de_obra'] !== null)
-            ? (float) $validated['custo_mao_de_obra']
+        $diariaContrato = ($contrato && $contrato->custo_diaria_padrao !== null)
+            ? (float) $contrato->custo_diaria_padrao
             : $diariaPadraoTecnico;
 
-        $custoDeslocamento = (float) ($validated['custo_deslocamento'] ?? 0);
-        $gastosAdicionais = (float) ($validated['gastos_adicionais'] ?? 0);
+        $custoMaoDeObra = (isset($validated['custo_mao_de_obra']) && $validated['custo_mao_de_obra'] !== '' && $validated['custo_mao_de_obra'] !== null)
+            ? (float) $validated['custo_mao_de_obra']
+            : $diariaContrato;
 
-        $aliquotaImposto = $exigeNf ? (float) Configuracao::get('aliquota_imposto_padrao', '14.0') : 0.00;
-        $valorImposto = round($valorCobrado * ($aliquotaImposto / 100), 2);
+        $deslocamentoContrato = ($contrato && $contrato->custo_deslocamento_padrao !== null)
+            ? (float) $contrato->custo_deslocamento_padrao
+            : 0.00;
+
+        $custoDeslocamento = (isset($validated['custo_deslocamento']) && $validated['custo_deslocamento'] !== '' && $validated['custo_deslocamento'] !== null)
+            ? (float) $validated['custo_deslocamento']
+            : $deslocamentoContrato;
+
+        $gastosAdicionais = (float) ($validated['gastos_adicionais'] ?? 0);
 
         $statusVisita = $validated['status'] ?? Visita::STATUS_AGENDADA;
 
@@ -144,7 +168,7 @@ class VisitaController extends Controller
         }
 
         $visitaCriada = null;
-        DB::transaction(function () use ($validated, $statusVisita, $valorCobrado, $custoMaoDeObra, $custoDeslocamento, $gastosAdicionais, $exigeNf, $aliquotaImposto, $valorImposto, &$visitaCriada) {
+        DB::transaction(function () use ($validated, $statusVisita, $valorCobrado, $custoMaoDeObra, $custoDeslocamento, $gastosAdicionais, $exigeNf, $aliquotaImposto, $valorImposto, $ehMensalidadeContrato, &$visitaCriada) {
             $custoProdutos = 0.0;
             $sync = [];
             $deveBaixar = $statusVisita !== Visita::STATUS_CANCELADA;
@@ -171,7 +195,7 @@ class VisitaController extends Controller
             }
 
             $custoOperacional = $custoProdutos + $custoMaoDeObra + $custoDeslocamento + $gastosAdicionais;
-            $lucroBruto = $valorCobrado - ($custoOperacional + $valorImposto);
+            $lucroBruto = $ehMensalidadeContrato ? 0.00 : ($valorCobrado - ($custoOperacional + $valorImposto));
 
             $visitaData = collect($validated)->except('produtos')->toArray();
             $visitaData['exige_nota_fiscal'] = $exigeNf;
@@ -274,23 +298,47 @@ class VisitaController extends Controller
 
         $statusAnterior = $visita->status;
         $tecnicoAnteriorId = $visita->tecnico_id;
-        $exigeNf = $request->has('exige_nota_fiscal');
-        $valorCobrado = (float) ($validated['valor_cobrado'] ?? 0);
+        $contrato = ! empty($validated['contrato_id']) ? Contrato::find($validated['contrato_id']) : null;
+        $ehMensalidadeContrato = $contrato && in_array($contrato->modelo_cobranca, [
+            Contrato::MODELO_MENSAL,
+            Contrato::MODELO_FIXO_ANUAL,
+            Contrato::MODELO_FECHAMENTO_PERIODO,
+        ]);
+
+        if ($ehMensalidadeContrato) {
+            $valorCobrado = 0.00;
+            $exigeNf = false;
+            $aliquotaImposto = 0.00;
+            $valorImposto = 0.00;
+        } else {
+            $exigeNf = $request->has('exige_nota_fiscal');
+            $valorCobrado = (float) ($validated['valor_cobrado'] ?? 0);
+            $aliquotaImposto = $exigeNf ? (float) Configuracao::get('aliquota_imposto_padrao', '14.0') : 0.00;
+            $valorImposto = round($valorCobrado * ($aliquotaImposto / 100), 2);
+        }
 
         $tecnico = Tecnico::find($validated['tecnico_id']);
         $diariaPadraoTecnico = ($tecnico && (float) $tecnico->valor_diaria_padrao > 0)
             ? (float) $tecnico->valor_diaria_padrao
             : (float) Configuracao::get('diaria_tecnico_padrao', '50.00');
 
-        $custoMaoDeObra = (isset($validated['custo_mao_de_obra']) && $validated['custo_mao_de_obra'] !== '' && $validated['custo_mao_de_obra'] !== null)
-            ? (float) $validated['custo_mao_de_obra']
+        $diariaContrato = ($contrato && $contrato->custo_diaria_padrao !== null)
+            ? (float) $contrato->custo_diaria_padrao
             : $diariaPadraoTecnico;
 
-        $custoDeslocamento = (float) ($validated['custo_deslocamento'] ?? 0);
-        $gastosAdicionais = (float) ($validated['gastos_adicionais'] ?? 0);
+        $custoMaoDeObra = (isset($validated['custo_mao_de_obra']) && $validated['custo_mao_de_obra'] !== '' && $validated['custo_mao_de_obra'] !== null)
+            ? (float) $validated['custo_mao_de_obra']
+            : $diariaContrato;
 
-        $aliquotaImposto = $exigeNf ? (float) Configuracao::get('aliquota_imposto_padrao', '14.0') : 0.00;
-        $valorImposto = round($valorCobrado * ($aliquotaImposto / 100), 2);
+        $deslocamentoContrato = ($contrato && $contrato->custo_deslocamento_padrao !== null)
+            ? (float) $contrato->custo_deslocamento_padrao
+            : 0.00;
+
+        $custoDeslocamento = (isset($validated['custo_deslocamento']) && $validated['custo_deslocamento'] !== '' && $validated['custo_deslocamento'] !== null)
+            ? (float) $validated['custo_deslocamento']
+            : $deslocamentoContrato;
+
+        $gastosAdicionais = (float) ($validated['gastos_adicionais'] ?? 0);
 
         $novoStatus = $validated['status'];
 
@@ -327,7 +375,7 @@ class VisitaController extends Controller
             }
         }
 
-        DB::transaction(function () use ($validated, $visita, $statusAnterior, $novoStatus, $antigasFracoes, $valorCobrado, $custoMaoDeObra, $custoDeslocamento, $gastosAdicionais, $exigeNf, $aliquotaImposto, $valorImposto) {
+        DB::transaction(function () use ($validated, $visita, $statusAnterior, $novoStatus, $antigasFracoes, $valorCobrado, $custoMaoDeObra, $custoDeslocamento, $gastosAdicionais, $exigeNf, $aliquotaImposto, $valorImposto, $ehMensalidadeContrato) {
             $custoProdutos = 0.0;
             $sync = [];
 
@@ -395,7 +443,7 @@ class VisitaController extends Controller
             }
 
             $custoOperacional = $custoProdutos + $custoMaoDeObra + $custoDeslocamento + $gastosAdicionais;
-            $lucroBruto = $valorCobrado - ($custoOperacional + $valorImposto);
+            $lucroBruto = $ehMensalidadeContrato ? 0.00 : ($valorCobrado - ($custoOperacional + $valorImposto));
 
             $visitaData = collect($validated)->except('produtos')->toArray();
             $visitaData['exige_nota_fiscal'] = $exigeNf;
@@ -495,7 +543,14 @@ class VisitaController extends Controller
                 + (float) $visita->custo_deslocamento
                 + $gastosAdicionais;
 
-            $visita->lucro_bruto = (float) $visita->valor_cobrado - ($custoOperacional + (float) $visita->valor_imposto);
+            $visita->loadMissing('contrato');
+            $ehContratoMensal = $visita->contrato && in_array($visita->contrato->modelo_cobranca, [
+                Contrato::MODELO_MENSAL,
+                Contrato::MODELO_FIXO_ANUAL,
+                Contrato::MODELO_FECHAMENTO_PERIODO,
+            ]);
+
+            $visita->lucro_bruto = $ehContratoMensal ? 0.00 : ((float) $visita->valor_cobrado - ($custoOperacional + (float) $visita->valor_imposto));
             $visita->save();
 
             // Atualiza reposição do comodato automaticamente se vinculada

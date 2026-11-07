@@ -152,8 +152,21 @@ class Visita extends Model
         return $this->movimentacoes->firstWhere('tipo', MovimentacaoFinanceira::TIPO_RECEITA);
     }
 
+    public function ehMensalidadeFixa(): bool
+    {
+        return $this->contrato_id !== null && $this->contrato && in_array($this->contrato->modelo_cobranca, [
+            Contrato::MODELO_MENSAL,
+            Contrato::MODELO_FIXO_ANUAL,
+            Contrato::MODELO_FECHAMENTO_PERIODO,
+        ], true);
+    }
+
     public function statusRecebimento(): string
     {
+        if ($this->ehMensalidadeFixa()) {
+            return 'contrato';
+        }
+
         if ((float) $this->valor_cobrado <= 0) {
             return 'isento';
         }

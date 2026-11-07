@@ -5,6 +5,7 @@ Consulte o arquivo principal [AGENTS.md](./AGENTS.md) para as regras de desenvol
 ### Resumo Rápido
 - **Projeto**: ERP Alaris (Gestão de Controle de Pragas e Dedetização)
 - **Stack**: Laravel 13, PHP 8.3+, SQLite/MySQL, Blade, Tailwind CSS v4, Vite 8, Pest PHP.
+- **Design & Tipografia**: Padrão sans-serif nativo (`Instrument Sans` / `#23b4eb`). Proibição estrita do uso de `font-mono` em classes de elementos de interface.
 - **Documentação Adicional**:
   - Especificação Funcional e Dicionário de Dados: [SPEC.md](./SPEC.md)
   - Diagramas Arquiteturais e Fluxos: [ARCHITECTURE.md](./ARCHITECTURE.md)

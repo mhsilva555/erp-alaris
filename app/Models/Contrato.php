@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Contrato extends Model
 {
     // Status
+    public const STATUS_PROPOSTA = 'proposta';
+
     public const STATUS_RASCUNHO = 'rascunho';
 
     public const STATUS_ATIVO = 'ativo';
@@ -23,8 +26,9 @@ class Contrato extends Model
     public const STATUS_EXPIRADO = 'expirado';
 
     public const STATUSES = [
-        self::STATUS_RASCUNHO => 'Rascunho',
+        self::STATUS_PROPOSTA => 'Proposta Comercial',
         self::STATUS_ATIVO => 'Ativo',
+        self::STATUS_RASCUNHO => 'Rascunho',
         self::STATUS_SUSPENSO => 'Suspenso',
         self::STATUS_ENCERRADO => 'Encerrado',
         self::STATUS_CANCELADO => 'Cancelado',
@@ -116,6 +120,10 @@ class Contrato extends Model
         'tipo_servico',
         'valor_total',
         'modelo_cobranca',
+        'exige_nota_fiscal',
+        'percentual_imposto',
+        'custo_diaria_padrao',
+        'custo_deslocamento_padrao',
         'meio_pagamento_id',
         'condicoes_pagamento',
         'desconto',
@@ -130,6 +138,10 @@ class Contrato extends Model
             'data_fim' => 'date',
             'proxima_geracao_ate' => 'date',
             'permite_renovacao' => 'boolean',
+            'exige_nota_fiscal' => 'boolean',
+            'percentual_imposto' => 'decimal:2',
+            'custo_diaria_padrao' => 'decimal:2',
+            'custo_deslocamento_padrao' => 'decimal:2',
             'valor_total' => 'decimal:2',
             'desconto' => 'decimal:2',
             'dia_preferencial' => 'integer',
@@ -163,9 +175,19 @@ class Contrato extends Model
         return $query->where('status', self::STATUS_ATIVO);
     }
 
+    public function scopePropostas(Builder $query): Builder
+    {
+        return $query->where('status', self::STATUS_PROPOSTA);
+    }
+
     public function estaAtivo(): bool
     {
         return $this->status === self::STATUS_ATIVO;
+    }
+
+    public function ehProposta(): bool
+    {
+        return $this->status === self::STATUS_PROPOSTA;
     }
 
     public function estaExpirado(): bool
@@ -179,7 +201,7 @@ class Contrato extends Model
 
     public function podeAtivar(): bool
     {
-        return in_array($this->status, [self::STATUS_RASCUNHO, self::STATUS_SUSPENSO], true);
+        return in_array($this->status, [self::STATUS_PROPOSTA, self::STATUS_RASCUNHO, self::STATUS_SUSPENSO], true);
     }
 
     public function podeSuspender(): bool
@@ -189,7 +211,7 @@ class Contrato extends Model
 
     public function podeCancelar(): bool
     {
-        return in_array($this->status, [self::STATUS_RASCUNHO, self::STATUS_ATIVO, self::STATUS_SUSPENSO], true);
+        return in_array($this->status, [self::STATUS_PROPOSTA, self::STATUS_RASCUNHO, self::STATUS_ATIVO, self::STATUS_SUSPENSO], true);
     }
 
     public function podeEncerrar(): bool
@@ -210,6 +232,7 @@ class Contrato extends Model
     public function statusBadge(): string
     {
         return match ($this->status) {
+            self::STATUS_PROPOSTA => 'badge-info',
             self::STATUS_ATIVO => 'badge-success',
             self::STATUS_RASCUNHO => 'badge-neutral',
             self::STATUS_SUSPENSO => 'badge-warning',
@@ -253,6 +276,71 @@ class Contrato extends Model
         $this->update(['valor_total' => $total]);
 
         return $total;
+    }
+
+    public function valorImposto(): float
+    {
+        if (! $this->exige_nota_fiscal || (float) $this->percentual_imposto <= 0) {
+            return 0.00;
+        }
+
+        return round((float) $this->valor_total * ((float) $this->percentual_imposto / 100), 2);
+    }
+
+    public function valorLiquidoDisponivel(): float
+    {
+        return round((float) $this->valor_total - $this->valorImposto(), 2);
+    }
+
+    public function visitasPrevistasPorCiclo(): int
+    {
+        return match ($this->periodicidade) {
+            self::PERIODICIDADE_SEMANAL => 4,
+            self::PERIODICIDADE_QUINZENAL => 2,
+            default => 1,
+        };
+    }
+
+    public function custoOperacionalPrevisto(): float
+    {
+        $visitas = $this->visitasPrevistasPorCiclo();
+        $diaria = (float) ($this->custo_diaria_padrao ?? 0.0);
+        $deslocamento = (float) ($this->custo_deslocamento_padrao ?? 0.0);
+
+        return round(($diaria + $deslocamento) * $visitas, 2);
+    }
+
+    public function lucroLiquidoPrevisto(): float
+    {
+        return round($this->valorLiquidoDisponivel() - $this->custoOperacionalPrevisto(), 2);
+    }
+
+    public function margemLiquidaPrevista(): float
+    {
+        $bruto = (float) $this->valor_total;
+        if ($bruto <= 0) {
+            return 0.0;
+        }
+
+        return round(($this->lucroLiquidoPrevisto() / $bruto) * 100, 1);
+    }
+
+    public function custoTotalVisitasNoPeriodo(Carbon $inicio, Carbon $fim): float
+    {
+        $visitas = $this->visitas()
+            ->where('status', '!=', Visita::STATUS_CANCELADA)
+            ->whereDate('data_hora', '>=', $inicio->toDateString())
+            ->whereDate('data_hora', '<=', $fim->toDateString())
+            ->get();
+
+        return round((float) $visitas->sum(function ($v) {
+            return (float) $v->custo_produtos + (float) $v->custo_mao_de_obra + (float) $v->custo_deslocamento + (float) $v->gastos_adicionais;
+        }), 2);
+    }
+
+    public function saldoVerbaNoPeriodo(Carbon $inicio, Carbon $fim): float
+    {
+        return round($this->valorLiquidoDisponivel() - $this->custoTotalVisitasNoPeriodo($inicio, $fim), 2);
     }
 
     public static function gerarProximoNumero(): string

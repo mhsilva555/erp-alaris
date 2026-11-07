@@ -113,7 +113,6 @@
                                 <td class="hidden md:table-cell text-xs ">
                                     @if ($visita->contrato && (float) $visita->valor_cobrado == 0)
                                         <span class="badge badge-info text-[10px]">Incluso no Contrato</span>
-                                        <span class="block text-[10px] text-surface-400 mt-0.5">{{ $visita->contrato->numero }}</span>
                                     @else
                                         <span class="text-white font-bold">R$
                                             {{ number_format($visita->valor_cobrado, 2, ',', '.') }}</span>
@@ -140,13 +139,6 @@
                                         title="Imprimir Ordem de Serviço">
                                         OS
                                     </a>
-                                    @endpermissao
-                                    @permissao('visitas.proposta_comercial')
-                                        <a href="{{ route('visitas.proposta', $visita) }}"
-                                            class="btn btn-secondary btn-sm text-xs text-emerald-400"
-                                            title="Proposta do Cliente (Sem custos)">
-                                            Proposta
-                                        </a>
                                     @endpermissao
                                     @permissao('visitas.finalizar')
                                     @if ($visita->status !== 'concluida')

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Novo Contrato de Prestação de Serviços')
+@section('title', request('tipo') === 'proposta' ? 'Nova Proposta Comercial' : 'Novo Contrato / Proposta Comercial')
 
 @section('content')
     <div class="max-w-5xl mx-auto space-y-6">
@@ -9,10 +9,10 @@
             <div>
                 <a href="{{ route('contratos.index') }}" class="text-xs font-semibold text-primary-400 hover:underline flex items-center gap-1 mb-1">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                    Voltar para Contratos
+                    Voltar para Contratos & Propostas
                 </a>
-                <h1 class="text-xl font-bold text-white">Cadastrar Novo Contrato</h1>
-                <p class="text-xs" style="color: var(--color-surface-400);">Defina as condições comerciais, vigência e periodicidade para geração automática de visitas.</p>
+                <h1 class="text-xl font-bold text-white">{{ request('tipo') === 'proposta' ? 'Cadastrar Nova Proposta Comercial' : 'Cadastrar Novo Contrato / Proposta' }}</h1>
+                <p class="text-xs" style="color: var(--color-surface-400);">Cadastre como Proposta Comercial para envio e aprovação do cliente, ou como Contrato Ativo para integrar à Agenda Geral.</p>
             </div>
         </div>
 
@@ -40,7 +40,7 @@
                     <div>
                         <label class="form-label" for="numero">Número / Código do Contrato *</label>
                         <input type="text" id="numero" name="numero" value="{{ old('numero', $proximoNumero) }}" required
-                            class="form-input font-mono font-bold" placeholder="Ex: CTR-2026-0001">
+                            class="form-input  font-bold" placeholder="Ex: CTR-2026-0001">
                         <span class="form-hint">Identificador único sequencial</span>
                     </div>
 
@@ -66,9 +66,17 @@
                     <div>
                         <label class="form-label" for="status">Situação Inicial *</label>
                         <select id="status" name="status" class="form-select" required>
-                            <option value="ativo" {{ old('status', 'ativo') === 'ativo' ? 'selected' : '' }}>Ativo (Gera agendamentos imediatamente)</option>
-                            <option value="rascunho" {{ old('status') === 'rascunho' ? 'selected' : '' }}>Rascunho (Sem geração de visitas)</option>
+                            <option value="proposta" {{ old('status', request('tipo') === 'proposta' ? 'proposta' : 'ativo') === 'proposta' ? 'selected' : '' }}>
+                                Proposta Comercial (Aguardando Aprovação • Não gera eventos na agenda)
+                            </option>
+                            <option value="ativo" {{ old('status', request('tipo') === 'proposta' ? 'proposta' : 'ativo') === 'ativo' ? 'selected' : '' }}>
+                                Contrato Ativo (Gera agendamentos na Agenda Geral)
+                            </option>
+                            <option value="rascunho" {{ old('status') === 'rascunho' ? 'selected' : '' }}>
+                                Rascunho Interno
+                            </option>
                         </select>
+                        <span class="form-hint">Propostas comerciais podem ser emitidas em PDF e ativadas após aprovação.</span>
                     </div>
                 </div>
             </div>
@@ -116,7 +124,7 @@
 
                     <div>
                         <label class="form-label" for="periodicidade">Periodicidade de Atendimento *</label>
-                        <select id="periodicidade" name="periodicidade" class="form-select" required onchange="togglePeriodicidadeConfig()">
+                        <select id="periodicidade" name="periodicidade" class="form-select" required onchange="togglePeriodicidadeConfig(); recalcularTotais();">
                             @foreach (\App\Models\Contrato::PERIODICIDADES as $key => $label)
                                 <option value="{{ $key }}" {{ old('periodicidade', 'mensal') === $key ? 'selected' : '' }}>
                                     {{ $label }}
@@ -208,7 +216,7 @@
                                 </td>
                                 <td>
                                     <input type="text" name="itens[0][valor_unitario]" required
-                                        class="form-input text-xs item-vlr font-mono" value="{{ old('itens.0.valor_unitario', '350,00') }}"
+                                        class="form-input text-xs item-vlr " value="{{ old('itens.0.valor_unitario', '350,00') }}"
                                         placeholder="0,00" oninput="recalcularTotais()">
                                 </td>
                                 <td class="text-center">
@@ -261,16 +269,74 @@
                     <div>
                         <label class="form-label" for="desconto">Desconto Comercial (R$)</label>
                         <input type="text" id="desconto" name="desconto" value="{{ old('desconto', '0,00') }}"
-                            class="form-input font-mono" placeholder="0,00" oninput="recalcularTotais()">
+                            class="form-input " placeholder="0,00" oninput="recalcularTotais()">
                     </div>
 
-                    <div class="sm:col-span-2 lg:col-span-4 p-4 rounded-xl flex items-center justify-between" style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
-                        <div>
-                            <span class="text-xs font-semibold uppercase tracking-wider block" style="color: var(--color-surface-400);">Valor Total do Contrato</span>
-                            <span class="text-xs text-slate-400">Total apurado dos serviços contratados subtraindo o desconto comercial</span>
+                    {{-- Tributação e Nota Fiscal do Contrato (Preço Fechado) --}}
+                    <div class="sm:col-span-2 lg:col-span-2 p-4 rounded-xl space-y-3" style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="exige_nota_fiscal" name="exige_nota_fiscal" value="1"
+                                {{ old('exige_nota_fiscal', '1') ? 'checked' : '' }} onchange="toggleNotaFiscal()"
+                                class="form-checkbox rounded">
+                            <span class="text-xs font-bold uppercase tracking-wider text-white">Exige Nota Fiscal (NFS-e)?</span>
+                        </label>
+                        <div id="wrapper-aliquota-imposto" class="space-y-1">
+                            <label class="form-label text-[11px] mb-0" for="percentual_imposto">Alíquota da Nota Fiscal (%)</label>
+                            <input type="number" step="0.01" min="0" max="100" id="percentual_imposto" name="percentual_imposto"
+                                value="{{ old('percentual_imposto', $aliquotaPadrao ?? 14.00) }}" class="form-input  text-xs"
+                                oninput="recalcularTotais()">
+                            <span class="text-[10px] text-slate-400 block">O imposto incide diretamente sobre o valor do contrato e não nas O.S. avulsas.</span>
                         </div>
-                        <div class="text-2xl font-mono font-bold text-emerald-400" id="display-total">
-                            R$ 350,00
+                    </div>
+
+                    {{-- Previsão de Custos por Atendimento (Linha de Base Operacional) --}}
+                    <div class="sm:col-span-2 lg:col-span-2 p-4 rounded-xl space-y-3" style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
+                        <span class="text-xs font-bold uppercase tracking-wider text-white block">Previsão de Custos por Visita</span>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="form-label text-[11px] mb-0" for="custo_diaria_padrao">Diária Técnico (R$)</label>
+                                <input type="text" id="custo_diaria_padrao" name="custo_diaria_padrao"
+                                    value="{{ old('custo_diaria_padrao', number_format($diariaPadrao ?? 50.00, 2, ',', '.')) }}"
+                                    class="form-input  text-xs" placeholder="50,00" oninput="recalcularTotais()">
+                            </div>
+                            <div>
+                                <label class="form-label text-[11px] mb-0" for="custo_deslocamento_padrao">Deslocamento (R$)</label>
+                                <input type="text" id="custo_deslocamento_padrao" name="custo_deslocamento_padrao"
+                                    value="{{ old('custo_deslocamento_padrao', '0,00') }}"
+                                    class="form-input  text-xs" placeholder="0,00" oninput="recalcularTotais()">
+                            </div>
+                        </div>
+                        <span class="text-[10px] text-slate-400 block">Valores pré-carregados automaticamente ao emitir O.S. deste contrato.</span>
+                    </div>
+
+                    <div class="sm:col-span-2 lg:col-span-4 p-4 rounded-xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-center sm:text-left" style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
+                        <div>
+                            <span class="text-xs font-semibold uppercase tracking-wider block" style="color: var(--color-surface-400);">Valor Fechado do Contrato</span>
+                            <div class="text-xl  font-bold text-white" id="display-total">
+                                R$ 350,00
+                            </div>
+                            <span class="text-[11px] text-slate-400">Total bruto faturado</span>
+                        </div>
+                        <div>
+                            <span class="text-xs font-semibold uppercase tracking-wider block" style="color: var(--color-surface-400);">Impostos Retidos (NF)</span>
+                            <div class="text-xl  font-bold text-amber-300" id="display-imposto">
+                                R$ 49,00
+                            </div>
+                            <span class="text-[11px] text-slate-400" id="display-imposto-hint">Alíquota: 14%</span>
+                        </div>
+                        <div>
+                            <span class="text-xs font-semibold uppercase tracking-wider block" style="color: var(--color-surface-400);">Custos Operacionais Previstos</span>
+                            <div class="text-xl  font-bold text-rose-400" id="display-custos-previstos">
+                                R$ 50,00
+                            </div>
+                            <span class="text-[11px] text-slate-400" id="display-custos-hint">Diária + Deslocamento</span>
+                        </div>
+                        <div>
+                            <span class="text-xs font-semibold uppercase tracking-wider block" style="color: var(--color-surface-400);">Lucro Líquido Previsto</span>
+                            <div class="text-xl  font-bold text-emerald-400" id="display-lucro-liquido">
+                                R$ 251,00
+                            </div>
+                            <span class="text-[11px] font-semibold text-emerald-400" id="display-margem-hint">Margem: 71,7%</span>
                         </div>
                     </div>
 
@@ -357,7 +423,7 @@
                 </td>
                 <td>
                     <input type="text" name="itens[${itemIndex}][valor_unitario]" required
-                        class="form-input text-xs item-vlr font-mono" value="0,00" oninput="recalcularTotais()">
+                        class="form-input text-xs item-vlr " value="0,00" oninput="recalcularTotais()">
                 </td>
                 <td class="text-center">
                     <button type="button" onclick="removerLinhaItem(this)" class="btn btn-danger-soft btn-sm p-1" title="Remover item">
@@ -389,6 +455,19 @@
             return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
+        function toggleNotaFiscal() {
+            const check = document.getElementById('exige_nota_fiscal');
+            const wrapper = document.getElementById('wrapper-aliquota-imposto');
+            if (check && wrapper) {
+                if (check.checked) {
+                    wrapper.classList.remove('opacity-40', 'pointer-events-none');
+                } else {
+                    wrapper.classList.add('opacity-40', 'pointer-events-none');
+                }
+            }
+            recalcularTotais();
+        }
+
         function recalcularTotais() {
             let subtotal = 0;
             document.querySelectorAll('#tbody-itens .item-row').forEach(row => {
@@ -400,12 +479,63 @@
             const desconto = parseMoeda(document.getElementById('desconto').value);
             const total = Math.max(0, subtotal - desconto);
 
+            const exigeNf = document.getElementById('exige_nota_fiscal') ? document.getElementById('exige_nota_fiscal').checked : false;
+            const aliquota = exigeNf ? (parseFloat(document.getElementById('percentual_imposto')?.value) || 0) : 0;
+            const imposto = round2((total * aliquota) / 100);
+
+            // Custos operacionais previstos por ciclo de faturamento
+            const periodicidade = document.getElementById('periodicidade')?.value || 'mensal';
+            let visitasCiclo = 1;
+            if (periodicidade === 'quinzenal') {
+                visitasCiclo = 2;
+            } else if (periodicidade === 'semanal') {
+                visitasCiclo = 4;
+            }
+
+            const diaria = parseMoeda(document.getElementById('custo_diaria_padrao')?.value);
+            const deslocamento = parseMoeda(document.getElementById('custo_deslocamento_padrao')?.value);
+            const custoPorVisita = diaria + deslocamento;
+            const custoOperacionalTotal = round2(custoPorVisita * visitasCiclo);
+
+            // Lucro Líquido Previsto: Total - Imposto - Custos Operacionais
+            const lucroLiquido = round2(total - imposto - custoOperacionalTotal);
+            const margem = total > 0 ? (lucroLiquido / total) * 100 : 0;
+
             document.getElementById('display-total').innerText = 'R$ ' + formatarMoeda(total);
+            if (document.getElementById('display-imposto')) {
+                document.getElementById('display-imposto').innerText = 'R$ ' + formatarMoeda(imposto);
+            }
+            if (document.getElementById('display-imposto-hint')) {
+                document.getElementById('display-imposto-hint').innerText = exigeNf ? `Alíquota: ${aliquota}% descontada do contrato` : 'Isento de Nota Fiscal';
+            }
+            if (document.getElementById('display-custos-previstos')) {
+                document.getElementById('display-custos-previstos').innerText = 'R$ ' + formatarMoeda(custoOperacionalTotal);
+            }
+            if (document.getElementById('display-custos-hint')) {
+                document.getElementById('display-custos-hint').innerText = `${visitasCiclo}x visita(s) (Diária: R$ ${formatarMoeda(diaria)} + Desloc.: R$ ${formatarMoeda(deslocamento)})`;
+            }
+            if (document.getElementById('display-lucro-liquido')) {
+                document.getElementById('display-lucro-liquido').innerText = 'R$ ' + formatarMoeda(lucroLiquido);
+                document.getElementById('display-lucro-liquido').className = lucroLiquido >= 0
+                    ? 'text-xl font-bold text-emerald-400'
+                    : 'text-xl font-bold text-rose-400';
+            }
+            if (document.getElementById('display-margem-hint')) {
+                document.getElementById('display-margem-hint').innerText = `Margem Líquida: ${margem.toFixed(1)}%`;
+                document.getElementById('display-margem-hint').className = lucroLiquido >= 0
+                    ? 'text-[11px] font-semibold text-emerald-400'
+                    : 'text-[11px] font-semibold text-rose-400';
+            }
+        }
+
+        function round2(num) {
+            return Math.round((num + Number.EPSILON) * 100) / 100;
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             toggleVigencia();
             togglePeriodicidadeConfig();
+            toggleNotaFiscal();
             recalcularTotais();
         });
     </script>

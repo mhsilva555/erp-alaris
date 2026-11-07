@@ -195,6 +195,17 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
   - *Nota*: Nesta fase, o sistema não realiza emissão de NFS-e junto à prefeitura/SEFAZ; a rotina é estritamente de controle gerencial e cálculo de margens.
 - **Margem e Lucro Bruto por Visita**:
   $$\text{Lucro Bruto da OS} = \text{Valor Cobrado} - (\text{Custo Operacional} + \text{Impostos})$$
+- **Tratamento de Contratos sob Preço Fechado / Mensalidade Fixa (Centro de Custos)**:
+  - **Unicidade de Receita e Centralização Tributária**: O valor fechado em contrato é global e único. Todos os tributos (alíquota da NFS-e), custos com diárias, logística de deslocamento, defensivos aplicados e gastos extras são absorvidos e debitados da verba do contrato.
+  - **Comportamento da Ordem de Serviço (OS)**:
+    - Ao abrir ou editar uma OS vinculada a contrato de valor fixado (`mensal`, `fixo_anual`, `fechamento_periodo`), o campo `valor_cobrado` permanece travado em `0,00` com badge visual `Incluso no Contrato`.
+    - O checkbox avulso de "Exige Nota Fiscal?" é substituído por um aviso informativo indicando que os tributos são retidos centralizadamente no contrato.
+    - O painel em tempo real da OS exibe os custos operacionais do atendimento, identifica a tributação como `Incluso no Contrato` e classifica o resultado como `Atendimento Coberto / Deduzido do Contrato`, eliminando falsos indicadores de prejuízo vermelho.
+    - No backend, a OS não gera lançamento de receita de faturamento duplicado no Caixa, mas preserva integralmente a despesa de diária técnica e gastos extras no Contas a Pagar para remunerar os prestadores.
+  - **Consolidação Contábil e DRE**:
+    - O Relatório de Lucro Bruto (`/financeiro/relatorios` e PDF) apura a receita mensal e os impostos dos contratos ativos paralelamente aos serviços avulsos, confrontando-os com o custo operacional total das OSs executadas.
+    - Card executivo e tabela dedicada apresentam a verba líquida e o saldo em tempo real de cada contrato no período analisado:
+      $$\text{Saldo da Verba do Contrato} = (\text{Valor Contratual} - \text{Imposto NFS-e}) - \sum \text{Custo das OSs executadas no mês}$$
 - **Ações em Massa no Fluxo de Caixa (`financeiro.acoes-massa`)**:
   - Tabela financeira com checkboxes de seleção individual e seleção geral.
   - Barra de ações em lote permitindo que administradores executem em um único clique:
@@ -368,6 +379,10 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `valor_total` | DECIMAL(10,2) | Não | `0.00` | Valor global do contrato |
 | `desconto` | DECIMAL(10,2) | Não | `0.00` | Desconto comercial aplicado |
 | `modelo_cobranca` | VARCHAR(30) | Sim | `'mensal'` | `mensal`, `por_visita`, `fechamento_periodo`, `fixo_anual` |
+| `exige_nota_fiscal` | BOOLEAN | Não | `false` | Indica se o contrato exige emissão/retenção tributária (NFS-e) |
+| `percentual_imposto` | DECIMAL(5,2) | Não | `0.00` | Alíquota tributária retida sobre a receita global do contrato |
+| `custo_diaria_padrao` | DECIMAL(10,2) | Não | `0.00` | Diária técnica prévia orçada para atendimentos do contrato |
+| `custo_deslocamento_padrao` | DECIMAL(10,2) | Não | `0.00` | Custo de deslocamento/logística prévio orçado para atendimentos |
 | `meio_pagamento_id` | BIGINT UNSIGNED | Sim | NULL | FK -> `meios_pagamento.id` (null on delete) |
 | `condicoes_pagamento` | VARCHAR(255) | Sim | NULL | Prazos e forma de pagamento acordada |
 | `observacoes` | TEXT | Sim | NULL | Instruções gerais |
@@ -557,3 +572,5 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
    - Sistema opera como Progressive Web App instalável (PWA) com manifestos (`manifest.json` e `manifest.webmanifest`), `<meta name="theme-color">` e tokens primários centrados em `#23b4eb`, além de novos ícones oficiais em formato circular.
 8. **Ergonomia e Layout Nativo Mobile (App-Like UX)**:
    - Navegação inferior fixa no smartphone (`#mobile-bottom-nav`) com 5 destinos, compensação de área segura de gestos (`env(safe-area-inset-bottom)`), rolagem principal com espaçamento seguro (`pb-24`), cabeçalho anti-quebra em linha única e central de notificações confinada à viewport do aparelho.
+9. **Tipografia Padrão & Proibição Estrita de `font-mono`**:
+   - É expressamente proibido aplicar a classe `font-mono` nos elementos de interface (Blade, componentes e CSS). Todos os textos, tabelas, inputs numéricos, campos monetários, badges e cards de resumo devem utilizar estritamente a tipografia sans-serif padrão do sistema (`Instrument Sans` / `font-sans`), preservando a elegância, clareza e conformidade com o design system corporativo do ERP Alaris.

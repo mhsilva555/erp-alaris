@@ -41,14 +41,15 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 ### 3.1. Sigilo Comercial Absoluto na Visão do Cliente e Técnicos
 > [!IMPORTANT]
 > **Regra de Ouro da Proposta Comercial & Sigilo Interno**:
-> - Em propostas comerciais, orçamentos e visualizações geradas para o cliente (impressão ou tela), **devem constar apenas o Serviço Prestado e o Valor Final**.
+> - Em propostas comerciais, orçamentos e visualizações geradas para o cliente (impressão, PDF ou tela), **devem constar apenas o Serviço Prestado e o Valor Final**.
+> - As Propostas Comerciais são centralizadas no módulo de **Contratos** (`status = 'proposta'`), com emissão em PDF formatado para caber estritamente em **1 folha única A4**.
+> - O botão de proposta comercial foi totalmente descontinuado da O.S. (Visita), mantendo o fluxo comercial exclusivo no módulo de Contratos.
 > - **NUNCA exibir para o cliente externo ou para técnicos de campo**:
 >   - Quantidades exatas fracionadas de defensivos químicos (ex.: mL ou gramas).
 >   - Preço de custo de compra dos insumos.
->   - Valor da diária do técnico ou custos de transporte/deslocamento.
->   - Margem de lucro ou taxas de impostos.
+>   - Valor da diária do técnico ou custos de transporte/deslocamento (`custo_diaria_padrao`, `custo_deslocamento_padrao`).
+>   - Margem de lucro ou taxas de impostos (`percentual_imposto`, `exige_nota_fiscal`).
 >   - Aviso de faturamento de contas a receber no modal de finalização de OS (restrito a `admin`).
-> - O botão e a rota de *"Proposta Comercial (Sigilosa)"* são estritamente bloqueados para usuários com papel `tecnico` (`abort(403)`).
 > - Essas informações de custo compõem a inteligência interna do ERP e são visíveis **exclusivamente no painel administrativo** por usuários com perfil `admin`.
 
 ### 3.2. Ciclo de Vida da Visita, Conversão Fracionada e Controle Imediato de Estoque
@@ -152,16 +153,26 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 
 ### 3.14. Gestão de Contratos, Periodicidade e Ciclo de Vida de Agendamentos
 - **Fluxo Estrutural**:
-  $$\text{Cliente} \longrightarrow \text{Contrato} \longrightarrow \text{Visitas Agendadas} \longrightarrow \text{Ordem de Serviço (OS)}$$
+  $$\text{Cliente} \longrightarrow \text{Proposta Comercial} \xrightarrow{\text{Aprovação}} \text{Contrato Ativo} \longrightarrow \text{Agenda Geral} \longrightarrow \text{Ordem de Serviço (OS)}$$
 - **Desacoplamento do Cliente**: O cadastro de clientes não dita mais a periodicidade de atendimento. Um cliente pode existir sem contratos ou gerenciar múltiplos contratos simultâneos com vigências, serviços e frequências distintas.
+- **Proposta Comercial Centralizada em Contratos (`status = 'proposta'`)**:
+  - Propostas comerciais aguardando aprovação do cliente **não geram eventos na Agenda Geral**.
+  - O gestor pode emitir a qualquer momento o **PDF da Proposta ou Contrato em folha única (A4)** via rota `contratos.pdf`.
+  - O PDF expõe exclusivamente o escopo dos serviços, periodicidade, vigência, investimento final e condições de pagamento, omitindo estritamente custos internos de insumos, diárias técnicas e alíquotas de imposto.
+  - Ao aprovar a proposta (`contratos.ativar`), o status é alterado para `ativo` e os atendimentos passam a ser projetados na Agenda Geral imediatamente.
 - **Projeção Dinâmica na Agenda & Emissão de O.S. sob Demanda (Opção A)**:
   - Contratos ativos **não criam ordens de serviço vazias antecipadamente no banco de dados**.
   - A Agenda Geral projeta dinamicamente os atendimentos previstos para o mês visualizado via `ContratoAgendamentoService::calcularDatasNoPeriodo()`.
   - O gestor despacha a equipe emitindo a Ordem de Serviço real diretamente pela Agenda ou pela visualização do contrato, atribuindo o técnico de campo e horário exato.
   - Ao emitir a O.S., a visita real substitui a projeção no calendário sem duplicidade.
   - Tratamento seguro de datas inexistentes (ex.: dia 31 em meses de 28, 29 ou 30 dias ajustado via `min($dia, $mes->daysInMonth)`).
-- **Invariante de Faturamento da O.S. (Incluso no Contrato)**:
-  - Ordens de Serviço geradas para contratos sob **Mensalidade Fixa** operam com `valor_cobrado = 0.00` ("Incluso no Contrato") para evitar faturamento em duplicidade no Fluxo de Caixa e DRE. A O.S. apura os custos operacionais (insumos, diária e deslocamento), enquanto a receita é reconhecida na fatura mensal do contrato. Serviços adicionais fora do escopo podem ter valores lançados avulsamente pelo gestor.
+- **Invariante de Faturamento da O.S. & Preço Fechado no Contrato**:
+  - Ordens de Serviço geradas para contratos sob **Mensalidade Fixa / Preço Fechado** operam com `valor_cobrado = 0.00` ("Incluso no Contrato") para evitar faturamento em duplicidade no Fluxo de Caixa e DRE.
+  - **Unicidade de Verba Contratual**: A receita do contrato é única. Custos tributários de NFS-e (`exige_nota_fiscal` e `percentual_imposto`), custos de diária técnica (`custo_diaria_padrao`), deslocamento (`custo_deslocamento_padrao`), defensivos químicos e gastos adicionais de campo são absorvidos/deduzidos da verba contratual.
+  - **Experiência na O.S. (Centro de Custo)**:
+    - O formulário de O.S. vinculada a contrato de preço fechado omite o seletor avulso de NF (tributação já retida no contrato) e exibe o resumo financeiro com indicador visual de *"Atendimento Coberto / Deduzido do Contrato"*, eliminando falsos lucros negativos em vermelho.
+    - No contas a pagar, a diária do técnico e os imprevistos adicionais são gerados normalmente para assegurar o pagamento ao profissional de campo.
+    - O DRE (`/financeiro/relatorios` e PDF) confronta a receita consolidada dos contratos ativos com os custos operacionais de todas as OSs vinculadas no período, expondo o saldo líquido real de cada contrato.
 - **Invariante de Preservação de Histórico Operacional**:
   - Ao alterar, suspender ou cancelar um contrato, o sistema expurga/cancela exclusivamente visitas futuras pendentes (`agendada`).
   - Visitas em andamento ou concluídas (`em_andamento`, `concluida`) e movimentações financeiras geradas são **estritamente preservadas**, mantendo a integridade e rastreabilidade contábil.
@@ -178,6 +189,7 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 
 ### 4.2. Frontend (Blade, CSS e JS)
 - **Tema Light/Dark**: Uso exclusivo das variáveis do design system (`var(--color-surface-*)`, `var(--color-primary-*)`, `var(--form-text)`).
+- **Proibição Estrita de `font-mono`**: **Nunca aplicar a classe `font-mono` nos elementos de interface**. Toda a tipografia da aplicação (incluindo inputs numéricos, valores monetários, tabelas, cards de resumo, formulários e relatórios) deve adotar estritamente a tipografia sans-serif padrão do sistema (`Instrument Sans` / `font-sans`), mantendo a estética visual limpa, corporativa e coesa.
 - **Propostas e Documentos**: Ao formatar a proposta comercial do cliente, oculte explicitamente linhas de insumos e custos internos.
 - **JavaScript Centralizado**: Funções de cálculo em tempo real e injeção dinâmica devem residir em `resources/js/app.js`.
 
@@ -209,3 +221,4 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 5. **Notificações Exclusivas via Navegador**: Alertas de agendamento são emitidos apenas pela API Web (`Notification` e Service Worker), sem chamadas locais de servidor.
 6. **Links Clicáveis em Respostas**: Sempre cite arquivos com sintaxe markdown clicável `file:///` (ex: [VisitaController.php](file:///z:/home/mh/projetos/erp-alaris/app/Http/Controllers/VisitaController.php)).
 7. **Segurança de Rotas**: Todas as rotas financeiras e de configurações devem exigir validação do papel `admin`.
+8. **Proibição de `font-mono` em Classes**: Jamais utilize a classe Tailwind `font-mono` em templates Blade, componentes ou injeções dinâmicas JavaScript. Toda a tipografia de valores monetários, formulários e números segue a fonte padrão (`font-sans`).

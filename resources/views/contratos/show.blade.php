@@ -14,7 +14,7 @@
                             Todos os Contratos
                         </a>
                         <span class="text-xs" style="color: var(--color-surface-600);">/</span>
-                        <span class="text-xs font-mono font-bold text-white">{{ $contrato->numero }}</span>
+                        <span class="text-xs  font-bold text-white">{{ $contrato->numero }}</span>
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2">
@@ -37,13 +37,21 @@
 
                 {{-- Barra de Ações Operacionais --}}
                 <div class="flex flex-wrap items-center gap-2">
+                    {{-- Botão de PDF / Imprimir (1 folha) --}}
+                    <a href="{{ route('contratos.pdf', $contrato) }}" target="_blank" class="btn btn-secondary btn-sm"
+                        title="Gerar PDF em 1 folha para envio ao cliente ou impressão">
+                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <span>{{ $contrato->ehProposta() ? 'Gerar PDF da Proposta' : 'Gerar PDF do Contrato' }}</span>
+                    </a>
+
                     @if($contrato->podeAtivar())
                         @permissao('contratos.ativar')
                         <form action="{{ route('contratos.ativar', $contrato) }}" method="POST" class="inline">
                             @csrf
-                            <button type="submit" class="btn btn-success btn-sm">
+                            <button type="submit" class="btn btn-success btn-sm font-bold"
+                                onclick="return confirm('{{ $contrato->ehProposta() ? 'Deseja aprovar esta proposta comercial e transformar em Contrato Ativo? Os atendimentos previstos passarão a constar na Agenda Geral.' : 'Deseja ativar este contrato?' }}');">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                Ativar Contrato
+                                {{ $contrato->ehProposta() ? 'Aprovar e Ativar Contrato' : 'Ativar Contrato' }}
                             </button>
                         </form>
                         @endpermissao
@@ -72,7 +80,7 @@
                         <a href="{{ route('visitas.create', ['cliente_id' => $contrato->cliente_id, 'contrato_id' => $contrato->id]) }}"
                             class="btn btn-primary btn-sm">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                            + Emitir Ordem de Serviço
+                            Emitir Ordem de Serviço
                         </a>
                         @endpermissao
                     @endif
@@ -112,6 +120,41 @@
                 </div>
             </div>
         </div>
+
+        @if($contrato->ehProposta())
+            {{-- Banner Destacado para Proposta Comercial --}}
+            <div class="p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm"
+                style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35);">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 rounded-lg bg-amber-500/20 text-amber-400 shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <strong class="text-amber-300 block text-sm">Proposta Comercial Aguardando Aprovação do Cliente</strong>
+                        <p class="text-xs text-slate-300 mt-0.5">
+                            Este documento é uma proposta comercial. Os atendimentos previstos <strong>NÃO geram eventos na Agenda Geral</strong> até que você aprove e ative a proposta.
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <a href="{{ route('contratos.pdf', $contrato) }}" target="_blank" class="btn btn-secondary btn-sm text-xs">
+                        <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        Ver PDF (1 Folha)
+                    </a>
+                    @permissao('contratos.ativar')
+                    <form action="{{ route('contratos.ativar', $contrato) }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" class="btn btn-success btn-sm text-xs font-bold"
+                            onclick="return confirm('Confirma a aprovação da proposta pelo cliente? O contrato será ativado imediatamente e seus atendimentos passarão a constar na Agenda.');">
+                            ✓ Aprovar Proposta
+                        </button>
+                    </form>
+                    @endpermissao
+                </div>
+            </div>
+        @endif
 
         {{-- 4 Cards de Métricas --}}
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -158,7 +201,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="stat-label">Valor Recorrente do Contrato</p>
-                        <p class="stat-value font-mono text-white">R$ {{ number_format($contrato->valor_total, 2, ',', '.') }}</p>
+                        <p class="stat-value  text-white">R$ {{ number_format($contrato->valor_total, 2, ',', '.') }}</p>
                         <p class="stat-helper">{{ $contrato->modeloCobrancaLabel() }}</p>
                     </div>
                     <div class="stat-icon" style="background: rgba(168, 85, 247, 0.15); color: #a855f7;">
@@ -271,6 +314,41 @@
                         </div>
                     </div>
 
+                    {{-- Preço Fechado & Rentabilidade Prevista --}}
+                    <div class="pt-3 border-t space-y-2.5 text-xs" style="border-color: var(--color-surface-800);">
+                        <span class="form-label font-bold text-white uppercase tracking-wider block">Preço Fechado & Rentabilidade</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <span class="text-[11px] text-slate-400 block">Nota Fiscal (NFS-e)</span>
+                                <span class="text-white font-semibold">
+                                    {{ $contrato->exige_nota_fiscal ? 'Exige NF (' . number_format($contrato->percentual_imposto, 1, ',', '.') . '%)' : 'Não exige NF' }}
+                                </span>
+                            </div>
+                            <div>
+                                <span class="text-[11px] text-slate-400 block">Imposto Deduzido</span>
+                                <span class=" text-amber-300 font-semibold">
+                                    R$ {{ number_format($contrato->valorImposto(), 2, ',', '.') }}
+                                </span>
+                            </div>
+                            <div>
+                                <span class="text-[11px] text-slate-400 block">Custos Operacionais Prev.</span>
+                                <span class=" text-rose-400 font-semibold">
+                                    R$ {{ number_format($contrato->custoOperacionalPrevisto(), 2, ',', '.') }}
+                                </span>
+                                <span class="text-[10px] text-slate-400 block">({{ $contrato->visitasPrevistasPorCiclo() }}x atendimento/ciclo)</span>
+                            </div>
+                            <div>
+                                <span class="text-[11px] text-slate-400 block">Lucro Líquido Previsto</span>
+                                <span class=" font-bold text-sm {{ $contrato->lucroLiquidoPrevisto() >= 0 ? 'text-emerald-400' : 'text-rose-400' }}">
+                                    R$ {{ number_format($contrato->lucroLiquidoPrevisto(), 2, ',', '.') }}
+                                </span>
+                                <span class="text-[10px] block {{ $contrato->lucroLiquidoPrevisto() >= 0 ? 'text-emerald-400' : 'text-rose-400' }}">
+                                    Margem: {{ number_format($contrato->margemLiquidaPrevista(), 1, ',', '.') }}%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
                     @if($contrato->desconto > 0)
                         <div class="text-xs text-amber-400">
                             Desconto comercial aplicado: <strong>R$ {{ number_format($contrato->desconto, 2, ',', '.') }}</strong>
@@ -315,9 +393,9 @@
                                         <td>
                                             <span class="badge badge-neutral text-xs">{{ $item->tipoServicoLabel() }}</span>
                                         </td>
-                                        <td class="text-right font-mono">{{ number_format($item->quantidade, 2, ',', '.') }}</td>
-                                        <td class="text-right font-mono">R$ {{ number_format($item->valor_unitario, 2, ',', '.') }}</td>
-                                        <td class="text-right font-mono font-bold text-white">R$ {{ number_format($item->valor_total, 2, ',', '.') }}</td>
+                                        <td class="text-right ">{{ number_format($item->quantidade, 2, ',', '.') }}</td>
+                                        <td class="text-right ">R$ {{ number_format($item->valor_unitario, 2, ',', '.') }}</td>
+                                        <td class="text-right  font-bold text-white">R$ {{ number_format($item->valor_total, 2, ',', '.') }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -325,12 +403,12 @@
                                 @if($contrato->desconto > 0)
                                     <tr>
                                         <td colspan="4" class="text-right text-xs" style="color: var(--color-surface-400);">Desconto Comercial:</td>
-                                        <td class="text-right font-mono text-red-400 text-xs">- R$ {{ number_format($contrato->desconto, 2, ',', '.') }}</td>
+                                        <td class="text-right  text-red-400 text-xs">- R$ {{ number_format($contrato->desconto, 2, ',', '.') }}</td>
                                     </tr>
                                 @endif
                                 <tr>
                                     <td colspan="4" class="text-right font-bold text-white uppercase text-xs">Total do Contrato:</td>
-                                    <td class="text-right font-mono font-bold text-emerald-400 text-base">R$ {{ number_format($contrato->valor_total, 2, ',', '.') }}</td>
+                                    <td class="text-right  font-bold text-emerald-400 text-base">R$ {{ number_format($contrato->valor_total, 2, ',', '.') }}</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -350,7 +428,7 @@
                             @permissao('visitas.criar')
                             <a href="{{ route('visitas.create', ['cliente_id' => $contrato->cliente_id, 'contrato_id' => $contrato->id]) }}"
                                 class="btn btn-primary btn-sm text-xs">
-                                + Emitir Ordem de Serviço
+                                Emitir Ordem de Serviço
                             </a>
                             @endpermissao
                         @endif

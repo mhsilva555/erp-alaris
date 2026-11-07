@@ -925,9 +925,16 @@ window.recalcularFinanceiroVisita = function () {
         }
     });
 
+    const bannerIncluso = document.getElementById('banner-contrato-incluso');
+    const badgeIncluso = document.getElementById('badge-incluso-contrato');
+    const containerNfContrato = document.getElementById('container-nf-contrato');
+    const ehContrato = (bannerIncluso && !bannerIncluso.classList.contains('hidden')) ||
+                       (badgeIncluso && !badgeIncluso.classList.contains('hidden')) ||
+                       (containerNfContrato && !containerNfContrato.classList.contains('hidden'));
+
     const aliquotaPadrao = window.__aliquotaImpostoPadrao || 14.0;
     const aliquota = exigeNf ? aliquotaPadrao : 0.0;
-    const valorImposto = (valorCobrado * aliquota) / 100;
+    const valorImposto = ehContrato ? 0.0 : (valorCobrado * aliquota) / 100;
     const custoOperacionalTotal = custoProdutosTotal + custoMaoDeObra + custoDeslocamento + gastosAdicionais;
     const lucroBruto = valorCobrado - (custoOperacionalTotal + valorImposto);
     const margem = valorCobrado > 0 ? (lucroBruto / valorCobrado) * 100 : 0;
@@ -935,20 +942,48 @@ window.recalcularFinanceiroVisita = function () {
     // Atualiza elementos de preview se existirem
     const previewCustoInsumos = document.getElementById('preview-custo-insumos');
     const previewCustoOperacional = document.getElementById('preview-custo-operacional');
+    const labelCustoOperacional = document.getElementById('label-custo-operacional');
     const previewImposto = document.getElementById('preview-imposto');
+    const labelPreviewImposto = document.getElementById('label-preview-imposto');
     const previewLucroBruto = document.getElementById('preview-lucro-bruto');
+    const labelResultadoVisita = document.getElementById('label-resultado-visita');
     const previewMargem = document.getElementById('preview-margem');
 
     if (previewCustoInsumos) previewCustoInsumos.textContent = 'R$ ' + custoProdutosTotal.toFixed(2).replace('.', ',');
     if (previewCustoOperacional) previewCustoOperacional.textContent = 'R$ ' + custoOperacionalTotal.toFixed(2).replace('.', ',');
-    if (previewImposto) previewImposto.textContent = 'R$ ' + valorImposto.toFixed(2).replace('.', ',') + (exigeNf ? ` (${aliquota}%)` : ' (Isento)');
-    if (previewLucroBruto) {
-        previewLucroBruto.textContent = 'R$ ' + lucroBruto.toFixed(2).replace('.', ',');
-        previewLucroBruto.className = lucroBruto >= 0 ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold';
-    }
-    if (previewMargem) {
-        previewMargem.textContent = margem.toFixed(1) + '%';
-        previewMargem.className = margem >= 0 ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold';
+
+    if (ehContrato) {
+        if (labelCustoOperacional) labelCustoOperacional.textContent = 'Custo Deste Atendimento';
+        if (labelPreviewImposto) labelPreviewImposto.textContent = 'Tributação (NF)';
+        if (previewImposto) {
+            previewImposto.textContent = 'Incluso no Contrato';
+            previewImposto.className = 'text-xs font-semibold text-sky-300';
+        }
+        if (labelResultadoVisita) labelResultadoVisita.textContent = 'Impacto no Contrato';
+        if (previewLucroBruto) {
+            previewLucroBruto.textContent = 'Atendimento Coberto';
+            previewLucroBruto.className = 'text-sm font-bold text-sky-400';
+        }
+        if (previewMargem) {
+            previewMargem.textContent = 'Deduzido do Contrato';
+            previewMargem.className = 'text-[10px] block text-sky-400 font-medium';
+        }
+    } else {
+        if (labelCustoOperacional) labelCustoOperacional.textContent = 'Custo Operacional';
+        if (labelPreviewImposto) labelPreviewImposto.textContent = 'Impostos (NF)';
+        if (previewImposto) {
+            previewImposto.textContent = 'R$ ' + valorImposto.toFixed(2).replace('.', ',') + (exigeNf ? ` (${aliquota}%)` : ' (Isento)');
+            previewImposto.className = 'text-xs font-semibold text-amber-300';
+        }
+        if (labelResultadoVisita) labelResultadoVisita.textContent = 'Lucro Estimado';
+        if (previewLucroBruto) {
+            previewLucroBruto.textContent = 'R$ ' + lucroBruto.toFixed(2).replace('.', ',');
+            previewLucroBruto.className = lucroBruto >= 0 ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold';
+        }
+        if (previewMargem) {
+            previewMargem.textContent = margem.toFixed(1) + '%';
+            previewMargem.className = margem >= 0 ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold';
+        }
     }
 };
 

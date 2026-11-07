@@ -73,7 +73,7 @@
                     <tr class="animate-fadeIn">
                         <td>
                             <div class="font-medium text-white">{{ $perfil->nome }}</div>
-                            <div class="text-xs font-mono mt-0.5" style="color: var(--color-surface-400);">{{ $perfil->slug }}</div>
+                            <div class="text-xs  mt-0.5" style="color: var(--color-surface-400);">{{ $perfil->slug }}</div>
                         </td>
                         <td>
                             @if ($perfil->is_sistema)

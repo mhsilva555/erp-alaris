@@ -65,6 +65,8 @@ This skill contains the operational runbook for development, testing, styling, a
 3. **Compiling Assets**:
    - Vite is configured with `@tailwindcss/vite` and `laravel-vite-plugin`.
    - Run `npm run build` to verify that there are no CSS syntax errors or unclosed blocks.
+4. **Typography & Strict Prohibition of `font-mono`**:
+   - Never apply the Tailwind class `font-mono` to elements. All UI texts, inputs, cards, monetary figures, and contract data must use the application's clean default sans-serif typography (`Instrument Sans` / `font-sans`).
 
 ---
 

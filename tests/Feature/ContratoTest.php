@@ -679,3 +679,221 @@ test('19. criacao e exibicao de ordem de servico vinculada a contrato de mensali
     $listView->assertOk();
     $listView->assertSee('Incluso no Contrato');
 });
+
+test('20. contrato com preco fechado centraliza tributacao e custos operacionais sem falso prejuizo na os', function () {
+    $cliente = Cliente::create(['nome' => 'Indústria Metalúrgica Vale', 'cidade' => 'Jundiaí', 'estado' => 'SP']);
+
+    $contrato = Contrato::create([
+        'numero' => 'CTR-FECHADO-001',
+        'cliente_id' => $cliente->id,
+        'status' => Contrato::STATUS_ATIVO,
+        'tipo_vigencia' => Contrato::VIGENCIA_INDETERMINADO,
+        'data_inicio' => now()->startOfMonth()->toDateString(),
+        'periodicidade' => Contrato::PERIODICIDADE_MENSAL,
+        'dia_preferencial' => 15,
+        'tipo_servico' => 'controle_pragas',
+        'modelo_cobranca' => Contrato::MODELO_MENSAL,
+        'valor_total' => 1000.00,
+        'exige_nota_fiscal' => true,
+        'percentual_imposto' => 14.00,
+        'custo_diaria_padrao' => 60.00,
+        'custo_deslocamento_padrao' => 25.00,
+    ]);
+
+    expect($contrato->valorImposto())->toBe(140.00);
+    expect($contrato->valorLiquidoDisponivel())->toBe(860.00);
+    expect($contrato->visitasPrevistasPorCiclo())->toBe(1);
+    expect($contrato->custoOperacionalPrevisto())->toBe(85.00);
+    expect($contrato->lucroLiquidoPrevisto())->toBe(775.00);
+    expect($contrato->margemLiquidaPrevista())->toBe(77.5);
+
+    // Contrato com periodicidade quinzenal multiplica os custos operacionais por 2 visitas
+    $contratoQuinzenal = Contrato::create([
+        'numero' => 'CTR-QUINZENAL-001',
+        'cliente_id' => $cliente->id,
+        'status' => Contrato::STATUS_ATIVO,
+        'tipo_vigencia' => Contrato::VIGENCIA_INDETERMINADO,
+        'data_inicio' => now()->startOfMonth()->toDateString(),
+        'periodicidade' => Contrato::PERIODICIDADE_QUINZENAL,
+        'tipo_servico' => 'controle_pragas',
+        'modelo_cobranca' => Contrato::MODELO_MENSAL,
+        'valor_total' => 400.00,
+        'exige_nota_fiscal' => true,
+        'percentual_imposto' => 14.00,
+        'custo_diaria_padrao' => 50.00,
+        'custo_deslocamento_padrao' => 0.00,
+    ]);
+
+    expect($contratoQuinzenal->visitasPrevistasPorCiclo())->toBe(2);
+    expect($contratoQuinzenal->valorImposto())->toBe(56.00);
+    expect($contratoQuinzenal->custoOperacionalPrevisto())->toBe(100.00);
+    expect($contratoQuinzenal->lucroLiquidoPrevisto())->toBe(244.00);
+    expect($contratoQuinzenal->margemLiquidaPrevista())->toBe(61.0);
+
+    // Ao abrir a tela de criação da OS para este contrato, exibe tributação centralizada e preenche custos do contrato
+    $createView = $this->actingAs($this->admin)->get(route('visitas.create', ['contrato_id' => $contrato->id]));
+    $createView->assertOk();
+    $createView->assertSee('Tributação Centralizada no Contrato');
+    $createView->assertSee('Retido no Contrato');
+
+    // Cria a OS do contrato
+    $response = $this->actingAs($this->admin)->post(route('visitas.store'), [
+        'cliente_id' => $cliente->id,
+        'contrato_id' => $contrato->id,
+        'tecnico_id' => $this->tecnico->id,
+        'data_hora' => now()->format('Y-m-d 14:00:00'),
+        'status' => Visita::STATUS_CONCLUIDA,
+        'tipo_visita' => Visita::TIPO_VISITA_EXECUCAO,
+        'tipo_servico' => 'controle_pragas',
+        'custo_mao_de_obra' => '60,00',
+        'custo_deslocamento' => '25,00',
+        'gastos_adicionais' => '15,00',
+        'motivo_gastos_adicionais' => 'Pedágio e estacionamento',
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $visita = Visita::where('contrato_id', $contrato->id)->first();
+    expect($visita)->not->toBeNull();
+    expect((float) $visita->valor_cobrado)->toBe(0.0);
+    expect((float) $visita->valor_imposto)->toBe(0.0);
+    expect((float) $visita->lucro_bruto)->toBe(0.0);
+    expect($visita->custoOperacionalTotal())->toBe(100.00);
+
+    // Diária e gastos extras geram despesas no caixa para pagar/reembolsar o técnico
+    expect($visita->movimentacoes()->where('tipo', MovimentacaoFinanceira::TIPO_DESPESA)->count())->toBe(2);
+
+    // No DRE, o faturamento do contrato é apurado e deduz custos e impostos
+    $dreView = $this->actingAs($this->admin)->get(route('financeiro.relatorio', ['mes' => now()->format('Y-m')]));
+    $dreView->assertOk();
+});
+
+test('16. criacao de contrato como proposta comercial sem gerar eventos na agenda', function () {
+    $cliente = Cliente::create(['nome' => 'Padaria Pão Quente', 'cidade' => 'Campinas', 'estado' => 'SP']);
+
+    $response = $this->actingAs($this->admin)->post(route('contratos.store'), [
+        'numero' => 'PROP-2026-0099',
+        'cliente_id' => $cliente->id,
+        'titulo' => 'Proposta de Controle Trimestral de Pragas',
+        'status' => Contrato::STATUS_PROPOSTA,
+        'tipo_vigencia' => Contrato::VIGENCIA_INDETERMINADO,
+        'data_inicio' => now()->toDateString(),
+        'periodicidade' => Contrato::PERIODICIDADE_MENSAL,
+        'dia_preferencial' => 15,
+        'tipo_servico' => 'controle_pragas',
+        'modelo_cobranca' => Contrato::MODELO_MENSAL,
+        'condicoes_pagamento' => 'Boleto 30 dias',
+        'desconto' => '0,00',
+        'itens' => [
+            [
+                'descricao' => 'Desinsetização e Desratização Mensal',
+                'tipo_servico' => 'controle_pragas',
+                'quantidade' => 1,
+                'valor_unitario' => '500,00',
+            ],
+        ],
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $contrato = Contrato::where('numero', 'PROP-2026-0099')->first();
+    expect($contrato)->not->toBeNull();
+    expect($contrato->ehProposta())->toBeTrue();
+    expect($contrato->status)->toBe(Contrato::STATUS_PROPOSTA);
+
+    // Agenda Geral NÃO projeta atendimentos para propostas não aprovadas
+    $agendaResponse = $this->actingAs($this->admin)->get(route('agendamentos.index', ['mes' => now()->format('Y-m')]));
+    $agendaResponse->assertOk();
+    $agendaResponse->assertDontSee('Padaria Pão Quente');
+});
+
+test('17. aprovacao de proposta comercial e transformacao em contrato ativo', function () {
+    $cliente = Cliente::create(['nome' => 'Clube Recreativo Alvorada', 'cidade' => 'Campinas', 'estado' => 'SP']);
+
+    $proposta = Contrato::create([
+        'numero' => 'PROP-2026-0100',
+        'cliente_id' => $cliente->id,
+        'titulo' => 'Proposta Anual',
+        'status' => Contrato::STATUS_PROPOSTA,
+        'tipo_vigencia' => Contrato::VIGENCIA_INDETERMINADO,
+        'data_inicio' => now()->toDateString(),
+        'periodicidade' => Contrato::PERIODICIDADE_MENSAL,
+        'dia_preferencial' => 10,
+        'valor_total' => 800.00,
+    ]);
+
+    expect($proposta->podeAtivar())->toBeTrue();
+
+    // Ativa / Aprova a proposta
+    $response = $this->actingAs($this->admin)->post(route('contratos.ativar', $proposta));
+    $response->assertRedirect(route('contratos.show', $proposta));
+    $response->assertSessionHas('sucesso');
+
+    $proposta->refresh();
+    expect($proposta->status)->toBe(Contrato::STATUS_ATIVO);
+    expect($proposta->estaAtivo())->toBeTrue();
+
+    // Agora a agenda passa a projetar os atendimentos
+    $agendaResponse = $this->actingAs($this->admin)->get(route('agendamentos.index', ['mes' => now()->format('Y-m')]));
+    $agendaResponse->assertOk();
+    $agendaResponse->assertSee('Atendimento Contratual: Clube Recreativo Alvorada');
+});
+
+test('18. emissao de pdf de contrato e proposta mantendo sigilo comercial', function () {
+    $cliente = Cliente::create(['nome' => 'Hospital Santa Clara', 'cidade' => 'Campinas', 'estado' => 'SP']);
+
+    $contrato = Contrato::create([
+        'numero' => 'CTR-2026-0101',
+        'cliente_id' => $cliente->id,
+        'titulo' => 'Contrato Hospitalar',
+        'status' => Contrato::STATUS_PROPOSTA,
+        'tipo_vigencia' => Contrato::VIGENCIA_INDETERMINADO,
+        'data_inicio' => now()->toDateString(),
+        'periodicidade' => Contrato::PERIODICIDADE_MENSAL,
+        'valor_total' => 1200.00,
+        'custo_diaria_padrao' => 120.00,
+        'percentual_imposto' => 14.00,
+        'exige_nota_fiscal' => true,
+    ]);
+
+    // Visualização da Proposta com PWA Action Bar
+    $response = $this->actingAs($this->admin)->get(route('contratos.pdf', $contrato));
+    $response->assertOk();
+    $response->assertSee('PROPOSTA COMERCIAL');
+    $response->assertSee('Hospital Santa Clara');
+    $response->assertSee('R$ 1.200,00');
+    $response->assertSee('Voltar');
+    $response->assertSee('Compartilhar');
+    $response->assertSee('Imprimir / PDF');
+
+    // Regra de Sigilo Comercial Absoluto
+    $response->assertDontSee('120,00'); // diária interna nunca aparece
+    $response->assertDontSee('14,00'); // alíquota de imposto nunca aparece
+    $response->assertDontSee('14.00');
+
+    // Download de PDF binário caso solicitado
+    $responsePdf = $this->actingAs($this->admin)->get(route('contratos.pdf', [$contrato, 'download' => 1]));
+    $responsePdf->assertOk();
+    expect($responsePdf->headers->get('content-type'))->toContain('application/pdf');
+});
+
+test('19. remocao de links de proposta comercial da listagem e detalhes de OS', function () {
+    $cliente = Cliente::create(['nome' => 'Indústria Metalúrgica', 'cidade' => 'Campinas', 'estado' => 'SP']);
+
+    $visita = Visita::create([
+        'cliente_id' => $cliente->id,
+        'tecnico_id' => $this->tecnico->id,
+        'data_hora' => now()->format('Y-m-d 09:00:00'),
+        'status' => Visita::STATUS_AGENDADA,
+        'tipo_visita' => Visita::TIPO_VISITA_EXECUCAO,
+        'tipo_servico' => 'controle_pragas',
+        'valor_cobrado' => 450.00,
+    ]);
+
+    $indexView = $this->actingAs($this->admin)->get(route('visitas.index'));
+    $indexView->assertOk();
+    // O botão com rota de proposta de visita não deve mais estar presente na tabela de OSs
+    $indexView->assertDontSee(route('visitas.proposta', $visita));
+
+    $showView = $this->actingAs($this->admin)->get(route('visitas.show', $visita));
+    $showView->assertOk();
+    $showView->assertDontSee(route('visitas.proposta', $visita));
+});

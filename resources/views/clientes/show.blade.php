@@ -38,7 +38,7 @@
                     </div>
                     @permissao('clientes.acessar_dados')
                         @if($cliente->documento)
-                            <p class="text-xs font-mono" style="color: var(--color-surface-400);">{{ $cliente->documento_formatado ?? $cliente->documento }}</p>
+                            <p class="text-xs " style="color: var(--color-surface-400);">{{ $cliente->documento_formatado ?? $cliente->documento }}</p>
                         @endif
                     @endpermissao
                 </div>
@@ -197,7 +197,7 @@
                                     <span class="text-xs text-white">{{ $ctr->tipoServicoLabel() }}</span>
                                     <div class="text-xs" style="color: var(--color-surface-400);">{{ $ctr->itens->count() }} item(ns)</div>
                                 </td>
-                                <td class="font-mono font-bold text-white">
+                                <td class=" font-bold text-white">
                                     R$ {{ number_format($ctr->valor_total, 2, ',', '.') }}
                                     <span class="block text-[10px] font-normal" style="color: var(--color-surface-400);">{{ $ctr->modeloCobrancaLabel() }}</span>
                                 </td>

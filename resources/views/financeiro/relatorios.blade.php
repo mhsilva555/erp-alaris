@@ -106,35 +106,49 @@
                         class="flex flex-wrap items-center gap-2">
                         <input type="hidden" name="periodo" value="{{ $periodo }}">
                         <input type="hidden" name="status" value="{{ $statusFiltro }}">
+                        <input type="hidden" name="visao" value="{{ $visao }}">
 
                         <x-month-picker :value="$mes" />
                     </form>
 
                     <div class="tab-pills">
-                        <a href="{{ route('financeiro.relatorio', ['mes' => $mes, 'periodo' => 'mensal', 'status' => $statusFiltro]) }}"
+                        <a href="{{ route('financeiro.relatorio', ['mes' => $mes, 'periodo' => 'mensal', 'status' => $statusFiltro, 'visao' => $visao]) }}"
                             class="tab-pill {{ $periodo === 'mensal' ? 'active' : '' }}">
                             Mensal
                         </a>
-                        <a href="{{ route('financeiro.relatorio', ['mes' => $mes, 'periodo' => 'semanal', 'status' => $statusFiltro]) }}"
+                        <a href="{{ route('financeiro.relatorio', ['mes' => $mes, 'periodo' => 'semanal', 'status' => $statusFiltro, 'visao' => $visao]) }}"
                             class="tab-pill {{ $periodo === 'semanal' ? 'active' : '' }}">
                             Semanal
                         </a>
-                        <a href="{{ route('financeiro.relatorio', ['mes' => $mes, 'periodo' => 'anual', 'status' => $statusFiltro]) }}"
+                        <a href="{{ route('financeiro.relatorio', ['mes' => $mes, 'periodo' => 'anual', 'status' => $statusFiltro, 'visao' => $visao]) }}"
                             class="tab-pill {{ $periodo === 'anual' ? 'active' : '' }}">
                             Anual
                         </a>
                     </div>
 
                     <div class="tab-pills">
-                        <a href="{{ route('financeiro.relatorio', ['mes' => $mes, 'periodo' => $periodo, 'status' => 'todas']) }}"
+                        <a href="{{ route('financeiro.relatorio', ['mes' => $mes, 'periodo' => $periodo, 'status' => 'todas', 'visao' => $visao]) }}"
                             class="tab-pill {{ $statusFiltro === 'todas' ? 'active' : '' }}"
                             title="Considera OSs abertas, em execução e concluídas">
                             Todas as OSs
                         </a>
-                        <a href="{{ route('financeiro.relatorio', ['mes' => $mes, 'periodo' => $periodo, 'status' => 'concluida']) }}"
+                        <a href="{{ route('financeiro.relatorio', ['mes' => $mes, 'periodo' => $periodo, 'status' => 'concluida', 'visao' => $visao]) }}"
                             class="tab-pill {{ $statusFiltro === 'concluida' ? 'active' : '' }}"
                             title="Considera apenas OSs finalizadas">
                             Concluídas
+                        </a>
+                    </div>
+
+                    <div class="tab-pills">
+                        <a href="{{ route('financeiro.relatorio', ['mes' => $mes, 'periodo' => $periodo, 'status' => $statusFiltro, 'visao' => 'projetado']) }}"
+                            class="tab-pill {{ $visao === 'projetado' ? 'active' : '' }}"
+                            title="DRE Projetado / Orçado: Provisiona custos operacionais de todos os contratos ativos no mês">
+                            DRE Projetado
+                        </a>
+                        <a href="{{ route('financeiro.relatorio', ['mes' => $mes, 'periodo' => $periodo, 'status' => $statusFiltro, 'visao' => 'realizado']) }}"
+                            class="tab-pill {{ $visao === 'realizado' ? 'active' : '' }}"
+                            title="DRE Realizado: Apura estritamente os custos das OSs físicas executadas até o momento">
+                            DRE Realizado
                         </a>
                     </div>
 
@@ -151,7 +165,7 @@
                     @endpermissao
 
                     @permissao('financeiro.exportar_pdf')
-                        <a href="{{ route('financeiro.relatorio.pdf', ['mes' => $mes, 'periodo' => $periodo, 'status' => $statusFiltro]) }}"
+                        <a href="{{ route('financeiro.relatorio.pdf', ['mes' => $mes, 'periodo' => $periodo, 'status' => $statusFiltro, 'visao' => $visao]) }}"
                             target="_blank" class="btn btn-secondary btn-sm flex items-center gap-1.5"
                             title="Exportar Relatório em PDF gerado no Backend">
                             <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,7 +183,11 @@
                 <span style="color: var(--color-surface-300);">Período analisado: <strong
                         class="text-white">{{ $dataInicio->format('d/m/Y') }}</strong> até <strong
                         class="text-white">{{ $dataFim->format('d/m/Y') }}</strong> ({{ $tituloPeriodo }})</span>
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="badge {{ $visao === 'projetado' ? 'badge-info' : 'badge-warning' }}"
+                        title="{{ $visao === 'projetado' ? 'Custos provisionam as visitas contratuais previstas para evitar falsa margem de lucro' : 'Apuração estrita dos custos das OSs físicas já executadas' }}">
+                        {{ $visao === 'projetado' ? 'Visão: DRE Projetado (Com Provisão Operacional de Contratos)' : 'Visão: DRE Realizado (Competência Efetiva)' }}
+                    </span>
                     <span
                         class="badge badge-info">{{ $statusFiltro === 'concluida' ? 'Apenas Concluídas' : 'Todas as OSs (Abertas + Concluídas)' }}</span>
                     <span class="badge badge-success font-semibold">{{ $visitas->count() }} OS
@@ -186,7 +204,13 @@
                             <div class="stat-value text-emerald-400">
                                 R$ {{ number_format($totalFaturado, 2, ',', '.') }}
                             </div>
-                            <div class="stat-helper">Total cobrado em OS concluídas</div>
+                            <div class="stat-helper">
+                                @if ($faturamentoContratos > 0)
+                                    OSs avulsas: R$ {{ number_format($faturamentoVisitas, 2, ',', '.') }} &bull; Contratos: R$ {{ number_format($faturamentoContratos, 2, ',', '.') }}
+                                @else
+                                    Total cobrado em OS concluídas
+                                @endif
+                            </div>
                         </div>
                         <div class="stat-icon" style="background: rgba(16,185,129,.12); color: var(--color-success);">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -204,7 +228,13 @@
                             <div class="stat-value text-rose-400">
                                 R$ {{ number_format($totalCustoOperacional, 2, ',', '.') }}
                             </div>
-                            <div class="stat-helper">Insumos + Diárias + Desloc. + Extras + NF</div>
+                            <div class="stat-helper">
+                                @if ($visao === 'projetado' && $provisaoOperacionalContratos > 0)
+                                    Insumos + OSs + R$ {{ number_format($provisaoOperacionalContratos, 2, ',', '.') }} provisão CTR
+                                @else
+                                    Insumos + Diárias + Desloc. + Extras + NF
+                                @endif
+                            </div>
                         </div>
                         <div class="stat-icon" style="background: rgba(239,68,68,.12); color: var(--color-danger);">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -218,7 +248,7 @@
                 <div class="stat-card">
                     <div class="flex items-center justify-between">
                         <div>
-                            <span class="stat-label">Lucro Bruto Operacional</span>
+                            <span class="stat-label">{{ $visao === 'projetado' ? 'Lucro Bruto Projetado' : 'Lucro Bruto Realizado' }}</span>
                             <div class="stat-value {{ $lucroBrutoTotal >= 0 ? 'text-white' : 'text-rose-400' }}">
                                 R$ {{ number_format($lucroBrutoTotal, 2, ',', '.') }}
                             </div>
@@ -237,7 +267,7 @@
                 <div class="stat-card">
                     <div class="flex items-center justify-between">
                         <div>
-                            <span class="stat-label text-blue-400">Resultado Líquido Estimado</span>
+                            <span class="stat-label text-blue-400">{{ $visao === 'projetado' ? 'Resultado Líquido Projetado' : 'Resultado Líquido Realizado' }}</span>
                             <div class="stat-value {{ $lucroLiquidoEstimado >= 0 ? 'text-blue-400' : 'text-rose-400' }}">
                                 R$ {{ number_format($lucroLiquidoEstimado, 2, ',', '.') }}
                             </div>
@@ -266,12 +296,18 @@
                     style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                     <span class="block" style="color: var(--color-surface-400);">Diárias Técnicas:</span>
                     <strong class="text-white text-sm whitespace-nowrap">R$ {{ number_format($totalCustoMaoDeObra, 2, ',', '.') }}</strong>
+                    @if ($visao === 'projetado' && $provisaoDiariasContratos > 0)
+                        <span class="text-[10px] text-sky-400 block mt-0.5 truncate" title="Provisão de diárias de contratos pendentes de OS">Prov. CTR: R$ {{ number_format($provisaoDiariasContratos, 2, ',', '.') }}</span>
+                    @endif
                 </div>
                 <div class="p-3 rounded-lg"
                     style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                     <span class="block" style="color: var(--color-surface-400);">Deslocamento:</span>
                     <strong class="text-white text-sm whitespace-nowrap">R$
                         {{ number_format($totalCustoDeslocamento, 2, ',', '.') }}</strong>
+                    @if ($visao === 'projetado' && $provisaoDeslocamentoContratos > 0)
+                        <span class="text-[10px] text-sky-400 block mt-0.5 truncate" title="Provisão de transporte de contratos pendentes de OS">Prov. CTR: R$ {{ number_format($provisaoDeslocamentoContratos, 2, ',', '.') }}</span>
+                    @endif
                 </div>
                 <div class="p-3 rounded-lg"
                     style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
@@ -283,6 +319,9 @@
                     style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                     <span class="block" style="color: var(--color-surface-400);">Tributos / NF:</span>
                     <strong class="text-amber-400 text-sm whitespace-nowrap">R$ {{ number_format($totalImpostos, 2, ',', '.') }}</strong>
+                    @if ($impostosContratos > 0)
+                        <span class="text-[10px] text-sky-400 block mt-0.5 truncate" title="Impostos retidos nos contratos">CTR: R$ {{ number_format($impostosContratos, 2, ',', '.') }}</span>
+                    @endif
                 </div>
             </div>
         </div>
@@ -407,6 +446,121 @@
             </div>
         </div>
 
+        {{-- Recurring Contracts Panel (Preço Fechado) --}}
+        @if ($contratosAtivos->isNotEmpty())
+            <div class="card overflow-hidden">
+                <div class="card-header flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                            <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Receitas de Contratos Recorrentes no Período (Preço Fechado)
+                        </h3>
+                        <p class="text-xs mt-0.5" style="color: var(--color-surface-400);">
+                            Receitas consolidadas por mensalidade/período. As ordens de serviço vinculadas têm seus custos operacionais deduzidos desta verba global.
+                        </p>
+                    </div>
+                    <span class="badge badge-info">{{ $contratosAtivos->count() }} {{ $contratosAtivos->count() === 1 ? 'contrato ativo' : 'contratos ativos' }}</span>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Contrato / Cliente</th>
+                                <th>Modelo / Periodicidade</th>
+                                <th class="text-center">Atendimentos</th>
+                                <th class="text-right">Receita Bruta</th>
+                                <th class="text-right">NFS-e Retida</th>
+                                <th class="text-right">Verba Líquida</th>
+                                <th class="text-right">Custo Realizado (OSs)</th>
+                                @if ($visao === 'projetado')
+                                    <th class="text-right">Provisão Pendente</th>
+                                    <th class="text-right">Saldo Projetado</th>
+                                @else
+                                    <th class="text-right">Saldo Realizado</th>
+                                @endif
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($contratosAtivos as $ctr)
+                                @php
+                                    $saldoExibido = $visao === 'projetado' ? $ctr->saldoProjetado : $ctr->saldoVerbaNoPeriodo($dataInicio, $dataFim);
+                                @endphp
+                                <tr class="hover:bg-slate-50/5 dark:hover:bg-surface-800/40">
+                                    <td>
+                                        <div class="flex items-center gap-1.5">
+                                            <a href="{{ route('contratos.show', $ctr) }}" class="text-sky-400 hover:underline font-bold text-xs">
+                                                {{ $ctr->numero }}
+                                            </a>
+                                        </div>
+                                        <strong class="text-white text-xs block mt-0.5">{{ $ctr->cliente->nome }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="text-xs text-white block">{{ $ctr->modeloCobrancaLabel() }}</span>
+                                        <span class="text-[11px]" style="color: var(--color-surface-400);">{{ $ctr->periodicidadeLabel() }}</span>
+                                    </td>
+                                    <td class="text-center whitespace-nowrap">
+                                        <span class="badge {{ $ctr->visitasExecutadasCount >= $ctr->visitasPlanejadas ? 'badge-success' : 'badge-warning' }} text-[10px]">
+                                            {{ $ctr->visitasExecutadasCount }} de {{ $ctr->visitasPlanejadas }} OS
+                                        </span>
+                                    </td>
+                                    <td class="text-right font-bold text-emerald-400 whitespace-nowrap">
+                                        R$ {{ number_format($ctr->valor_total, 2, ',', '.') }}
+                                    </td>
+                                    <td class="text-right text-amber-400 text-xs whitespace-nowrap">
+                                        @if ($ctr->exige_nota_fiscal && $ctr->percentual_imposto > 0)
+                                            R$ {{ number_format($ctr->valorImposto(), 2, ',', '.') }}
+                                            <span class="text-[10px] text-slate-400 block">({{ number_format($ctr->percentual_imposto, 1) }}%)</span>
+                                        @else
+                                            <span style="color: var(--color-surface-500);">Isento</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-right font-semibold text-white text-xs whitespace-nowrap">
+                                        R$ {{ number_format($ctr->valorLiquidoDisponivel(), 2, ',', '.') }}
+                                    </td>
+                                    <td class="text-right text-xs whitespace-nowrap text-rose-400 font-medium">
+                                        R$ {{ number_format($ctr->custoExecutado, 2, ',', '.') }}
+                                    </td>
+                                    @if ($visao === 'projetado')
+                                        <td class="text-right text-xs whitespace-nowrap text-amber-400 font-medium">
+                                            @if ($ctr->provisaoRestante > 0)
+                                                R$ {{ number_format($ctr->provisaoRestante, 2, ',', '.') }}
+                                                <span class="text-[9px] text-slate-400 block">({{ $ctr->visitasRestantes }}x a emitir)</span>
+                                            @else
+                                                <span class="text-slate-500">Concluído</span>
+                                            @endif
+                                        </td>
+                                    @endif
+                                    <td class="text-right font-bold whitespace-nowrap {{ $saldoExibido >= 0 ? 'text-emerald-400' : 'text-rose-400' }}">
+                                        R$ {{ number_format($saldoExibido, 2, ',', '.') }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot>
+                            <tr class="font-bold" style="background: var(--color-surface-950); border-top: 2px solid var(--color-surface-800);">
+                                <td colspan="3" class="text-white text-xs py-2.5 px-3">
+                                    TOTAL CONTRATOS ({{ $contratosAtivos->count() }})
+                                </td>
+                                <td class="text-right text-emerald-400 text-xs whitespace-nowrap">
+                                    R$ {{ number_format($faturamentoContratos, 2, ',', '.') }}
+                                </td>
+                                <td class="text-right text-amber-400 text-xs whitespace-nowrap">
+                                    R$ {{ number_format($impostosContratos, 2, ',', '.') }}
+                                </td>
+                                <td class="text-right text-white text-xs whitespace-nowrap">
+                                    R$ {{ number_format($faturamentoContratos - $impostosContratos, 2, ',', '.') }}
+                                </td>
+                                <td colspan="{{ $visao === 'projetado' ? '3' : '2' }}"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        @endif
+
         {{-- Detailed OS Breakdown Table --}}
         <div class="card overflow-hidden">
             <div class="card-header">
@@ -469,7 +623,16 @@
                                         </div>
                                         <span class="text-[11px] block mt-0.5"
                                             style="color: var(--color-surface-400);">{{ $vis->data_hora->format('d/m/Y') }}</span>
-                                        @if ($vis->comodato)
+                                        @if ($vis->contrato)
+                                            <a href="{{ route('contratos.show', $vis->contrato) }}"
+                                                class="inline-flex items-center gap-1 text-[10px] text-sky-400 font-medium mt-0.5 hover:underline"
+                                                title="Contrato: {{ $vis->contrato->numero }}">
+                                                <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                                {{ $vis->contrato->numero }}
+                                            </a>
+                                        @elseif ($vis->comodato)
                                             <span
                                                 class="inline-flex items-center gap-1 text-[10px] text-sky-400 font-medium mt-0.5"
                                                 title="OS de Comodato">
@@ -492,12 +655,21 @@
                                             {{ $vis->tipoServicoLabel() }}
                                         </span>
                                     </td>
-                                    <td class="text-right font-bold text-emerald-400 whitespace-nowrap">
-                                        R$ {{ number_format($vis->valor_cobrado, 2, ',', '.') }}
+                                    <td class="text-right font-bold whitespace-nowrap">
+                                        @if ($vis->ehMensalidadeFixa())
+                                            <span class="badge badge-info text-[10px] py-0.5 px-1.5 font-semibold" title="Atendimento coberto pela mensalidade do contrato">Incluso CTR</span>
+                                        @else
+                                            <span class="text-emerald-400">R$ {{ number_format($vis->valor_cobrado, 2, ',', '.') }}</span>
+                                        @endif
                                     </td>
                                     <td class="text-center whitespace-nowrap">
                                         @php $statusRec = $vis->statusRecebimento(); @endphp
-                                        @if ($statusRec === 'pago')
+                                        @if ($statusRec === 'contrato')
+                                            <span class="badge badge-info text-[10px] py-0.5 px-2 inline-flex items-center gap-1"
+                                                title="Receita faturada via mensalidade única do contrato">
+                                                Mensalidade CTR
+                                            </span>
+                                        @elseif ($statusRec === 'pago')
                                             <span
                                                 class="badge badge-success text-[10px] py-0.5 px-2 inline-flex items-center gap-1"
                                                 title="Valor já liquidado no Fluxo de Caixa">
@@ -554,16 +726,33 @@
                                             <span style="color: var(--color-surface-500);">—</span>
                                         @endif
                                     </td>
-                                    <td class="text-right text-amber-400 text-xs whitespace-nowrap">
-                                        R$ {{ number_format($vis->valor_imposto, 2, ',', '.') }}
+                                    <td class="text-right text-xs whitespace-nowrap">
+                                        @if ($vis->ehMensalidadeFixa())
+                                            <span class="text-sky-400 text-[11px] font-medium" title="Tributação centralizada no Contrato">Retido CTR</span>
+                                        @else
+                                            <span class="text-amber-400">R$ {{ number_format($vis->valor_imposto, 2, ',', '.') }}</span>
+                                        @endif
                                     </td>
-                                    <td
-                                        class="text-right font-bold whitespace-nowrap {{ $vis->lucro_bruto >= 0 ? 'text-white' : 'text-rose-400' }}">
-                                        R$ {{ number_format($vis->lucro_bruto, 2, ',', '.') }}
+                                    <td class="text-right font-bold whitespace-nowrap">
+                                        @if ($vis->ehMensalidadeFixa())
+                                            <span class="text-sky-400 text-xs font-semibold" title="Atendimento coberto pela verba do contrato">Coberto CTR</span>
+                                            <span class="text-[10px] text-slate-400 block font-normal">Custo: R$ {{ number_format($vis->custoOperacionalTotal(), 2, ',', '.') }}</span>
+                                        @else
+                                            <span class="{{ $vis->lucro_bruto >= 0 ? 'text-white' : 'text-rose-400' }}">
+                                                R$ {{ number_format($vis->lucro_bruto, 2, ',', '.') }}
+                                            </span>
+                                        @endif
                                     </td>
-                                    <td
-                                        class="text-right font-semibold text-xs whitespace-nowrap {{ $vis->margemPercentual() >= 40 ? 'text-emerald-400' : 'text-amber-400' }}">
-                                        {{ number_format($vis->margemPercentual(), 1) }}%
+                                    <td class="text-right font-semibold text-xs whitespace-nowrap">
+                                        @if ($vis->ehMensalidadeFixa())
+                                            <span class="text-sky-400 text-[11px]">Contrato</span>
+                                        @else
+                                            <span class="{{ $vis->margemPercentual() >= 40 ? 'text-emerald-400' : 'text-amber-400' }}">
+                                                {{ number_format($vis->margemPercentual(), 1) }}%
+                                            </span>
+                                        @endif
+                                    </td>
+                                </tr>
                                     </td>
                                 </tr>
                             @endforeach

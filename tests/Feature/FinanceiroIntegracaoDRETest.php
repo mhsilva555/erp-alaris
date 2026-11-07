@@ -2,6 +2,7 @@
 
 use App\Models\Cliente;
 use App\Models\Configuracao;
+use App\Models\Contrato;
 use App\Models\MovimentacaoFinanceira;
 use App\Models\Tecnico;
 use App\Models\User;
@@ -179,4 +180,63 @@ test('gera relatorio pdf com conciliacao e status de recebimento sem erros', fun
     $response = $this->actingAs($admin)->get(route('financeiro.relatorio.pdf', ['mes' => now()->format('Y-m')]));
     $response->assertOk();
     $response->assertHeader('content-type', 'application/pdf');
+});
+
+test('dre compara visao projetada com provisao de contratos vs visao realizada efetiva', function () {
+    $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+    $cliente = Cliente::create(['nome' => 'Supermercado Modelo', 'cidade' => 'Jundiaí', 'estado' => 'SP']);
+
+    // Contrato Quinzenal de R$ 400,00 com 14% de imposto e diária de R$ 50,00 (sem nenhuma OS criada ainda)
+    $contrato = Contrato::create([
+        'numero' => 'CTR-TEST-DRE',
+        'cliente_id' => $cliente->id,
+        'status' => Contrato::STATUS_ATIVO,
+        'tipo_vigencia' => Contrato::VIGENCIA_INDETERMINADO,
+        'data_inicio' => now()->startOfMonth()->toDateString(),
+        'periodicidade' => Contrato::PERIODICIDADE_QUINZENAL, // 2 visitas previstas no ciclo
+        'tipo_servico' => 'controle_pragas',
+        'modelo_cobranca' => Contrato::MODELO_MENSAL,
+        'valor_total' => 400.00,
+        'exige_nota_fiscal' => true,
+        'percentual_imposto' => 14.00,
+        'custo_diaria_padrao' => 50.00,
+        'custo_deslocamento_padrao' => 0.00,
+    ]);
+
+    $mesFiltro = now()->format('Y-m');
+
+    // 1. Visão DRE Projetado (padrão): deve provisionar as 2 diárias de R$ 50 = R$ 100 de custos
+    // Lucro projetado = 400 - 56 - 100 = R$ 244,00
+    $responseProjetado = $this->actingAs($admin)->get(route('financeiro.relatorio', [
+        'mes' => $mesFiltro,
+        'visao' => 'projetado',
+    ]));
+
+    $responseProjetado->assertOk();
+    $responseProjetado->assertSee('DRE Projetado');
+    $responseProjetado->assertSee('R$ 244,00'); // Lucro líquido projetado
+    $responseProjetado->assertSee('R$ 156,00'); // Custo operacional total projetado (100 provisão + 56 NF)
+    $responseProjetado->assertSee('61.0%'); // Margem projetada
+
+    // 2. Visão DRE Realizado: apura estritamente o que foi executado (0 OSs = R$ 0 de diárias)
+    // Lucro realizado = 400 - 56 = R$ 344,00
+    $responseRealizado = $this->actingAs($admin)->get(route('financeiro.relatorio', [
+        'mes' => $mesFiltro,
+        'visao' => 'realizado',
+    ]));
+
+    $responseRealizado->assertOk();
+    $responseRealizado->assertSee('DRE Realizado');
+    $responseRealizado->assertSee('R$ 344,00'); // Lucro realizado até o momento
+    $responseRealizado->assertSee('R$ 56,00'); // Custo operacional efetivo até agora
+    $responseRealizado->assertSee('86.0%'); // Margem realizada até agora
+
+    // 3. Exportação em PDF com visao projetado e realizado
+    $pdfProjetado = $this->actingAs($admin)->get(route('financeiro.relatorio.pdf', ['mes' => $mesFiltro, 'visao' => 'projetado']));
+    $pdfProjetado->assertOk();
+    $pdfProjetado->assertHeader('content-type', 'application/pdf');
+
+    $pdfRealizado = $this->actingAs($admin)->get(route('financeiro.relatorio.pdf', ['mes' => $mesFiltro, 'visao' => 'realizado']));
+    $pdfRealizado->assertOk();
+    $pdfRealizado->assertHeader('content-type', 'application/pdf');
 });

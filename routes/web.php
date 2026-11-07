@@ -52,6 +52,7 @@ Route::middleware('auth')->group(function () {
 
     // Contratos de Prestação de Serviços
     Route::resource('contratos', ContratoController::class);
+    Route::get('/contratos/{contrato}/pdf', [ContratoController::class, 'pdf'])->name('contratos.pdf');
     Route::post('/contratos/{contrato}/ativar', [ContratoController::class, 'ativar'])->name('contratos.ativar');
     Route::post('/contratos/{contrato}/suspender', [ContratoController::class, 'suspender'])->name('contratos.suspender');
     Route::post('/contratos/{contrato}/cancelar', [ContratoController::class, 'cancelar'])->name('contratos.cancelar');

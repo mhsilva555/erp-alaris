@@ -302,7 +302,23 @@
                             </div>
                         </div>
 
-                        <div class="mt-4 flex items-center justify-between p-3 rounded-lg"
+                        {{-- Tributação Centralizada no Contrato (Preço Fechado) --}}
+                        <div id="container-nf-contrato" class="{{ $ehContratoMensalEdit ? '' : 'hidden' }} mt-4 p-3.5 rounded-lg flex items-center justify-between"
+                            style="background: var(--color-surface-900); border: 1px solid var(--color-surface-800);">
+                            <div class="flex items-center gap-2.5">
+                                <svg class="w-4 h-4 text-sky-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div>
+                                    <span class="text-xs font-bold text-white block">Tributação Centralizada no Contrato (Preço Fechado)</span>
+                                    <span class="text-[11px]" style="color: var(--color-surface-400);">O imposto (NFS-e) é descontado diretamente da receita única do contrato. Esta O.S. não gera imposto avulso.</span>
+                                </div>
+                            </div>
+                            <span class="text-xs font-semibold text-sky-400 bg-sky-500/15 px-2.5 py-1 rounded shrink-0">Retido no Contrato</span>
+                        </div>
+
+                        {{-- Seleção de NF para Atendimentos Avulsos --}}
+                        <div id="container-nf-avulsa" class="{{ $ehContratoMensalEdit ? 'hidden' : '' }} mt-4 flex items-center justify-between p-3 rounded-lg"
                             style="background: var(--color-surface-900); border: 1px solid var(--color-surface-800);">
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" id="exige_nota_fiscal" name="exige_nota_fiscal" value="1"
@@ -314,35 +330,43 @@
                             </label>
                         </div>
 
-                        {{-- Painel de Lucro em Tempo Real --}}
+                        {{-- Painel de Custos / Resumo em Tempo Real --}}
                         <div class="mt-4 p-4 rounded-lg grid grid-cols-2 sm:grid-cols-4 gap-3 text-center"
                             style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                             <div>
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Custo
-                                    Insumos</span>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Custo Insumos</span>
                                 <span id="preview-custo-insumos" class="text-xs font-semibold text-white">R$
                                     {{ number_format($visita->custo_produtos, 2, ',', '.') }}</span>
                             </div>
                             <div>
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Custo
-                                    Operacional</span>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block" id="label-custo-operacional">
+                                    {{ $ehContratoMensalEdit ? 'Custo Deste Atendimento' : 'Custo Operacional' }}
+                                </span>
                                 <span id="preview-custo-operacional" class="text-xs font-semibold text-white">R$
                                     {{ number_format($visita->custoOperacionalTotal(), 2, ',', '.') }}</span>
                             </div>
                             <div>
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Impostos
-                                    (NF)</span>
-                                <span id="preview-imposto" class="text-xs font-semibold text-amber-300">R$
-                                    {{ number_format($visita->valor_imposto, 2, ',', '.') }}</span>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block" id="label-preview-imposto">
+                                    {{ $ehContratoMensalEdit ? 'Tributação (NF)' : 'Impostos (NF)' }}
+                                </span>
+                                <span id="preview-imposto" class="text-xs font-semibold {{ $ehContratoMensalEdit ? 'text-sky-300' : 'text-amber-300' }}">
+                                    {{ $ehContratoMensalEdit ? 'Incluso no Contrato' : 'R$ ' . number_format($visita->valor_imposto, 2, ',', '.') }}
+                                </span>
                             </div>
                             <div>
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">Lucro
-                                    Estimado</span>
-                                <span id="preview-lucro-bruto"
-                                    class="text-sm font-bold {{ $visita->lucro_bruto >= 0 ? 'text-emerald-400' : 'text-red-400' }}">R$
-                                    {{ number_format($visita->lucro_bruto, 2, ',', '.') }}</span>
-                                <span id="preview-margem"
-                                    class="text-[10px] block {{ $visita->lucro_bruto >= 0 ? 'text-emerald-400' : 'text-red-400' }}">{{ $visita->margemPercentual() }}%</span>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-surface-400 block" id="label-resultado-visita">
+                                    {{ $ehContratoMensalEdit ? 'Impacto no Contrato' : 'Lucro Estimado' }}
+                                </span>
+                                <div id="container-resultado-visita">
+                                    <span id="preview-lucro-bruto"
+                                        class="text-sm font-bold {{ $ehContratoMensalEdit ? 'text-sky-400' : ($visita->lucro_bruto >= 0 ? 'text-emerald-400' : 'text-red-400') }}">
+                                        {{ $ehContratoMensalEdit ? 'Atendimento Coberto' : 'R$ ' . number_format($visita->lucro_bruto, 2, ',', '.') }}
+                                    </span>
+                                    <span id="preview-margem"
+                                        class="text-[10px] block {{ $ehContratoMensalEdit ? 'text-sky-400 font-medium' : ($visita->lucro_bruto >= 0 ? 'text-emerald-400' : 'text-red-400') }}">
+                                        {{ $ehContratoMensalEdit ? 'Deduzido do Contrato' : $visita->margemPercentual() . '%' }}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>

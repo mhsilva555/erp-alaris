@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Models\Configuracao;
 use App\Models\Contrato;
 use App\Models\ContratoItem;
 use App\Models\MeioPagamento;
 use App\Models\Visita;
 use App\Services\ContratoAgendamentoService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -47,6 +49,7 @@ class ContratoController extends Controller
         $totais = [
             'total' => Contrato::count(),
             'ativos' => Contrato::where('status', Contrato::STATUS_ATIVO)->count(),
+            'propostas' => Contrato::where('status', Contrato::STATUS_PROPOSTA)->count(),
             'rascunhos' => Contrato::where('status', Contrato::STATUS_RASCUNHO)->count(),
             'suspensos' => Contrato::where('status', Contrato::STATUS_SUSPENSO)->count(),
             'faturamento_mensal' => Contrato::where('status', Contrato::STATUS_ATIVO)->sum('valor_total'),
@@ -54,10 +57,11 @@ class ContratoController extends Controller
 
         $contratos = $query
             ->orderByRaw("CASE 
-                WHEN status = 'ativo' THEN 1 
-                WHEN status = 'rascunho' THEN 2 
-                WHEN status = 'suspenso' THEN 3 
-                ELSE 4 END ASC")
+                WHEN status = 'proposta' THEN 1
+                WHEN status = 'ativo' THEN 2 
+                WHEN status = 'rascunho' THEN 3 
+                WHEN status = 'suspenso' THEN 4 
+                ELSE 5 END ASC")
             ->orderByDesc('created_at')
             ->paginate(15)
             ->withQueryString();
@@ -75,8 +79,10 @@ class ContratoController extends Controller
         $clientePreSelecionado = $request->filled('cliente_id') ? Cliente::find($request->cliente_id) : null;
         $proximoNumero = Contrato::gerarProximoNumero();
         $meiosPagamento = MeioPagamento::where('ativo', true)->orderBy('nome')->get();
+        $aliquotaPadrao = (float) Configuracao::get('aliquota_imposto_padrao', '14.0');
+        $diariaPadrao = (float) Configuracao::get('diaria_tecnico_padrao', '50.00');
 
-        return view('contratos.create', compact('clientes', 'clientePreSelecionado', 'proximoNumero', 'meiosPagamento'));
+        return view('contratos.create', compact('clientes', 'clientePreSelecionado', 'proximoNumero', 'meiosPagamento', 'aliquotaPadrao', 'diariaPadrao'));
     }
 
     public function store(Request $request, ContratoAgendamentoService $service)
@@ -90,7 +96,7 @@ class ContratoController extends Controller
             'cliente_id' => 'required|exists:clientes,id',
             'titulo' => 'nullable|string|max:255',
             'descricao' => 'nullable|string',
-            'status' => 'required|in:rascunho,ativo',
+            'status' => 'required|in:proposta,ativo,rascunho',
             'tipo_vigencia' => 'required|in:determinado,indeterminado',
             'data_inicio' => 'required|date',
             'data_fim' => 'nullable|date|required_if:tipo_vigencia,determinado|after_or_equal:data_inicio',
@@ -100,7 +106,12 @@ class ContratoController extends Controller
             'dia_preferencial' => 'nullable|integer|between:1,31',
             'dia_semana' => 'nullable|integer|between:0,6',
             'tipo_servico' => 'required|string|in:controle_pragas,limpeza',
+            'status' => 'nullable|string|in:proposta,ativo,rascunho,suspenso,encerrado,cancelado',
             'modelo_cobranca' => 'required|string|in:mensal,por_visita,fechamento_periodo,fixo_anual',
+            'exige_nota_fiscal' => 'boolean',
+            'percentual_imposto' => 'nullable|numeric|min:0|max:100',
+            'custo_diaria_padrao' => 'nullable|numeric|min:0',
+            'custo_deslocamento_padrao' => 'nullable|numeric|min:0',
             'meio_pagamento_id' => 'nullable|exists:meios_pagamento,id',
             'condicoes_pagamento' => 'nullable|string|max:255',
             'desconto' => 'nullable|numeric|min:0',
@@ -115,6 +126,10 @@ class ContratoController extends Controller
         $contrato = DB::transaction(function () use ($validated, $request) {
             $dataContrato = collect($validated)->except('itens')->toArray();
             $dataContrato['permite_renovacao'] = $request->has('permite_renovacao');
+            $dataContrato['exige_nota_fiscal'] = $request->has('exige_nota_fiscal');
+            $dataContrato['percentual_imposto'] = $dataContrato['exige_nota_fiscal']
+                ? (float) ($validated['percentual_imposto'] ?? Configuracao::get('aliquota_imposto_padrao', '14.0'))
+                : 0.00;
             $dataContrato['desconto'] = (float) ($validated['desconto'] ?? 0);
             $dataContrato['valor_total'] = 0.00;
 
@@ -145,8 +160,12 @@ class ContratoController extends Controller
             return $contrato;
         });
 
+        $mensagem = $contrato->ehProposta()
+            ? "Proposta comercial {$contrato->numero} criada com sucesso. Você pode emitir o PDF para o cliente e aprová-la quando aceita."
+            : "Contrato {$contrato->numero} cadastrado com sucesso.";
+
         return redirect()->route('contratos.show', $contrato)
-            ->with('sucesso', "Contrato {$contrato->numero} cadastrado com sucesso.");
+            ->with('sucesso', $mensagem);
     }
 
     public function show(Contrato $contrato)
@@ -183,9 +202,11 @@ class ContratoController extends Controller
 
         $clientes = Cliente::orderBy('nome')->get();
         $meiosPagamento = MeioPagamento::where('ativo', true)->orderBy('nome')->get();
+        $aliquotaPadrao = (float) Configuracao::get('aliquota_imposto_padrao', '14.0');
+        $diariaPadrao = (float) Configuracao::get('diaria_tecnico_padrao', '50.00');
         $contrato->load(['itens', 'meioPagamento']);
 
-        return view('contratos.edit', compact('contrato', 'clientes', 'meiosPagamento'));
+        return view('contratos.edit', compact('contrato', 'clientes', 'meiosPagamento', 'aliquotaPadrao', 'diariaPadrao'));
     }
 
     public function update(Request $request, Contrato $contrato, ContratoAgendamentoService $service)
@@ -213,7 +234,12 @@ class ContratoController extends Controller
             'dia_preferencial' => 'nullable|integer|between:1,31',
             'dia_semana' => 'nullable|integer|between:0,6',
             'tipo_servico' => 'required|string|in:controle_pragas,limpeza',
+            'status' => 'nullable|string|in:proposta,ativo,rascunho,suspenso,encerrado,cancelado',
             'modelo_cobranca' => 'required|string|in:mensal,por_visita,fechamento_periodo,fixo_anual',
+            'exige_nota_fiscal' => 'boolean',
+            'percentual_imposto' => 'nullable|numeric|min:0|max:100',
+            'custo_diaria_padrao' => 'nullable|numeric|min:0',
+            'custo_deslocamento_padrao' => 'nullable|numeric|min:0',
             'meio_pagamento_id' => 'nullable|exists:meios_pagamento,id',
             'condicoes_pagamento' => 'nullable|string|max:255',
             'desconto' => 'nullable|numeric|min:0',
@@ -233,6 +259,10 @@ class ContratoController extends Controller
         DB::transaction(function () use ($contrato, $validated, $request, $service, $periodicidadeMudou) {
             $dataContrato = collect($validated)->except('itens')->toArray();
             $dataContrato['permite_renovacao'] = $request->has('permite_renovacao');
+            $dataContrato['exige_nota_fiscal'] = $request->has('exige_nota_fiscal');
+            $dataContrato['percentual_imposto'] = $dataContrato['exige_nota_fiscal']
+                ? (float) ($validated['percentual_imposto'] ?? Configuracao::get('aliquota_imposto_padrao', '14.0'))
+                : 0.00;
             $dataContrato['desconto'] = (float) ($validated['desconto'] ?? 0);
 
             $contrato->update($dataContrato);
@@ -281,10 +311,40 @@ class ContratoController extends Controller
                 ->with('alerta', 'Este contrato não pode ser ativado no momento.');
         }
 
+        $eraProposta = $contrato->ehProposta();
+
         $contrato->update(['status' => Contrato::STATUS_ATIVO]);
 
+        $mensagem = $eraProposta
+            ? "Proposta comercial {$contrato->numero} aprovada com sucesso! O contrato agora está ativo e seus atendimentos foram integrados à Agenda."
+            : "Contrato {$contrato->numero} ativado com sucesso! Os atendimentos previstos estão disponíveis na Agenda Geral.";
+
         return redirect()->route('contratos.show', $contrato)
-            ->with('sucesso', 'Contrato ativado com sucesso! Os atendimentos previstos estão disponíveis na Agenda Geral.');
+            ->with('sucesso', $mensagem);
+    }
+
+    public function pdf(Contrato $contrato, Request $request)
+    {
+        $this->autorizar('contratos.ver');
+
+        $contrato->load(['cliente', 'itens', 'meioPagamento']);
+
+        if ($request->get('download') === '1' || $request->header('Accept') === 'application/pdf') {
+            $nomeArquivo = ($contrato->ehProposta() ? 'Proposta_Comercial_' : 'Contrato_').$contrato->numero.'.pdf';
+            $pdfEngine = true;
+
+            $pdf = Pdf::loadView('contratos.pdf', compact('contrato', 'pdfEngine'))
+                ->setPaper('a4', 'portrait')
+                ->setOptions([
+                    'isHtml5ParserEnabled' => true,
+                    'isRemoteEnabled' => true,
+                    'defaultFont' => 'Helvetica',
+                ]);
+
+            return $pdf->stream($nomeArquivo);
+        }
+
+        return view('contratos.pdf', compact('contrato'));
     }
 
     public function suspender(Contrato $contrato, ContratoAgendamentoService $service)
@@ -385,12 +445,14 @@ class ContratoController extends Controller
     private function normalizarCamposMonetarios(Request $request): void
     {
         $substituicoes = [];
-        if ($request->has('desconto') && is_string($request->input('desconto'))) {
-            $val = trim($request->input('desconto'));
-            if (str_contains($val, ',')) {
-                $val = str_replace(',', '.', str_replace('.', '', $val));
+        foreach (['desconto', 'percentual_imposto', 'custo_diaria_padrao', 'custo_deslocamento_padrao'] as $campo) {
+            if ($request->has($campo) && is_string($request->input($campo))) {
+                $val = trim($request->input($campo));
+                if (str_contains($val, ',')) {
+                    $val = str_replace(',', '.', str_replace('.', '', $val));
+                }
+                $substituicoes[$campo] = $val;
             }
-            $substituicoes['desconto'] = $val;
         }
 
         if ($request->has('itens') && is_array($request->input('itens'))) {
