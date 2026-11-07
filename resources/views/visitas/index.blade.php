@@ -111,14 +111,19 @@
                                 {{ $visita->tecnico?->nome ?? '—' }}</td>
                             @permissao('visitas.acessar_dados')
                                 <td class="hidden md:table-cell text-xs ">
-                                    <span class="text-white font-bold">R$
-                                        {{ number_format($visita->valor_cobrado, 2, ',', '.') }}</span>
-                                    @if ($visita->valor_cobrado > 0)
-                                        <span
-                                            class="block text-[10px] {{ $visita->lucro_bruto >= 0 ? 'text-emerald-400' : 'text-red-400' }}">
-                                            Lucro: R$ {{ number_format($visita->lucro_bruto, 2, ',', '.') }}
-                                            ({{ $visita->margemPercentual() }}%)
-                                        </span>
+                                    @if ($visita->contrato && (float) $visita->valor_cobrado == 0)
+                                        <span class="badge badge-info text-[10px]">Incluso no Contrato</span>
+                                        <span class="block text-[10px] text-surface-400 mt-0.5">{{ $visita->contrato->numero }}</span>
+                                    @else
+                                        <span class="text-white font-bold">R$
+                                            {{ number_format($visita->valor_cobrado, 2, ',', '.') }}</span>
+                                        @if ($visita->valor_cobrado > 0)
+                                            <span
+                                                class="block text-[10px] {{ $visita->lucro_bruto >= 0 ? 'text-emerald-400' : 'text-red-400' }}">
+                                                Lucro: R$ {{ number_format($visita->lucro_bruto, 2, ',', '.') }}
+                                                ({{ $visita->margemPercentual() }}%)
+                                            </span>
+                                        @endif
                                     @endif
                                 </td>
                             @endpermissao

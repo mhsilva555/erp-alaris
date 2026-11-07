@@ -160,6 +160,8 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
   - O gestor despacha a equipe emitindo a Ordem de Serviço real diretamente pela Agenda ou pela visualização do contrato, atribuindo o técnico de campo e horário exato.
   - Ao emitir a O.S., a visita real substitui a projeção no calendário sem duplicidade.
   - Tratamento seguro de datas inexistentes (ex.: dia 31 em meses de 28, 29 ou 30 dias ajustado via `min($dia, $mes->daysInMonth)`).
+- **Invariante de Faturamento da O.S. (Incluso no Contrato)**:
+  - Ordens de Serviço geradas para contratos sob **Mensalidade Fixa** operam com `valor_cobrado = 0.00` ("Incluso no Contrato") para evitar faturamento em duplicidade no Fluxo de Caixa e DRE. A O.S. apura os custos operacionais (insumos, diária e deslocamento), enquanto a receita é reconhecida na fatura mensal do contrato. Serviços adicionais fora do escopo podem ter valores lançados avulsamente pelo gestor.
 - **Invariante de Preservação de Histórico Operacional**:
   - Ao alterar, suspender ou cancelar um contrato, o sistema expurga/cancela exclusivamente visitas futuras pendentes (`agendada`).
   - Visitas em andamento ou concluídas (`em_andamento`, `concluida`) e movimentações financeiras geradas são **estritamente preservadas**, mantendo a integridade e rastreabilidade contábil.

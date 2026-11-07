@@ -95,6 +95,9 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
   - A **Agenda Geral** projeta dinamicamente os atendimentos previstos para o período visualizado em memória a partir da periodicidade e vigência contratual.
   - O gestor despacha a equipe clicando no evento da Agenda ou no botão **"+ Emitir Ordem de Serviço"** no contrato, definindo o técnico de campo responsável e o horário exato.
   - Ao emitir a O.S., nasce a `Visita` real e a Agenda passa a exibir o evento com o técnico alocado, eliminando duplicações de forma idempotente.
+- **Regra de Faturamento da O.S. Vinculada a Contratos (Incluso no Contrato)**:
+  - **Mensalidade Fixa (`mensal`, `fixo_anual`, `fechamento_periodo`)**: As O.S. de atendimento têm por padrão o `valor_cobrado = 0,00` exibindo o badge **"Incluso no Contrato"**. A receita pertence à fatura/mensalidade do contrato, impedindo a duplicação indevida de faturamento no Fluxo de Caixa e no DRE a cada atendimento. O campo permanece editável caso haja cobrança de serviços avulsos excedentes fora do escopo.
+  - **Por Visita Executada (`por_visita`)**: O `valor_cobrado` da O.S. é pré-preenchido com o valor unitário da visita pactuado no contrato, faturando cada atendimento individualmente no caixa após a conclusão.
 - **Alterações Contratuais & Sincronização**:
   - Edição de vigência ou periodicidade reflete imediatamente na Agenda Geral sem sobrecarga no banco.
   - Suspensão ou cancelamento cessa as projeções na Agenda e expurga/cancela com segurança eventuais O.S. agendadas futuras em aberto, preservando atendimentos já executados.

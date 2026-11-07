@@ -223,7 +223,7 @@ class VisitaController extends Controller
     {
         $this->autorizarAcessoVisita($visita);
 
-        $visita->load(['cliente', 'tecnico', 'produtos', 'comodato']);
+        $visita->load(['cliente', 'tecnico', 'produtos', 'comodato', 'contrato']);
 
         return view('visitas.show', compact('visita'));
     }
@@ -232,7 +232,7 @@ class VisitaController extends Controller
     {
         $this->autorizarAcessoVisita($visita);
 
-        $visita->load(['produtos', 'comodato']);
+        $visita->load(['produtos', 'comodato', 'contrato', 'cliente']);
         $clientes = Cliente::orderBy('nome')->get();
         $produtos = Produto::orderBy('nome')->get();
         $tecnicos = Tecnico::where('ativo', true)->orderBy('nome')->get();

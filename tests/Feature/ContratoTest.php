@@ -3,6 +3,7 @@
 use App\Models\Cliente;
 use App\Models\Contrato;
 use App\Models\MeioPagamento;
+use App\Models\MovimentacaoFinanceira;
 use App\Models\Tecnico;
 use App\Models\User;
 use App\Models\Visita;
@@ -621,4 +622,60 @@ test('18. fluxo opcao a: projecao virtual na agenda e emissao manual de ordem de
     $agendaTecnicoAtualizada = $this->actingAs($this->tecnicoUser)->get(route('agendamentos.index', ['mes' => now()->format('Y-m')]));
     $agendaTecnicoAtualizada->assertOk();
     $agendaTecnicoAtualizada->assertSee("OS #{$visitaCriada->id} — Supermercado Central");
+});
+
+test('19. criacao e exibicao de ordem de servico vinculada a contrato de mensalidade fixa como inclusa no contrato', function () {
+    $cliente = Cliente::create(['nome' => 'Restaurante Sabor Nobre', 'cidade' => 'Campinas', 'estado' => 'SP']);
+
+    $contrato = Contrato::create([
+        'numero' => 'CTR-MENSAL-001',
+        'cliente_id' => $cliente->id,
+        'status' => Contrato::STATUS_ATIVO,
+        'tipo_vigencia' => Contrato::VIGENCIA_INDETERMINADO,
+        'data_inicio' => now()->startOfMonth()->toDateString(),
+        'periodicidade' => Contrato::PERIODICIDADE_MENSAL,
+        'dia_preferencial' => 10,
+        'tipo_servico' => 'controle_pragas',
+        'modelo_cobranca' => Contrato::MODELO_MENSAL,
+        'valor_total' => 600.00,
+    ]);
+
+    // Tela de criação exibe aviso de atendimento incluso no contrato, campo readonly e valor cobrado sugerido 0.00
+    $createView = $this->actingAs($this->admin)->get(route('visitas.create', ['contrato_id' => $contrato->id]));
+    $createView->assertOk();
+    $createView->assertSee('Incluso no Contrato');
+    $createView->assertSee('Atendimento coberto pela mensalidade fixa do contrato');
+    $createView->assertSee('readonly');
+
+    // Cria a OS mantendo valor cobrado 0,00 (incluso no plano)
+    $response = $this->actingAs($this->admin)->post(route('visitas.store'), [
+        'cliente_id' => $cliente->id,
+        'contrato_id' => $contrato->id,
+        'tecnico_id' => $this->tecnico->id,
+        'data_hora' => now()->format('Y-m-d 10:00:00'),
+        'status' => Visita::STATUS_CONCLUIDA,
+        'tipo_visita' => Visita::TIPO_VISITA_EXECUCAO,
+        'tipo_servico' => 'controle_pragas',
+        'valor_cobrado' => '0,00',
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $visita = Visita::where('contrato_id', $contrato->id)->first();
+    expect($visita)->not->toBeNull();
+    expect((float) $visita->valor_cobrado)->toBe(0.0);
+
+    // Não gera faturamento avulso duplicado no fluxo de caixa
+    $receitasOs = $visita->movimentacoes()->where('tipo', MovimentacaoFinanceira::TIPO_RECEITA)->count();
+    expect($receitasOs)->toBe(0);
+
+    // A visualização exibe badge de 'Incluso no Contrato'
+    $showView = $this->actingAs($this->admin)->get(route('visitas.show', $visita));
+    $showView->assertOk();
+    $showView->assertSee('Incluso no Contrato');
+    $showView->assertSee('Mensalidade Fixa: R$ 600,00');
+
+    // A listagem exibe 'Incluso no Contrato' em vez de R$ 0,00
+    $listView = $this->actingAs($this->admin)->get(route('visitas.index'));
+    $listView->assertOk();
+    $listView->assertSee('Incluso no Contrato');
 });

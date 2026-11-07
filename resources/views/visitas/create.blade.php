@@ -9,6 +9,25 @@
                 @csrf
                 <input type="hidden" name="comodato_id" value="{{ old('comodato_id', request('comodato_id')) }}">
 
+                @php
+                    $contratoVinculado = (isset($contrato) && $contrato) ? $contrato : null;
+                    if (! $contratoVinculado && (request('contrato_id') || old('contrato_id'))) {
+                        $ctrId = request('contrato_id') ?: old('contrato_id');
+                        $contratoVinculado = $contratos->firstWhere('id', $ctrId);
+                    }
+
+                    $ehMensalidadeFixa = $contratoVinculado && in_array($contratoVinculado->modelo_cobranca, [
+                        \App\Models\Contrato::MODELO_MENSAL,
+                        \App\Models\Contrato::MODELO_FIXO_ANUAL,
+                        \App\Models\Contrato::MODELO_FECHAMENTO_PERIODO,
+                    ]);
+
+                    $valorCobradoInicial = '0.00';
+                    if ($contratoVinculado && $contratoVinculado->modelo_cobranca === \App\Models\Contrato::MODELO_POR_VISITA) {
+                        $valorCobradoInicial = number_format((float) $contratoVinculado->valor_total, 2, '.', '');
+                    }
+                @endphp
+
                 @if (isset($comodato) && $comodato)
                     <div class="p-4 rounded-lg border border-sky-500/30 bg-sky-500/10 flex items-start gap-3">
                         <svg class="w-5 h-5 text-sky-500 shrink-0 mt-0.5" fill="none" stroke="currentColor"
@@ -41,8 +60,12 @@
                         <div class="text-xs">
                             <span class="font-bold text-indigo-700 dark:text-indigo-300 block text-sm">Ordem de Serviço Vinculada ao Contrato {{ $contrato->numero }}</span>
                             <p class="text-slate-600 dark:text-surface-300 mt-0.5">
-                                Cliente: <strong>{{ $contrato->cliente->nome }}</strong> • Periodicidade: <strong>{{ $contrato->periodicidadeLabel() }}</strong>.
-                                Esta visita é vinculada ao histórico e aos agendamentos contratuais.
+                                Cliente: <strong>{{ $contrato->cliente->nome }}</strong> • Periodicidade: <strong>{{ $contrato->periodicidadeLabel() }}</strong> • Modelo: <strong>{{ $contrato->modeloCobrancaLabel() }}</strong> (R$ {{ number_format((float) $contrato->valor_total, 2, ',', '.') }}).
+                                @if ($ehMensalidadeFixa)
+                                    <span class="block mt-1 text-indigo-800 dark:text-indigo-200 font-medium">✨ Atendimento coberto pela mensalidade fixa do contrato. O valor cobrado avulso da O.S. foi mantido em R$ 0,00.</span>
+                                @else
+                                    <span class="block mt-1 text-indigo-800 dark:text-indigo-200 font-medium">Cobrança unitária por visita executada (R$ {{ number_format((float) $contrato->valor_total, 2, ',', '.') }}).</span>
+                                @endif
                             </p>
                         </div>
                     </div>
@@ -55,11 +78,11 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div class="sm:col-span-2">
                             <label class="form-label" for="cliente_id">Cliente *</label>
-                            <select id="cliente_id" name="cliente_id" class="form-select" required>
+                            <select id="cliente_id" name="cliente_id" class="form-select" required onchange="window.sugerirContratoPorCliente && window.sugerirContratoPorCliente(this)">
                                 <option value="">Selecione o cliente...</option>
                                 @foreach ($clientes as $cliente)
                                     <option value="{{ $cliente->id }}"
-                                        {{ old('cliente_id', request('cliente_id')) == $cliente->id ? 'selected' : '' }}>
+                                        {{ old('cliente_id', request('cliente_id', $contrato?->cliente_id)) == $cliente->id ? 'selected' : '' }}>
                                         {{ $cliente->nome }} {{ $cliente->documento ? "({$cliente->documento})" : '' }}
                                     </option>
                                 @endforeach
@@ -69,12 +92,18 @@
                         @if (!isset($contrato) && isset($contratos) && $contratos->isNotEmpty())
                             <div class="sm:col-span-2">
                                 <label class="form-label" for="contrato_id">Contrato de Origem (Opcional)</label>
-                                <select id="contrato_id" name="contrato_id" class="form-select">
-                                    <option value="">Nenhum (Visita Avulsa / Pontual)</option>
+                                <select id="contrato_id" name="contrato_id" class="form-select" onchange="window.atualizarContratoOrigem && window.atualizarContratoOrigem(this)">
+                                    <option value="" data-valor="0.00" data-modelo="">Nenhum (Visita Avulsa / Pontual)</option>
                                     @foreach ($contratos as $ctr)
                                         <option value="{{ $ctr->id }}"
+                                            data-valor="{{ number_format((float) $ctr->valor_total, 2, '.', '') }}"
+                                            data-modelo="{{ $ctr->modelo_cobranca }}"
+                                            data-modelo-label="{{ $ctr->modeloCobrancaLabel() }}"
+                                            data-numero="{{ $ctr->numero }}"
+                                            data-cliente-id="{{ $ctr->cliente_id }}"
+                                            data-tipo-servico="{{ $ctr->tipo_servico }}"
                                             {{ old('contrato_id', request('contrato_id')) == $ctr->id ? 'selected' : '' }}>
-                                            {{ $ctr->numero }} — {{ $ctr->cliente->nome }} ({{ $ctr->periodicidadeLabel() }})
+                                            {{ $ctr->numero }} — {{ $ctr->cliente->nome }} ({{ $ctr->periodicidadeLabel() }} • {{ $ctr->modeloCobrancaLabel() }})
                                         </option>
                                     @endforeach
                                 </select>
@@ -262,18 +291,34 @@
                 {{-- Formação de Preço e Custos (Aba Financeira) --}}
                 @permissao('visitas.acessar_dados')
                     <div class="pt-4 border-t" style="border-color: var(--color-surface-800);">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-white mb-3"
-                            style="color: var(--color-primary-400);">3. Formação de Preço & Custos Operacionais</h3>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-white"
+                                style="color: var(--color-primary-400);">3. Formação de Preço & Custos Operacionais</h3>
+                            <div id="banner-contrato-incluso" class="text-xs text-sky-400 font-medium flex items-center gap-1.5 {{ $ehMensalidadeFixa ? '' : 'hidden' }}">
+                                <svg class="w-3.5 h-3.5 text-sky-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Atendimento Incluso no Contrato <strong id="hint-contrato-numero">{{ $contratoVinculado?->numero }}</strong> (Faturamento via Mensalidade)</span>
+                            </div>
+                        </div>
+
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
                                 <label class="form-label" for="valor_cobrado">Valor Cobrado do Cliente (R$) *</label>
-                                <input type="number" id="valor_cobrado" name="valor_cobrado"
-                                    value="{{ old('valor_cobrado', '0.00') }}" step="0.01" min="0"
-                                    class="form-input font-bold text-white" required oninput="recalcularFinanceiroVisita()">
+                                <div class="relative">
+                                    <input type="number" id="valor_cobrado" name="valor_cobrado"
+                                        value="{{ old('valor_cobrado', $valorCobradoInicial) }}" step="0.01" min="0"
+                                        class="form-input font-bold text-white {{ $ehMensalidadeFixa ? 'opacity-70 cursor-not-allowed !bg-surface-900 pr-28' : '' }}"
+                                        required oninput="recalcularFinanceiroVisita()"
+                                        {{ $ehMensalidadeFixa ? 'readonly' : '' }}>
+                                    <span id="badge-incluso-contrato" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-sky-400 bg-sky-500/15 px-2 py-0.5 rounded pointer-events-none {{ $ehMensalidadeFixa ? '' : 'hidden' }}">
+                                        Incluso no Contrato
+                                    </span>
+                                </div>
                             </div>
 
                             <div>
-                                <div class="flex items-center justify-between mb-1">
+                                <div class="flex items-center justify-between">
                                     <label class="form-label mb-0" for="custo_mao_de_obra">Diária / Mão de Obra Técnico
                                         (R$)</label>
                                     <span id="label-diaria-tecnico" class="text-[11px] text-emerald-400 font-medium"></span>
@@ -345,7 +390,7 @@
                         </div>
                     </div>
                 @else
-                    <input type="hidden" name="valor_cobrado" value="{{ old('valor_cobrado', '0.00') }}">
+                    <input type="hidden" name="valor_cobrado" value="{{ old('valor_cobrado', $valorCobradoInicial) }}">
                     <input type="hidden" name="custo_mao_de_obra" value="{{ old('custo_mao_de_obra', '0.00') }}">
                     <input type="hidden" name="custo_deslocamento" value="{{ old('custo_deslocamento', '0.00') }}">
                     <input type="hidden" name="gastos_adicionais" value="{{ old('gastos_adicionais', '0.00') }}">
@@ -395,5 +440,91 @@
                 window.recalcularFinanceiroVisita();
             }
         });
+
+        window.atualizarContratoOrigem = function(select) {
+            if (!select) return;
+            const opt = select.options[select.selectedIndex];
+            if (!opt) return;
+
+            const valor = opt.getAttribute('data-valor');
+            const modelo = opt.getAttribute('data-modelo');
+            const modeloLabel = opt.getAttribute('data-modelo-label') || 'Mensalidade Fixa';
+            const numero = opt.getAttribute('data-numero') || '';
+            const clienteId = opt.getAttribute('data-cliente-id');
+            const tipoServico = opt.getAttribute('data-tipo-servico');
+
+            const inputValor = document.getElementById('valor_cobrado');
+            const bannerIncluso = document.getElementById('banner-contrato-incluso');
+            const badgeIncluso = document.getElementById('badge-incluso-contrato');
+            const hintNumero = document.getElementById('hint-contrato-numero');
+
+            if (opt.value && modelo) {
+                const ehMensal = ['mensal', 'fixo_anual', 'fechamento_periodo'].includes(modelo);
+                if (ehMensal) {
+                    if (bannerIncluso) bannerIncluso.classList.remove('hidden');
+                    if (badgeIncluso) badgeIncluso.classList.remove('hidden');
+                    if (hintNumero) hintNumero.textContent = numero;
+                    if (inputValor) {
+                        inputValor.value = '0.00';
+                        inputValor.setAttribute('readonly', 'readonly');
+                        inputValor.classList.add('opacity-70', 'cursor-not-allowed', '!bg-surface-900', 'pr-28');
+                    }
+                } else {
+                    // Por visita executada
+                    if (bannerIncluso) bannerIncluso.classList.add('hidden');
+                    if (badgeIncluso) badgeIncluso.classList.add('hidden');
+                    if (inputValor) {
+                        inputValor.value = parseFloat(valor || 0).toFixed(2);
+                        inputValor.removeAttribute('readonly');
+                        inputValor.classList.remove('opacity-70', 'cursor-not-allowed', '!bg-surface-900', 'pr-28');
+                    }
+                }
+            } else {
+                // Nenhum contrato selecionado
+                if (bannerIncluso) bannerIncluso.classList.add('hidden');
+                if (badgeIncluso) badgeIncluso.classList.add('hidden');
+                if (inputValor) {
+                    inputValor.removeAttribute('readonly');
+                    inputValor.classList.remove('opacity-70', 'cursor-not-allowed', '!bg-surface-900', 'pr-28');
+                }
+            }
+
+            if (clienteId) {
+                const clienteSelect = document.getElementById('cliente_id');
+                if (clienteSelect && (!clienteSelect.value || clienteSelect.value !== clienteId)) {
+                    clienteSelect.value = clienteId;
+                }
+            }
+
+            if (tipoServico) {
+                const tipoServicoSelect = document.getElementById('tipo_servico');
+                if (tipoServicoSelect && tipoServico) {
+                    tipoServicoSelect.value = tipoServico;
+                }
+            }
+
+            if (typeof window.recalcularFinanceiroVisita === 'function') {
+                window.recalcularFinanceiroVisita();
+            }
+        };
+
+        window.sugerirContratoPorCliente = function(selectCliente) {
+            const contratoSelect = document.getElementById('contrato_id');
+            if (!contratoSelect) return;
+
+            const clienteId = selectCliente.value;
+            if (!clienteId) return;
+
+            const optAtual = contratoSelect.options[contratoSelect.selectedIndex];
+            if (optAtual && optAtual.getAttribute('data-cliente-id') === clienteId) {
+                return;
+            }
+
+            const opcoesCliente = Array.from(contratoSelect.options).filter(opt => opt.getAttribute('data-cliente-id') === clienteId);
+            if (opcoesCliente.length === 1) {
+                contratoSelect.value = opcoesCliente[0].value;
+                window.atualizarContratoOrigem(contratoSelect);
+            }
+        };
     </script>
 @endsection

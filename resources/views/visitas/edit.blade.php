@@ -8,6 +8,23 @@
             <form method="POST" action="{{ route('visitas.update', $visita) }}" class="space-y-6" onsubmit="return window.validarEstoqueVisitaForm ? window.validarEstoqueVisitaForm(this) : true;">
                 @csrf @method('PUT')
 
+                @if ($visita->contrato)
+                    <div
+                        class="p-4 rounded-lg flex items-start gap-3 bg-indigo-50 border border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-800/50 mb-4">
+                        <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <div class="text-xs">
+                            <span class="font-bold text-indigo-700 dark:text-indigo-300 block text-sm">Ordem de Serviço Vinculada ao Contrato {{ $visita->contrato->numero }}</span>
+                            <p class="text-slate-600 dark:text-surface-300 mt-0.5">
+                                Cliente: <strong>{{ $visita->cliente->nome }}</strong> • Periodicidade: <strong>{{ $visita->contrato->periodicidadeLabel() }}</strong> • Modelo: <strong>{{ $visita->contrato->modeloCobrancaLabel() }}</strong> (R$ {{ number_format((float) $visita->contrato->valor_total, 2, ',', '.') }}).
+                            </p>
+                        </div>
+                    </div>
+                @endif
+
                 {{-- Informações Operacionais da Visita --}}
                 <div>
                     <h3 class="text-xs font-bold uppercase tracking-wider text-white mb-3"
@@ -213,19 +230,46 @@
 
                 {{-- Formação de Preço e Custos (Aba Financeira) --}}
                 @permissao('visitas.acessar_dados')
+                    @php
+                        $ehContratoMensalEdit = $visita->contrato && in_array($visita->contrato->modelo_cobranca, [
+                            \App\Models\Contrato::MODELO_MENSAL,
+                            \App\Models\Contrato::MODELO_FIXO_ANUAL,
+                            \App\Models\Contrato::MODELO_FECHAMENTO_PERIODO,
+                        ]);
+                    @endphp
                     <div class="pt-4 border-t" style="border-color: var(--color-surface-800);">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-white mb-3"
-                            style="color: var(--color-primary-400);">3. Formação de Preço & Custos Operacionais</h3>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-white"
+                                style="color: var(--color-primary-400);">3. Formação de Preço & Custos Operacionais</h3>
+                            @if ($ehContratoMensalEdit)
+                                <div class="text-xs text-sky-400 font-medium flex items-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5 text-sky-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span>Atendimento Incluso no Contrato <strong>{{ $visita->contrato->numero }}</strong> (Faturamento via Mensalidade)</span>
+                                </div>
+                            @endif
+                        </div>
+
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
                                 <label class="form-label" for="valor_cobrado">Valor Cobrado do Cliente (R$) *</label>
-                                <input type="number" id="valor_cobrado" name="valor_cobrado"
-                                    value="{{ old('valor_cobrado', $visita->valor_cobrado) }}" step="0.01" min="0"
-                                    class="form-input font-bold text-white" required oninput="recalcularFinanceiroVisita()">
+                                <div class="relative">
+                                    <input type="number" id="valor_cobrado" name="valor_cobrado"
+                                        value="{{ old('valor_cobrado', $visita->valor_cobrado) }}" step="0.01" min="0"
+                                        class="form-input font-bold text-white {{ $ehContratoMensalEdit ? 'opacity-70 cursor-not-allowed !bg-surface-900 pr-28' : '' }}"
+                                        required oninput="recalcularFinanceiroVisita()"
+                                        {{ $ehContratoMensalEdit ? 'readonly' : '' }}>
+                                    @if ($ehContratoMensalEdit)
+                                        <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-sky-400 bg-sky-500/15 px-2 py-0.5 rounded pointer-events-none">
+                                            Incluso no Contrato
+                                        </span>
+                                    @endif
+                                </div>
                             </div>
 
                             <div>
-                                <div class="flex items-center justify-between mb-1">
+                                <div class="flex items-center justify-between">
                                     <label class="form-label mb-0" for="custo_mao_de_obra">Diária / Mão de Obra Técnico
                                         (R$)</label>
                                     <span id="label-diaria-tecnico" class="text-[11px] text-emerald-400 font-medium"></span>

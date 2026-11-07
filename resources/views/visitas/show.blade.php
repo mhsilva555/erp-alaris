@@ -250,20 +250,32 @@
                     <div class="p-3 rounded-lg"
                         style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                         <span class="text-xs block" style="color: var(--color-surface-400);">Valor Cobrado</span>
-                        <span class="text-lg font-bold text-emerald-400 whitespace-nowrap">R$
-                            {{ number_format($visita->valor_cobrado, 2, ',', '.') }}</span>
+                        @if ($visita->contrato && (float) $visita->valor_cobrado == 0)
+                            <div class="flex items-center gap-1.5 mt-0.5">
+                                <span class="badge badge-info text-xs">Incluso no Contrato</span>
+                            </div>
+                            <span class="text-[11px] text-surface-400 block mt-0.5">{{ $visita->contrato->modeloCobrancaLabel() }}: R$ {{ number_format((float) $visita->contrato->valor_total, 2, ',', '.') }}</span>
+                        @else
+                            <span class="text-lg font-bold text-emerald-400 whitespace-nowrap">R$
+                                {{ number_format($visita->valor_cobrado, 2, ',', '.') }}</span>
+                        @endif
                     </div>
                     <div class="p-3 rounded-lg"
                         style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
                         <span class="text-xs block" style="color: var(--color-surface-400);">Lucro Bruto (Margem)</span>
-                        <div class="flex items-baseline gap-2">
-                            <span class="text-lg font-bold text-white whitespace-nowrap">R$
-                                {{ number_format($visita->lucro_bruto, 2, ',', '.') }}</span>
-                            <span
-                                class="text-xs font-semibold {{ $visita->margemPercentual() >= 40 ? 'text-emerald-400' : 'text-amber-400' }}">
-                                ({{ number_format($visita->margemPercentual(), 1) }}%)
-                            </span>
-                        </div>
+                        @if ($visita->contrato && (float) $visita->valor_cobrado == 0)
+                            <span class="text-sm font-semibold text-sky-300 block mt-1">Faturamento Contratual</span>
+                            <span class="text-[11px] text-surface-400 block mt-0.5">Rentabilidade apurada na mensalidade do contrato</span>
+                        @else
+                            <div class="flex items-baseline gap-2">
+                                <span class="text-lg font-bold text-white whitespace-nowrap">R$
+                                    {{ number_format($visita->lucro_bruto, 2, ',', '.') }}</span>
+                                <span
+                                    class="text-xs font-semibold {{ $visita->margemPercentual() >= 40 ? 'text-emerald-400' : 'text-amber-400' }}">
+                                    ({{ number_format($visita->margemPercentual(), 1) }}%)
+                                </span>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
