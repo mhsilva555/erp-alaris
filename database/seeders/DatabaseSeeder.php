@@ -17,10 +17,10 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         User::firstOrCreate(
-            ['email' => 'admin@alaris.com'],
+            ['email' => 'alaris@alarisservice.com.br'],
             [
                 'name' => 'Administrador',
-                'password' => bcrypt('12345678'),
+                'password' => bcrypt('alaris4817'),
                 'role' => User::ROLE_ADMIN,
             ]
         );
