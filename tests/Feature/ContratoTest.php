@@ -66,7 +66,14 @@ test('2. criacao de contrato vinculado a um cliente com itens e valores', functi
     expect($contrato->cliente_id)->toBe($cliente->id);
     expect((float) $contrato->valor_total)->toBe(350.00); // 400 - 50 = 350
     expect($contrato->itens)->toHaveCount(1);
-    expect($contrato->visitas)->not->toBeEmpty(); // Ativo gerou visitas
+    expect($contrato->estaAtivo())->toBeTrue();
+    // Na Opção A: Ao criar como ativo, não cria visitas vazias estáticas sem técnico no banco antecipadamente
+    expect($contrato->visitas)->toBeEmpty();
+
+    // Agenda Geral projeta dinamicamente o evento para o mês
+    $agendaResponse = $this->actingAs($this->admin)->get(route('agendamentos.index', ['mes' => now()->format('Y-m')]));
+    $agendaResponse->assertOk();
+    $agendaResponse->assertSee('Atendimento Contratual: Empresa Contratante');
 });
 
 test('3. multiplos contratos independentes para o mesmo cliente', function () {
@@ -300,8 +307,10 @@ test('10. suspensao e reativacao de contratos com cancelamento de futuras', func
 
     $contrato->refresh();
     expect($contrato->status)->toBe(Contrato::STATUS_ATIVO);
-    // Novas visitas ativas foram agendadas
-    expect($contrato->visitas()->where('status', Visita::STATUS_AGENDADA)->count())->toBeGreaterThan(0);
+    // Na Opção A, o contrato ativo projeta os atendimentos previstos na Agenda Geral
+    $agenda = $this->actingAs($this->admin)->get(route('agendamentos.index', ['mes' => now()->format('Y-m')]));
+    $agenda->assertOk();
+    $agenda->assertSee('Atendimento Contratual: Cliente Suspensão');
 });
 
 test('11. alteracao de periodicidade recalcula visitas futuras preservando historico', function () {
@@ -548,4 +557,68 @@ test('17. selecao e persistencia de meio de pagamento no contrato', function () 
     $contrato->refresh();
     expect($contrato->meio_pagamento_id)->toBe($meioPix->id);
     expect($contrato->meioPagamento->codigo)->toBe('pix');
+});
+
+test('18. fluxo opcao a: projecao virtual na agenda e emissao manual de ordem de servico com tecnico', function () {
+    $cliente = Cliente::create(['nome' => 'Supermercado Central', 'cidade' => 'Jundiaí', 'estado' => 'SP']);
+
+    // Cria contrato ativo
+    $contrato = Contrato::create([
+        'numero' => 'CTR-OPCAO-A',
+        'cliente_id' => $cliente->id,
+        'status' => Contrato::STATUS_ATIVO,
+        'tipo_vigencia' => Contrato::VIGENCIA_INDETERMINADO,
+        'data_inicio' => now()->startOfMonth()->toDateString(),
+        'periodicidade' => Contrato::PERIODICIDADE_MENSAL,
+        'dia_preferencial' => 12,
+        'tipo_servico' => 'controle_pragas',
+        'valor_total' => 500.00,
+    ]);
+
+    // Não existem visitas reais estáticas no banco
+    expect($contrato->visitas)->toBeEmpty();
+
+    // Na Agenda Geral, o atendimento aparece projetado
+    $agendaView = $this->actingAs($this->admin)->get(route('agendamentos.index', ['mes' => now()->format('Y-m')]));
+    $agendaView->assertOk();
+    $agendaView->assertSee('Atendimento Contratual: Supermercado Central');
+    $agendaView->assertSee('Previsto (Contrato)');
+
+    // Técnico não visualiza eventos não atribuídos
+    $agendaTecnico = $this->actingAs($this->tecnicoUser)->get(route('agendamentos.index', ['mes' => now()->format('Y-m')]));
+    $agendaTecnico->assertOk();
+    $agendaTecnico->assertDontSee('Atendimento Contratual: Supermercado Central');
+
+    // Gestor clica no evento e emite a Ordem de Serviço com técnico atribuído
+    $dataAtendimento = now()->startOfMonth()->day(12)->setTime(14, 0);
+    $responseOs = $this->actingAs($this->admin)->post(route('visitas.store'), [
+        'cliente_id' => $cliente->id,
+        'contrato_id' => $contrato->id,
+        'tecnico_id' => $this->tecnico->id,
+        'data_hora' => $dataAtendimento->format('Y-m-d H:i:s'),
+        'status' => Visita::STATUS_AGENDADA,
+        'tipo_visita' => Visita::TIPO_VISITA_EXECUCAO,
+        'tipo_servico' => 'controle_pragas',
+        'valor_cobrado' => '500,00',
+    ]);
+
+    $responseOs->assertSessionHasNoErrors();
+    $responseOs->assertRedirect();
+
+    // Agora existe 1 visita real vinculada ao contrato com técnico atribuído
+    $contrato->refresh();
+    expect($contrato->visitas)->toHaveCount(1);
+    $visitaCriada = $contrato->visitas->first();
+    expect($visitaCriada->tecnico_id)->toBe($this->tecnico->id);
+
+    // Na Agenda Geral, o evento agora é a OS real com técnico e não duplica com a projeção
+    $agendaAtualizada = $this->actingAs($this->admin)->get(route('agendamentos.index', ['mes' => now()->format('Y-m')]));
+    $agendaAtualizada->assertOk();
+    $agendaAtualizada->assertSee("OS #{$visitaCriada->id} — Supermercado Central");
+    $agendaAtualizada->assertSee($this->tecnico->nome);
+
+    // E o técnico agora enxerga a OS em sua agenda de campo
+    $agendaTecnicoAtualizada = $this->actingAs($this->tecnicoUser)->get(route('agendamentos.index', ['mes' => now()->format('Y-m')]));
+    $agendaTecnicoAtualizada->assertOk();
+    $agendaTecnicoAtualizada->assertSee("OS #{$visitaCriada->id} — Supermercado Central");
 });

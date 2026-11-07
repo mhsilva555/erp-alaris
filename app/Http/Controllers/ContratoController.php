@@ -112,7 +112,7 @@ class ContratoController extends Controller
             'itens.*.valor_unitario' => 'required|numeric|min:0',
         ]);
 
-        $contrato = DB::transaction(function () use ($validated, $request, $service) {
+        $contrato = DB::transaction(function () use ($validated, $request) {
             $dataContrato = collect($validated)->except('itens')->toArray();
             $dataContrato['permite_renovacao'] = $request->has('permite_renovacao');
             $dataContrato['desconto'] = (float) ($validated['desconto'] ?? 0);
@@ -141,11 +141,6 @@ class ContratoController extends Controller
 
             $valorFinal = max(0, $subtotalItens - $dataContrato['desconto']);
             $contrato->update(['valor_total' => $valorFinal]);
-
-            // Se criado já como ativo, calcula e agenda as visitas imediatas
-            if ($contrato->status === Contrato::STATUS_ATIVO) {
-                $service->gerarVisitas($contrato);
-            }
 
             return $contrato;
         });
@@ -277,7 +272,7 @@ class ContratoController extends Controller
             ->with('sucesso', 'Contrato atualizado com sucesso.');
     }
 
-    public function ativar(Contrato $contrato, ContratoAgendamentoService $service)
+    public function ativar(Contrato $contrato)
     {
         $this->autorizar('contratos.ativar');
 
@@ -287,10 +282,9 @@ class ContratoController extends Controller
         }
 
         $contrato->update(['status' => Contrato::STATUS_ATIVO]);
-        $criadas = $service->gerarVisitas($contrato);
 
         return redirect()->route('contratos.show', $contrato)
-            ->with('sucesso', "Contrato ativado com sucesso! {$criadas} visitas foram agendadas.");
+            ->with('sucesso', 'Contrato ativado com sucesso! Os atendimentos previstos estão disponíveis na Agenda Geral.');
     }
 
     public function suspender(Contrato $contrato, ContratoAgendamentoService $service)

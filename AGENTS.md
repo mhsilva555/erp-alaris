@@ -154,9 +154,11 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 - **Fluxo Estrutural**:
   $$\text{Cliente} \longrightarrow \text{Contrato} \longrightarrow \text{Visitas Agendadas} \longrightarrow \text{Ordem de Serviço (OS)}$$
 - **Desacoplamento do Cliente**: O cadastro de clientes não dita mais a periodicidade de atendimento. Um cliente pode existir sem contratos ou gerenciar múltiplos contratos simultâneos com vigências, serviços e frequências distintas.
-- **Geração Automática e Progressiva (`ContratoAgendamentoService`)**:
-  - Contratos ativos geram visitas automáticas idempotentes.
-  - Para contratos por prazo indeterminado, adota-se um horizonte móvel progressivo de 90 dias, mantido diariamente via `php artisan contratos:gerar-visitas`.
+- **Projeção Dinâmica na Agenda & Emissão de O.S. sob Demanda (Opção A)**:
+  - Contratos ativos **não criam ordens de serviço vazias antecipadamente no banco de dados**.
+  - A Agenda Geral projeta dinamicamente os atendimentos previstos para o mês visualizado via `ContratoAgendamentoService::calcularDatasNoPeriodo()`.
+  - O gestor despacha a equipe emitindo a Ordem de Serviço real diretamente pela Agenda ou pela visualização do contrato, atribuindo o técnico de campo e horário exato.
+  - Ao emitir a O.S., a visita real substitui a projeção no calendário sem duplicidade.
   - Tratamento seguro de datas inexistentes (ex.: dia 31 em meses de 28, 29 ou 30 dias ajustado via `min($dia, $mes->daysInMonth)`).
 - **Invariante de Preservação de Histórico Operacional**:
   - Ao alterar, suspender ou cancelar um contrato, o sistema expurga/cancela exclusivamente visitas futuras pendentes (`agendada`).

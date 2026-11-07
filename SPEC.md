@@ -90,14 +90,14 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
   - O valor total do contrato espelha a soma dos itens deduzida de eventuais descontos.
 - **Informações Comerciais**:
   - `valor_total`, `desconto`, `modelo_cobranca` (`por_visita`, `mensal_fixo`, `anual`), `condicoes_pagamento` e `observacoes_comerciais`.
-- **Geração Automática e Progressiva de Visitas (`ContratoAgendamentoService`)**:
-  - **Prazo Indeterminado**: Horizonte móvel de 90 dias a partir da data de ativação ou execução da rotina.
-  - **Prazo Determinado**: Gera todas as visitas dentro do período de vigência (`data_inicio` até `data_fim`).
-  - **Idempotência**: Verifica agendamentos existentes no mesmo dia e contrato para evitar duplicação.
-  - **Comando Agendado**: `php artisan contratos:gerar-visitas {--dias=90}` executa diariamente via console/scheduler para manter a agenda futura abastecida e expirar contratos com vigência vencida.
+- **Projeção Dinâmica na Agenda e Emissão de O.S. sob Demanda (Opção A)**:
+  - Ao ativar ou criar um contrato, o sistema **não insere dezenas de O.S. vazias no banco de dados**.
+  - A **Agenda Geral** projeta dinamicamente os atendimentos previstos para o período visualizado em memória a partir da periodicidade e vigência contratual.
+  - O gestor despacha a equipe clicando no evento da Agenda ou no botão **"+ Emitir Ordem de Serviço"** no contrato, definindo o técnico de campo responsável e o horário exato.
+  - Ao emitir a O.S., nasce a `Visita` real e a Agenda passa a exibir o evento com o técnico alocado, eliminando duplicações de forma idempotente.
 - **Alterações Contratuais & Sincronização**:
-  - Edição de vigência ou periodicidade chama `sincronizarAgendamentosFuturos()`, que remove com segurança apenas visitas pendentes (`agendada`), preservando absolutamente atendimentos `em_andamento` ou `concluida` e Ordens de Serviço executadas.
-  - Suspensão ou cancelamento aciona `tratarSuspensaoOuCancelamento()`, cancelando visitas pendentes e estornando eventuais frações baixadas do estoque.
+  - Edição de vigência ou periodicidade reflete imediatamente na Agenda Geral sem sobrecarga no banco.
+  - Suspensão ou cancelamento cessa as projeções na Agenda e expurga/cancela com segurança eventuais O.S. agendadas futuras em aberto, preservando atendimentos já executados.
 
 ### 2.3. Módulo Técnico: Gestão de Equipamentos, Comodato e O.S.
 - **Catálogo & Gestão de Equipamentos (`equipamentos`)**:

@@ -83,6 +83,38 @@ class ContratoAgendamentoService
     }
 
     /**
+     * Calcula as datas previstas de atendimento para um período delimitado (ex: mês visualizado na Agenda).
+     *
+     * @return Collection<int, Carbon>
+     */
+    public function calcularDatasNoPeriodo(Contrato $contrato, Carbon $inicioPeriodo, Carbon $fimPeriodo): Collection
+    {
+        if ($contrato->status !== Contrato::STATUS_ATIVO) {
+            return collect();
+        }
+
+        // Se o contrato inicia após o período ou expira antes do período, retorna vazio
+        if ($contrato->data_inicio->gt($fimPeriodo)) {
+            return collect();
+        }
+
+        if ($contrato->tipo_vigencia === Contrato::VIGENCIA_DETERMINADO && $contrato->data_fim && $contrato->data_fim->lt($inicioPeriodo)) {
+            return collect();
+        }
+
+        $limiteCalculo = $fimPeriodo->copy()->endOfDay();
+        if ($contrato->tipo_vigencia === Contrato::VIGENCIA_DETERMINADO && $contrato->data_fim && $contrato->data_fim->lt($limiteCalculo)) {
+            $limiteCalculo = $contrato->data_fim->copy()->endOfDay();
+        }
+
+        $todasDatas = $this->calcularDatasPrevistas($contrato, $limiteCalculo);
+
+        return $todasDatas->filter(function (Carbon $d) use ($inicioPeriodo, $fimPeriodo) {
+            return $d->gte($inicioPeriodo->copy()->startOfDay()) && $d->lte($fimPeriodo->copy()->endOfDay());
+        })->values();
+    }
+
+    /**
      * Calcula a lista de momentos (Carbon) para atendimento de acordo com a periodicidade e regras do contrato.
      *
      * @return Collection<int, Carbon>

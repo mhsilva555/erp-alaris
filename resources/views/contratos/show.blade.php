@@ -63,21 +63,16 @@
                     @endif
 
                     @if($contrato->estaAtivo())
-                        @permissao('contratos.gerar_visitas')
-                        <form action="{{ route('contratos.gerar-visitas', $contrato) }}" method="POST" class="inline">
-                            @csrf
-                            <button type="submit" class="btn btn-outline btn-sm text-xs" title="Abastecer a agenda com os próximos ciclos de visitas">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                                Abastecer Agenda (+90d)
-                            </button>
-                        </form>
-                        @endpermissao
+                        <a href="{{ route('agendamentos.index') }}" class="btn btn-outline btn-sm text-xs" title="Visualizar a escala e atendimentos previstos na Agenda">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            Ver na Agenda
+                        </a>
 
                         @permissao('visitas.criar')
                         <a href="{{ route('visitas.create', ['cliente_id' => $contrato->cliente_id, 'contrato_id' => $contrato->id]) }}"
                             class="btn btn-primary btn-sm">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                            + Nova OS Manual
+                            + Emitir Ordem de Serviço
                         </a>
                         @endpermissao
                     @endif
@@ -123,9 +118,9 @@
             <div class="card stat-card">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="stat-label">Total de Visitas no Contrato</p>
+                        <p class="stat-label">Total de O.S. Emitidas</p>
                         <p class="stat-value text-white">{{ $metricas['total_visitas'] }}</p>
-                        <p class="stat-helper">Geradas pelo cronograma</p>
+                        <p class="stat-helper">Vinculadas a este contrato</p>
                     </div>
                     <div class="stat-icon" style="background: rgba(35, 180, 235, 0.15); color: #23b4eb;">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -349,13 +344,13 @@
                             <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                             </svg>
-                            Ordens de Serviço & Visitas do Contrato ({{ $contrato->visitas->count() }})
+                            Ordens de Serviço Emitidas ({{ $contrato->visitas->count() }})
                         </h3>
                         @if($contrato->estaAtivo())
                             @permissao('visitas.criar')
                             <a href="{{ route('visitas.create', ['cliente_id' => $contrato->cliente_id, 'contrato_id' => $contrato->id]) }}"
-                                class="btn btn-secondary btn-sm text-xs">
-                                + Agendar OS Avulsa
+                                class="btn btn-primary btn-sm text-xs">
+                                + Emitir Ordem de Serviço
                             </a>
                             @endpermissao
                         @endif
@@ -366,18 +361,18 @@
                             <div class="empty-state-icon">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                             </div>
-                            <h4 class="empty-state-title">Nenhuma visita gerada ainda</h4>
-                            <p class="empty-state-desc">
+                            <h4 class="empty-state-title">Nenhuma Ordem de Serviço emitida ainda</h4>
+                            <p class="empty-state-desc max-w-md mx-auto">
                                 @if($contrato->status === \App\Models\Contrato::STATUS_RASCUNHO)
-                                    Este contrato está em modo rascunho. Ative o contrato para gerar automaticamente as primeiras visitas na agenda.
+                                    Este contrato está em modo rascunho. Ative o contrato para que seus atendimentos previstos passem a ser projetados na Agenda Geral.
                                 @else
-                                    Clique no botão de abastecer agenda ou aguarde a rotina automática.
+                                    Este contrato está ativo e projeta seus atendimentos na Agenda Geral. Utilize o botão <strong>"+ Emitir Ordem de Serviço"</strong> acima ou clique no evento na Agenda para definir o técnico e despachar a O.S.
                                 @endif
                             </p>
                             @if($contrato->podeAtivar())
                                 <form action="{{ route('contratos.ativar', $contrato) }}" method="POST" class="mt-3">
                                     @csrf
-                                    <button type="submit" class="btn btn-primary btn-sm">Ativar e Gerar Visitas</button>
+                                    <button type="submit" class="btn btn-primary btn-sm">Ativar Contrato</button>
                                 </form>
                             @endif
                         </div>

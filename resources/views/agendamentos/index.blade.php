@@ -286,6 +286,8 @@
                                                         @if ($item['tipo_item'] === 'visita')
                                                             @if ($item['eh_retorno_preventivo'] ?? false)
                                                                 Retorno Preventivo (Reforço)
+                                                            @elseif ($item['eh_contrato_projetado'] ?? false)
+                                                                Atendimento Contratual
                                                             @elseif ($item['eh_recorrente_projetado'] ?? false)
                                                                 Visita Recorrente (Projetada)
                                                             @else

@@ -9,6 +9,7 @@ use App\Models\MovimentacaoFinanceira;
 use App\Models\NotificacaoAgendamento;
 use App\Models\Tecnico;
 use App\Models\Visita;
+use App\Services\ContratoAgendamentoService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -47,7 +48,53 @@ class AgendamentoController extends Controller
 
         $visitas = $visitasQuery->orderBy('data_hora')->get();
 
-        // 1.1. Visitas Contratuais Recorrentes Projetadas para Clientes Ativos (Fallback Legado sem Contrato Ativo)
+        // 1.1. Atendimentos de Contratos Ativos Projetados na Agenda
+        $itensContratosRecorrentes = collect();
+        if ((! $user || $user->isAdmin()) && ! $tecnicoId) {
+            $contratosAtivos = Contrato::with(['cliente', 'itens'])
+                ->where('status', Contrato::STATUS_ATIVO)
+                ->get();
+
+            $serviceAgendamento = app(ContratoAgendamentoService::class);
+
+            foreach ($contratosAtivos as $ctr) {
+                $datasNoPeriodo = $serviceAgendamento->calcularDatasNoPeriodo($ctr, $dataInicio, $dataFim);
+
+                foreach ($datasNoPeriodo as $dataHoraPrevista) {
+                    // Prevenção de duplicidade com O.S. já emitida:
+                    // Se já existe uma Visita/OS real para este contrato no mesmo dia, não exibe o evento projetado.
+                    $jaExisteOs = $visitas->first(function ($v) use ($ctr, $dataHoraPrevista) {
+                        return (int) $v->contrato_id === (int) $ctr->id
+                            && $v->data_hora->toDateString() === $dataHoraPrevista->toDateString();
+                    });
+
+                    if ($jaExisteOs) {
+                        continue;
+                    }
+
+                    $itensContratosRecorrentes->push([
+                        'tipo_item' => 'visita',
+                        'data_hora' => $dataHoraPrevista,
+                        'titulo' => "Atendimento Contratual: {$ctr->cliente->nome}",
+                        'subtitulo' => "Contrato {$ctr->numero} ({$ctr->periodicidadeLabel()}) • {$ctr->cliente->cidade_estado}",
+                        'detalhes' => 'Serviço contratual previsto — clique para emitir e despachar a O.S.',
+                        'status' => 'Previsto (Contrato)',
+                        'url' => route('visitas.create', [
+                            'cliente_id' => $ctr->cliente_id,
+                            'contrato_id' => $ctr->id,
+                            'data' => $dataHoraPrevista->format('Y-m-d\TH:i'),
+                            'tipo_servico' => $ctr->tipo_servico,
+                        ]),
+                        'model' => $ctr,
+                        'contrato' => $ctr,
+                        'eh_recorrente_projetado' => true,
+                        'eh_contrato_projetado' => true,
+                    ]);
+                }
+            }
+        }
+
+        // 1.2. Visitas Contratuais Recorrentes Projetadas para Clientes Ativos (Fallback Legado sem Contrato Ativo)
         $itensVisitasRecorrentes = collect();
         if ((! $user || $user->isAdmin()) && ! $tecnicoId) {
             $clientesRecorrentes = Cliente::with('visitas')
@@ -255,12 +302,12 @@ class AgendamentoController extends Controller
                 ->get();
         }
 
-        // Totais gerais (incluindo ocorrências reais, recorrentes projetadas e retornos preventivos)
+        // Totais gerais (incluindo ocorrências reais, contratos projetados, legados e retornos)
         $totais = [
-            'total_visitas' => $visitas->count() + $itensVisitasRecorrentes->count() + $itensRetornosPreventivos->count(),
+            'total_visitas' => $visitas->count() + $itensContratosRecorrentes->count() + $itensVisitasRecorrentes->count() + $itensRetornosPreventivos->count(),
             'total_comodatos' => $itensComodatos->count(),
             'total_followups' => $followups->count(),
-            'total_geral' => $visitas->count() + $itensVisitasRecorrentes->count() + $itensRetornosPreventivos->count() + $itensComodatos->count() + $followups->count(),
+            'total_geral' => $visitas->count() + $itensContratosRecorrentes->count() + $itensVisitasRecorrentes->count() + $itensRetornosPreventivos->count() + $itensComodatos->count() + $followups->count(),
         ];
 
         // Mapeamento dos itens de visitas reais para visualização unificada na agenda
@@ -293,6 +340,7 @@ class AgendamentoController extends Controller
         $agenda = collect();
         if ($tipoFiltro === 'todos' || $tipoFiltro === 'visitas') {
             $agenda = $agenda->concat($itensVisitas)
+                ->concat($itensContratosRecorrentes)
                 ->concat($itensVisitasRecorrentes)
                 ->concat($itensRetornosPreventivos);
         }

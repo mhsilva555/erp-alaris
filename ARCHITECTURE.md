@@ -297,13 +297,12 @@ flowchart TD
     B --> C["Adição de Itens & Serviços"]
     C --> D["Configuração da Periodicidade & Vigência"]
     D --> E{"Ativação do Contrato"}
-    E -->|Ativar| F["ContratoAgendamentoService"]
-    F -->|Cálculo de Datas Idempotente| G["Geração de Visitas Agendadas"]
-    G --> H["Agenda Geral Unificada"]
-    H --> I["Atribuição de Técnico & Data/Hora"]
-    I --> J["Emissão da Ordem de Serviço (OS)"]
-    J --> K["Execução de Campo"]
-    K --> L["Conclusão da OS & Baixa de Estoque"]
+    E -->|Ativar| F["Contrato Ativo (Sem gerar OSs vazias no BD)"]
+    F -->|Cálculo em Memória por Período| G["Agenda Geral (Eventos Previstos)"]
+    G --> H["Gestor: Seleção do Técnico & Horário"]
+    H --> I["Emissão da Ordem de Serviço (OS Real)"]
+    I --> J["Escala de Campo do Técnico"]
+    J --> K["Conclusão da OS & Baixa de Estoque"]
 ```
 
 #### Ciclo de Vida do Contrato (State Machine)
