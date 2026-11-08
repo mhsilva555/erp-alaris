@@ -478,11 +478,11 @@
                     </div>
                     <div class="info-group">
                         <span class="info-label">CPF / CNPJ</span>
-                        <span class="info-val">{{ $visita->cliente->cpf_cnpj ?? 'Não informado' }}</span>
+                        <span class="info-val">{{ $visita->cliente->documento_formatado ?? $visita->cliente->documento ?? 'Não informado' }}</span>
                     </div>
                     <div class="info-group">
                         <span class="info-label">Contato / Telefone</span>
-                        <span class="info-val">{{ $visita->cliente->telefone ?? '—' }}
+                        <span class="info-val">{{ $visita->cliente->telefone_formatado ?? $visita->cliente->telefone ?? '—' }}
                             ({{ $visita->cliente->email ?? 'Sem e-mail' }})</span>
                     </div>
                 </div>
@@ -498,7 +498,7 @@
                     <div class="info-group">
                         <span class="info-label">Bairro / CEP</span>
                         <span class="info-val">{{ $visita->cliente->bairro ?? '—' }} — CEP:
-                            {{ $visita->cliente->cep ?? '—' }}</span>
+                            {{ $visita->cliente->cep_formatado ?? $visita->cliente->cep ?? '—' }}</span>
                     </div>
                 </div>
             </div>
@@ -585,32 +585,54 @@
             @endif
 
             {{-- Equipamentos em Comodato Instalados --}}
-            @if ($visita->cliente->comodatos && $visita->cliente->comodatos->isNotEmpty())
+            @php
+                $comodatosOs = ($visita->contrato && $visita->contrato->comodatos && $visita->contrato->comodatos->isNotEmpty())
+                    ? $visita->contrato->comodatos
+                    : ($visita->cliente->comodatos
+                        ? $visita->cliente->comodatos->filter(fn ($c) => $c->estaOperacionalmenteAtivo() || $c->id === $visita->comodato_id)
+                        : collect());
+            @endphp
+            @if ($comodatosOs->isNotEmpty())
                 <div class="section-title">4. Dispositivos & Equipamentos em Comodato no Local</div>
                 <table>
                     <thead>
                         <tr>
-                            <th>Código / Dispositivo</th>
-                            <th>Localização Interna</th>
+                            <th>Equipamento / Dispositivo</th>
+                            <th>Localização / Observações</th>
                             <th>Última Reposição</th>
                             <th>Próxima Reposição</th>
                             <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($visita->cliente->comodatos as $comodato)
+                        @foreach ($comodatosOs as $comodato)
                             <tr>
                                 <td>
-                                    <strong>{{ $comodato->codigo_identificacao }}</strong> — {{ $comodato->tipo }}
+                                    <strong>{{ $comodato->nome_equipamento ?: ($comodato->equipamento?->nome ?? 'Equipamento') }}</strong>
+                                    <span style="font-size: 11px; font-weight: 700; color: #0e7ca8; margin-left: 4px;">({{ $comodato->quantidade }} un)</span>
+                                    <div style="font-size: 10px; color: #6b7280; margin-top: 2px;">
+                                        @if ($comodato->produto)
+                                            Insumo: {{ $comodato->produto->nome }} •
+                                        @endif
+                                        Ciclo: a cada {{ $comodato->periodicidade_dias }} dias
+                                    </div>
                                 </td>
-                                <td>{{ $comodato->localizacao ?? 'Não especificado' }}</td>
+                                <td>{{ $comodato->observacoes ?: 'Não especificado' }}</td>
                                 <td>{{ $comodato->data_ultima_reposicao ? $comodato->data_ultima_reposicao->format('d/m/Y') : 'Inicial' }}
                                 </td>
                                 <td
                                     style="font-weight: 600; color: {{ $comodato->estaAtrasado() ? '#dc2626' : '#059669' }}">
                                     {{ $comodato->data_proxima_reposicao ? $comodato->data_proxima_reposicao->format('d/m/Y') : '—' }}
                                 </td>
-                                <td>{{ ucfirst($comodato->status) }}</td>
+                                <td>
+                                    @if ($comodato->estaAtrasado())
+                                        <span style="color: #dc2626; font-weight: 700;">Atrasado</span>
+                                    @elseif ($comodato->data_proxima_reposicao && $comodato->data_proxima_reposicao->lte(now()->addDays(2)))
+                                        <span style="color: #d97706; font-weight: 700;">Reposição Próxima</span>
+                                    @else
+                                        <span style="color: #059669; font-weight: 600;">Em Dia</span>
+                                    @endif
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>

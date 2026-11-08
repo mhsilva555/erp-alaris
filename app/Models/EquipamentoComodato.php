@@ -14,6 +14,7 @@ class EquipamentoComodato extends Model
 
     protected $fillable = [
         'cliente_id',
+        'contrato_id',
         'equipamento_id',
         'produto_id',
         'nome_equipamento',
@@ -41,6 +42,11 @@ class EquipamentoComodato extends Model
         return $this->belongsTo(Cliente::class);
     }
 
+    public function contrato(): BelongsTo
+    {
+        return $this->belongsTo(Contrato::class);
+    }
+
     public function equipamento(): BelongsTo
     {
         return $this->belongsTo(Equipamento::class);
@@ -56,13 +62,42 @@ class EquipamentoComodato extends Model
         return $this->hasMany(Visita::class, 'comodato_id');
     }
 
+    /**
+     * Escopo para filtrar comodatos que estão operacionais em campo
+     * (Comodatos avulsos sem contrato ou vinculados a contratos com status 'ativo').
+     */
+    public function scopeOperacionalmenteAtivos(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->whereNull('contrato_id')
+                ->orWhereHas('contrato', function (Builder $cq) {
+                    $cq->where('status', Contrato::STATUS_ATIVO);
+                });
+        });
+    }
+
+    public function estaOperacionalmenteAtivo(): bool
+    {
+        if (! $this->contrato_id) {
+            return true;
+        }
+
+        return $this->contrato && $this->contrato->status === Contrato::STATUS_ATIVO;
+    }
+
     public function scopeReposicaoProxima(Builder $query, int $dias = 2): Builder
     {
-        return $query->whereNotNull('data_proxima_reposicao')->whereDate('data_proxima_reposicao', '<=', now()->addDays($dias)->toDateString());
+        return $query->operacionalmenteAtivos()
+            ->whereNotNull('data_proxima_reposicao')
+            ->whereDate('data_proxima_reposicao', '<=', now()->addDays($dias)->toDateString());
     }
 
     public function estaAtrasado(): bool
     {
+        if (! $this->estaOperacionalmenteAtivo()) {
+            return false;
+        }
+
         return $this->data_proxima_reposicao && $this->data_proxima_reposicao->isPast() && ! $this->data_proxima_reposicao->isToday();
     }
 

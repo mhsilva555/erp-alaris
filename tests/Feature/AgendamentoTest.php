@@ -203,6 +203,7 @@ test('cliente com contrato mensal projeta visita recorrente na agenda quando nao
     $cliente->save();
 
     // No mês de Outubro/2026, sem nenhuma visita física cadastrada no banco:
+    // A Agenda Geral projeta o evento virtual para permitir a emissão manual da OS
     $response = $this->actingAs($admin)->get(route('agendamentos.index', ['mes' => '2026-10']));
     $response->assertOk();
     $response->assertSee('Visita Contratual: Indústria Alfa');
@@ -214,17 +215,17 @@ test('cliente com contrato mensal projeta visita recorrente na agenda quando nao
     $totais = $response->viewData('totais');
     expect($totais['total_visitas'])->toBe(1);
 
-    // Quando criamos uma OS física real para o cliente no mês de Outubro:
+    // Quando criamos uma OS manual para o cliente no mês de Outubro:
     $visita = Visita::create([
         'cliente_id' => $cliente->id,
         'tecnico_id' => $tecnico->id,
-        'data_hora' => '2026-10-14 09:00:00',
+        'data_hora' => '2026-10-10 09:00:00',
         'status' => Visita::STATUS_AGENDADA,
         'tipo_visita' => Visita::TIPO_VISITA_EXECUCAO,
         'tipo_servico' => Visita::TIPO_SERVICO_CONTROLE_PRAGAS,
     ]);
 
-    // A agenda agora exibe a OS física e NÃO duplica com uma visita projetada
+    // A agenda agora exibe a OS manual criada e não duplica com a visita projetada
     $responseAposCriar = $this->actingAs($admin)->get(route('agendamentos.index', ['mes' => '2026-10']));
     $responseAposCriar->assertOk();
     $responseAposCriar->assertSee("OS #{$visita->id} — Indústria Alfa");
@@ -254,11 +255,11 @@ test('cliente com contrato quinzenal projeta dois ciclos no mes e abate conforme
     $totaisInicial = $resInicial->viewData('totais');
     expect($totaisInicial['total_visitas'])->toBe(2);
 
-    // 2. Criamos a visita física para a 1ª quinzena (dia 05/10)
+    // 2. Criamos uma OS manual para a 1ª quinzena (dia 01/10)
     Visita::create([
         'cliente_id' => $cliente->id,
         'tecnico_id' => $tecnico->id,
-        'data_hora' => '2026-10-05 09:00:00',
+        'data_hora' => '2026-10-01 09:00:00',
         'status' => Visita::STATUS_CONCLUIDA,
         'tipo_visita' => Visita::TIPO_VISITA_EXECUCAO,
         'tipo_servico' => Visita::TIPO_SERVICO_CONTROLE_PRAGAS,
@@ -271,11 +272,11 @@ test('cliente com contrato quinzenal projeta dois ciclos no mes e abate conforme
     expect($totaisUma['total_visitas'])->toBe(2);
     $resUmaVisita->assertSee('Visita Contratual: Padaria Central');
 
-    // 3. Criamos a visita da 2ª quinzena (dia 20/10)
+    // 3. Criamos a segunda OS manual para a 2ª quinzena (dia 15/10)
     Visita::create([
         'cliente_id' => $cliente->id,
         'tecnico_id' => $tecnico->id,
-        'data_hora' => '2026-10-20 09:00:00',
+        'data_hora' => '2026-10-15 09:00:00',
         'status' => Visita::STATUS_AGENDADA,
         'tipo_visita' => Visita::TIPO_VISITA_EXECUCAO,
         'tipo_servico' => Visita::TIPO_SERVICO_CONTROLE_PRAGAS,

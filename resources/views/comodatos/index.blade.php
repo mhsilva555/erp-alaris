@@ -72,6 +72,13 @@
                                     class="text-white hover:underline">{{ $c->cliente->nome }}</a>
                                 <p class="text-xs" style="color: var(--color-surface-400);">
                                     {{ $c->cliente->cidade ? $c->cliente->cidade . '/' . $c->cliente->estado : '' }}</p>
+                                @if($c->contrato)
+                                    <a href="{{ route('contratos.show', $c->contrato) }}"
+                                        class="inline-flex items-center gap-1 text-[11px] font-semibold text-primary-400 hover:underline mt-0.5">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                        Contrato #{{ $c->contrato->numero }}
+                                    </a>
+                                @endif
                             </td>
                             <td>
                                 <span class="font-semibold text-white">{{ $c->quantidade }}</span> un
@@ -90,7 +97,11 @@
                                 A cada {{ $c->periodicidade_dias }} dias
                             </td>
                             <td>
-                                @if ($c->data_proxima_reposicao)
+                                @if (!$c->estaOperacionalmenteAtivo())
+                                    <span class="badge badge-neutral text-[11px]">
+                                        Aguardando Aprovação ({{ $c->contrato?->statusLabel() ?? 'Proposta' }})
+                                    </span>
+                                @elseif ($c->data_proxima_reposicao)
                                     @php
                                         $diasRestantes = now()
                                             ->startOfDay()
@@ -117,6 +128,7 @@
                             </td>
                             <td class="text-right">
                                 <div class="flex items-center justify-end gap-1">
+                                    @if($c->estaOperacionalmenteAtivo())
                                     @permissao('visitas.criar')
                                     <a href="{{ route('visitas.create', [
                                         'cliente_id' => $c->cliente_id,
@@ -129,6 +141,7 @@
                                         + OS
                                     </a>
                                     @endpermissao
+                                    @endif
                                     @permissao('comodatos.ver')
                                     <a href="{{ route('comodatos.show', $c) }}" class="btn btn-secondary btn-sm"
                                         title="Ver Detalhes do Comodato">

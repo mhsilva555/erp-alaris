@@ -107,11 +107,19 @@
                     </div>
 
                     {{-- E-mail Comercial --}}
-                    <div class="sm:col-span-2">
+                    <div>
                         <label for="empresa_email" class="form-label">E-mail Comercial / Atendimento</label>
                         <input type="email" id="empresa_email" name="empresa_email"
                             value="{{ old('empresa_email', $empresa['email']) }}"
                             class="form-input" placeholder="contato@alarisservice.com.br">
+                    </div>
+
+                    {{-- Website da Empresa --}}
+                    <div>
+                        <label for="empresa_website" class="form-label">Endereço do Website da Empresa</label>
+                        <input type="text" id="empresa_website" name="empresa_website"
+                            value="{{ old('empresa_website', $empresa['website'] ?? '') }}"
+                            class="form-input" placeholder="Ex: www.alarisservice.com.br">
                     </div>
 
                     {{-- Slogan / Segmento --}}

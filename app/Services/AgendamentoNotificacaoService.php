@@ -126,7 +126,8 @@ class AgendamentoNotificacaoService
     {
         $hoje = now()->toDateString();
 
-        $comodatos = EquipamentoComodato::with(['cliente', 'produto'])
+        $comodatos = EquipamentoComodato::with(['cliente', 'produto', 'contrato'])
+            ->operacionalmenteAtivos()
             ->whereDate('data_proxima_reposicao', '<=', $hoje)
             ->get();
 

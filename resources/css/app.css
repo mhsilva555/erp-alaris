@@ -522,6 +522,16 @@ h3,
     background: #e9e2ff;
 }
 
+.btn-warning-soft {
+    background: var(--color-warning-50);
+    color: var(--color-warning-500);
+    border-color: rgba(232, 155, 22, 0.25);
+}
+
+.btn-warning-soft:hover {
+    background: rgba(232, 155, 22, 0.16);
+}
+
 .btn-warning {
     background: var(--color-warning-500);
     color: #000000 !important;

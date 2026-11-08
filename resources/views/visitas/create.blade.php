@@ -49,7 +49,7 @@
                     }
                 @endphp
 
-                @if (isset($comodato) && $comodato)
+                @if (isset($comodato) && $comodato && !(isset($contrato) && $contrato))
                     <div class="p-4 rounded-lg border border-sky-500/30 bg-sky-500/10 flex items-start gap-3">
                         <svg class="w-5 h-5 text-sky-500 shrink-0 mt-0.5" fill="none" stroke="currentColor"
                             viewBox="0 0 24 24">
@@ -86,6 +86,22 @@
                                     <span class="block mt-1 text-indigo-800 dark:text-indigo-200 font-medium">✨ Atendimento coberto pela mensalidade fixa do contrato. O valor cobrado avulso da O.S. foi mantido em R$ 0,00.</span>
                                 @else
                                     <span class="block mt-1 text-indigo-800 dark:text-indigo-200 font-medium">Cobrança unitária por visita executada (R$ {{ number_format((float) $contrato->valor_total, 2, ',', '.') }}).</span>
+                                @endif
+                                @if ($contrato->comodatos && $contrato->comodatos->isNotEmpty())
+                                    <div class="mt-2 pt-2 border-t border-indigo-200 dark:border-indigo-800/60 flex items-start gap-1.5">
+                                        <svg class="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                        <div>
+                                            <strong class="text-indigo-900 dark:text-indigo-200">Equipamentos em Comodato neste Contrato:</strong>
+                                            <span class="text-indigo-700 dark:text-indigo-300">
+                                                @foreach($contrato->comodatos as $cmd)
+                                                    {{ $cmd->nome_equipamento }} ({{ $cmd->quantidade }} un){{ $cmd->produto ? ' • Insumo: ' . $cmd->produto->nome : '' }}{{ !$loop->last ? '; ' : '.' }}
+                                                @endforeach
+                                            </span>
+                                            <span class="block text-[11px] text-indigo-600 dark:text-indigo-400 mt-0.5 italic">
+                                                Ao concluir esta O.S., a reposição e vistoria preventiva destes equipamentos será sincronizada automaticamente.
+                                            </span>
+                                        </div>
+                                    </div>
                                 @endif
                             </p>
                         </div>

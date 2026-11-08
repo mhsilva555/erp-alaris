@@ -40,6 +40,7 @@ class Configuracao extends Model
         $licenca = static::get('empresa_licenca_sanitaria', 'Alvará Sanitário / Licença Ambiental');
         $telefone = static::get('empresa_telefone', '(99) 99999-9999');
         $email = static::get('empresa_email', 'alaris@alarisservice.com.br');
+        $website = static::get('empresa_website', 'www.alarisservice.com.br');
         $endereco = static::get('empresa_endereco', 'R. Frei Epifânio da Abadia');
         $bairro = static::get('empresa_bairro', 'Centro');
         $cidade = static::get('empresa_cidade', 'Imperatriz');
@@ -63,6 +64,7 @@ class Configuracao extends Model
             'licenca',
             'telefone',
             'email',
+            'website',
             'endereco',
             'bairro',
             'cidade',

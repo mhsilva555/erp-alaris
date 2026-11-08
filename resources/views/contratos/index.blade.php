@@ -218,7 +218,7 @@
                             </td>
                             <td class="text-right">
                                 <div class="flex items-center justify-end gap-1">
-                                    <a href="{{ route('contratos.pdf', $contrato) }}" target="_blank"
+                                    <a href="{{ route('contratos.pdf', $contrato) }}"
                                         class="btn btn-secondary btn-sm text-xs text-emerald-400"
                                         title="Ver PDF em 1 folha">
                                         PDF

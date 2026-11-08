@@ -352,9 +352,9 @@ test('11. alteracao de periodicidade recalcula visitas futuras preservando histo
     expect(Visita::find($visitaPassada->id))->not->toBeNull();
     expect(Visita::find($visitaPassada->id)->status)->toBe(Visita::STATUS_CONCLUIDA);
 
-    // Visitas futuras foram sincronizadas para a frequência quinzenal
-    $visitasFuturas = $contrato->visitas()->where('data_hora', '>=', now()->startOfDay())->get();
-    expect($visitasFuturas)->not->toBeEmpty();
+    // Visitas agendadas futuras foram canceladas/limpas, não gerando agendamentos automáticos
+    $visitasFuturas = $contrato->visitas()->where('data_hora', '>=', now()->startOfDay())->where('status', Visita::STATUS_AGENDADA)->get();
+    expect($visitasFuturas)->toBeEmpty();
 });
 
 test('12. encerramento e cancelamento de contratos', function () {
@@ -561,7 +561,7 @@ test('17. selecao e persistencia de meio de pagamento no contrato', function () 
     expect($contrato->meioPagamento->codigo)->toBe('pix');
 });
 
-test('18. fluxo opcao a: projecao virtual na agenda e emissao manual de ordem de servico com tecnico', function () {
+test('18. fluxo opcao a: criacao de contrato ativo nao gera OS automaticamente e emissao manual de ordem de servico com tecnico', function () {
     $cliente = Cliente::create(['nome' => 'Supermercado Central', 'cidade' => 'Jundiaí', 'estado' => 'SP']);
 
     // Cria contrato ativo
@@ -591,7 +591,7 @@ test('18. fluxo opcao a: projecao virtual na agenda e emissao manual de ordem de
     $agendaTecnico->assertOk();
     $agendaTecnico->assertDontSee('Atendimento Contratual: Supermercado Central');
 
-    // Gestor clica no evento e emite a Ordem de Serviço com técnico atribuído
+    // Gestor clica no evento e emite a Ordem de Serviço MANUALMENTE com técnico atribuído
     $dataAtendimento = now()->startOfMonth()->day(12)->setTime(14, 0);
     $responseOs = $this->actingAs($this->admin)->post(route('visitas.store'), [
         'cliente_id' => $cliente->id,
@@ -613,7 +613,7 @@ test('18. fluxo opcao a: projecao virtual na agenda e emissao manual de ordem de
     $visitaCriada = $contrato->visitas->first();
     expect($visitaCriada->tecnico_id)->toBe($this->tecnico->id);
 
-    // Na Agenda Geral, o evento agora é a OS real com técnico e não duplica com a projeção
+    // Na Agenda Geral, o evento agora é a OS real com técnico
     $agendaAtualizada = $this->actingAs($this->admin)->get(route('agendamentos.index', ['mes' => now()->format('Y-m')]));
     $agendaAtualizada->assertOk();
     $agendaAtualizada->assertSee("OS #{$visitaCriada->id} — Supermercado Central");
@@ -831,8 +831,9 @@ test('17. aprovacao de proposta comercial e transformacao em contrato ativo', fu
     $proposta->refresh();
     expect($proposta->status)->toBe(Contrato::STATUS_ATIVO);
     expect($proposta->estaAtivo())->toBeTrue();
+    expect($proposta->visitas()->count())->toBe(0); // Zero O.S. automáticas no banco
 
-    // Agora a agenda passa a projetar os atendimentos
+    // Agora a agenda passa a projetar os atendimentos para emissão manual da OS
     $agendaResponse = $this->actingAs($this->admin)->get(route('agendamentos.index', ['mes' => now()->format('Y-m')]));
     $agendaResponse->assertOk();
     $agendaResponse->assertSee('Atendimento Contratual: Clube Recreativo Alvorada');

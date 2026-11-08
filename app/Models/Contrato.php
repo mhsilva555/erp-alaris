@@ -175,6 +175,11 @@ class Contrato extends Model
         return $this->hasMany(MovimentacaoFinanceira::class);
     }
 
+    public function comodatos(): HasMany
+    {
+        return $this->hasMany(EquipamentoComodato::class);
+    }
+
     public function scopeAtivos(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_ATIVO);

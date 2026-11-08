@@ -237,10 +237,9 @@ class ContratoAgendamentoService
                 $vf->delete();
             }
 
-            // Se o contrato estiver ativo, recalcula e gera a nova grade futura
-            if ($contrato->status === Contrato::STATUS_ATIVO) {
-                return $this->gerarVisitas($contrato);
-            }
+            // Ordens de Serviço são emitidas manualmente sob demanda pelo gestor.
+            // Não gera agendamentos automáticos no banco de dados.
+            return 0;
 
             return 0;
         });

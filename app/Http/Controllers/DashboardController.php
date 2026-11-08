@@ -35,7 +35,7 @@ class DashboardController extends Controller
 
         $totalClientes = Cliente::count();
         $totalProdutos = Produto::count();
-        $totalComodatos = EquipamentoComodato::count();
+        $totalComodatos = EquipamentoComodato::operacionalmenteAtivos()->count();
 
         $visitasHoje = (clone $visitasQuery)->whereDate('data_hora', $hoje)->count();
         $visitasMes = (clone $visitasQuery)->whereMonth('data_hora', $hoje->month)

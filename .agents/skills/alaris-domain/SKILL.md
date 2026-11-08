@@ -32,8 +32,9 @@ This skill documents the core domain logic, data models, and business operations
 
 3. **EquipamentoComodato (`App\Models\EquipamentoComodato`)**:
    - Assets installed at the customer's property (bait stations/porta-iscas, light traps, cages).
-   - Fields: `cliente_id`, `produto_id` (chemical bait linked to this station), `nome_equipamento`, `quantidade`, `periodicidade_dias`, `data_instalacao`, `data_ultima_reposicao`, `data_proxima_reposicao`, `observacoes`.
-   - **Rule**: `data_proxima_reposicao = data_ultima_reposicao + periodicidade_dias`. When approaching, it generates maintenance events in the agenda.
+   - Fields: `cliente_id`, `contrato_id` (nullable FK -> `contratos.id`), `produto_id` (chemical bait linked to this station), `nome_equipamento`, `quantidade`, `periodicidade_dias`, `data_instalacao`, `data_ultima_reposicao`, `data_proxima_reposicao`, `observacoes`.
+   - Relationships: `belongsTo(Cliente::class)`, `belongsTo(Contrato::class)`, `belongsTo(Produto::class)`, `belongsTo(Equipamento::class)`.
+   - **Rule**: `data_proxima_reposicao = data_ultima_reposicao + periodicidade_dias`. When approaching, it generates maintenance events in the agenda. When linked to an active contract, completing an OS of that contract auto-syncs the refill date.
 
 4. **Produto (`App\Models\Produto`)**:
    - Fields: `nome`, `natureza` (`liquido`, `solido`, `unidade`), `unidade_armazenamento` (`L`, `Kg`, `Un`), `unidade_aplicacao` (`mL`, `g`, `Un`), `fator_conversao`, `quantidade_estoque`, `estoque_minimo`, `preco_custo_unitario`, `descricao`.
@@ -111,16 +112,29 @@ Always use `whereDate()` for date boundaries to avoid string comparison truncati
   - Notification dropdown is bound to viewport edges on mobile (`left: 0.75rem; right: 0.75rem; width: auto; max-width: calc(100vw - 1.5rem)`).
 - Orders of service with status `agendada` and `em_andamento` have operational precedence at the top of the visits list.
 
-### 2.8. Contract Lifecycle & Progressive Auto-Scheduling (`ContratoAgendamentoService`)
-- Flow: `Cliente -> Contrato -> Visitas Agendadas -> Ordem de Serviço`.
-- Contract statuses: `rascunho`, `ativo`, `suspenso`, `encerrado`, `cancelado`, `expirado`.
-- Activation triggers automatic, idempotent visit generation:
-  - Indeterminate contracts maintain a rolling 90-day window (`proxima_geracao_ate`).
-  - Determinate contracts generate visits until `data_fim`.
-  - Non-existent dates (e.g. day 31 in Feb/Apr) clamp to `min($diaPreferencial, $mesRef->daysInMonth)`.
-- Updates to periodicity/dates sync future unexecuted visits (`sincronizarAgendamentosFuturos`), preserving in-progress and completed visits.
-- Suspending/cancelling a contract cleans/cancels unexecuted visits and restores reserved stock (`tratarSuspensaoOuCancelamento`).
-- Daily maintenance via Artisan command `php artisan contratos:gerar-visitas {--dias=90}`.
+### 2.8. Contract Lifecycle & Dynamic Agenda Projections (Option A)
+- Flow: `Cliente -> Proposta Comercial -> Contrato Ativo -> Agenda Geral -> Ordem de Serviço (OS Manual)`.
+- Contract statuses: `rascunho`, `proposta`, `ativo`, `suspenso`, `encerrado`, `cancelado`, `expirado`.
+- **Option A Dynamic Projection Invariant**:
+  - Active contracts **never pre-populate static/empty OS rows (`visitas`) in the database**.
+  - The Unified Agenda dynamically calculates projected appointments for the viewed month in memory via `ContratoAgendamentoService::calcularDatasNoPeriodo()`.
+  - Displayed in the calendar/list as `Atendimento Contratual` with status `Previsto (Contrato)`.
+  - Managers manually dispatch the team by clicking `Agendar OS` on the projected card, opening `/visitas/create` with contract, client, date, and service pre-filled.
+  - Upon saving the real OS, it replaces the projected event in the agenda without duplication (`$jaExisteOs`).
+  - Safe handling of non-existent dates (e.g. day 31 in Feb/Apr) clamped to `min($diaPreferencial, $mesRef->daysInMonth)`.
+- Updates to periodicity/dates dynamically adjust the agenda projection. Suspending or cancelling a contract cleans unexecuted pending visits and preserves completed historical visits.
+
+### 2.9. Comodato & Contract Integration
+- Bait stations and traps can be bound to active customer contracts (`equipamentos_comodato.contrato_id`).
+- When an OS for an active contract with comodato is finalized, `data_ultima_reposicao` and `data_proxima_reposicao` are automatically refreshed.
+- Terminated contracts with uncollected comodatos show warnings and provide one-click workflows for technical retrieval OS or warehouse inventory return (`contratos.recolher-comodatos`).
+
+### 2.10. Corporate Configuration & 1-Page A4 Proposal/Contract PDFs
+- Company metadata configured in `/configuracoes` (`Configuracao::dadosEmpresa()`): Legal Name, Trade Name, CNPJ, Sanitary License, Phone, Email, Official Website, Address, and Slogan.
+- PDF generation (`/contratos/{id}/pdf`) strictly formats to **1 single A4 sheet**:
+  - Secrecy rule: shows service scope and final price; strictly hides chemical volumes, internal per diem, and markup.
+  - Prints custom additional clauses and full contract scope (`contratos.descricao`).
+  - Official footer with company contacts, website, sanitary license, and electronic signature blocks with top spacing.
 
 ---
 

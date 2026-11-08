@@ -64,8 +64,8 @@ class VisitaController extends Controller
         $aliquotaPadrao = (float) Configuracao::get('aliquota_imposto_padrao', '14.0');
         $diariaPadrao = (float) Configuracao::get('diaria_tecnico_padrao', '50.00');
         $comodato = $request->filled('comodato_id') ? EquipamentoComodato::with(['cliente', 'produto', 'equipamento'])->find($request->comodato_id) : null;
-        $contrato = $request->filled('contrato_id') ? Contrato::with(['cliente', 'itens'])->find($request->contrato_id) : null;
-        $contratos = Contrato::where('status', Contrato::STATUS_ATIVO)->orderBy('numero')->get();
+        $contrato = $request->filled('contrato_id') ? Contrato::with(['cliente', 'itens', 'comodatos.produto', 'comodatos.equipamento'])->find($request->contrato_id) : null;
+        $contratos = Contrato::with(['comodatos.produto', 'comodatos.equipamento'])->where('status', Contrato::STATUS_ATIVO)->orderBy('numero')->get();
 
         return view('visitas.create', compact('clientes', 'produtos', 'tecnicos', 'aliquotaPadrao', 'diariaPadrao', 'comodato', 'contrato', 'contratos'));
     }
@@ -225,12 +225,9 @@ class VisitaController extends Controller
                 }
             }
 
-            // Se criada já como concluída, atualizar comodato e sincronizar financeiro
+            // Se criada já como concluída, atualizar comodatos e sincronizar financeiro
             if ($visita->status === Visita::STATUS_CONCLUIDA) {
-                if ($visita->comodato_id) {
-                    $visita->comodato?->registrarReposicao($visita->data_hora ?? now());
-                }
-
+                $this->atualizarReposicoesComodatos($visita);
                 $this->sincronizarMovimentacoesFinanceiras($visita);
             }
         });
@@ -247,7 +244,7 @@ class VisitaController extends Controller
     {
         $this->autorizarAcessoVisita($visita);
 
-        $visita->load(['cliente', 'tecnico', 'produtos', 'comodato', 'contrato']);
+        $visita->load(['cliente', 'tecnico', 'produtos', 'comodato.produto', 'contrato.comodatos.produto']);
 
         return view('visitas.show', compact('visita'));
     }
@@ -460,11 +457,9 @@ class VisitaController extends Controller
             $visita->update($visitaData);
             $visita->produtos()->sync($sync);
 
-            // Se transicionou para concluída, atualizar comodato
+            // Se transicionou para concluída, atualizar comodatos
             if ($statusAnterior !== Visita::STATUS_CONCLUIDA && $visita->status === Visita::STATUS_CONCLUIDA) {
-                if ($visita->comodato_id) {
-                    $visita->comodato?->registrarReposicao($visita->data_hora ?? now());
-                }
+                $this->atualizarReposicoesComodatos($visita);
             }
 
             // Sincroniza lançamentos financeiros (faturamento, gastos adicionais e diária técnica)
@@ -553,10 +548,8 @@ class VisitaController extends Controller
             $visita->lucro_bruto = $ehContratoMensal ? 0.00 : ((float) $visita->valor_cobrado - ($custoOperacional + (float) $visita->valor_imposto));
             $visita->save();
 
-            // Atualiza reposição do comodato automaticamente se vinculada
-            if ($visita->comodato_id) {
-                $visita->comodato?->registrarReposicao($visita->data_hora ?? now());
-            }
+            // Atualiza reposição dos comodatos automaticamente se vinculados (avulso ou do contrato)
+            $this->atualizarReposicoesComodatos($visita);
 
             // Baixa atômica de frações restantes do estoque dos insumos aplicados
             // (se a OS já baixou na criação/edição, faltaBaixar será 0 e não haverá dupla baixa)
@@ -631,7 +624,18 @@ class VisitaController extends Controller
     {
         $this->autorizarAcessoVisita($visita);
 
-        $visita->load(['cliente.comodatos.produto', 'tecnico', 'produtos', 'contrato.itens']);
+        $visita->load([
+            'cliente.comodatos.produto',
+            'cliente.comodatos.equipamento',
+            'cliente.comodatos.contrato',
+            'contrato.comodatos.produto',
+            'contrato.comodatos.equipamento',
+            'comodato.produto',
+            'comodato.equipamento',
+            'tecnico',
+            'produtos',
+            'contrato.itens',
+        ]);
 
         return view('visitas.os', compact('visita'));
     }
@@ -807,6 +811,33 @@ class VisitaController extends Controller
         }
         if (! empty($substituicoes)) {
             $request->merge($substituicoes);
+        }
+    }
+
+    /**
+     * Sincroniza a reposição de comodatos vinculados diretamente à OS
+     * e de todos os comodatos alocados no contrato da OS executada.
+     */
+    private function atualizarReposicoesComodatos(Visita $visita): void
+    {
+        $dataRef = $visita->data_hora ?? now();
+
+        // 1. Comodato individual apontado na OS
+        if ($visita->comodato_id) {
+            $visita->comodato?->registrarReposicao($dataRef);
+        }
+
+        // 2. Comodatos pertencentes ao contrato da OS
+        if ($visita->contrato_id) {
+            $visita->loadMissing('contrato.comodatos');
+            if ($visita->contrato && $visita->contrato->comodatos->isNotEmpty()) {
+                foreach ($visita->contrato->comodatos as $comodatoDoContrato) {
+                    if ($visita->comodato_id && (int) $comodatoDoContrato->id === (int) $visita->comodato_id) {
+                        continue;
+                    }
+                    $comodatoDoContrato->registrarReposicao($dataRef);
+                }
+            }
         }
     }
 }

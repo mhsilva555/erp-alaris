@@ -132,6 +132,7 @@ erDiagram
     EQUIPAMENTOS_COMODATO {
         bigint id PK
         bigint cliente_id FK
+        bigint contrato_id FK "nullable (vínculo contratual)"
         bigint equipamento_id FK "nullable"
         bigint produto_id FK "Insumo atrelado à reposição"
         string nome_equipamento "Ex: Porta-iscas"
@@ -150,6 +151,8 @@ erDiagram
         bigint cliente_id FK
         bigint meio_pagamento_id FK "nullable"
         string numero "Ex: CTR-2026-0001"
+        string titulo "nullable"
+        text descricao "Cláusulas adicionais impressas no PDF"
         string tipo_vigencia "determinado | indeterminado"
         date data_inicio
         date data_fim "nullable"
@@ -271,6 +274,7 @@ erDiagram
     MEIOS_PAGAMENTO ||--o{ CONTRATOS : "utilizado_em (1:N)"
     CONTRATOS ||--|{ CONTRATO_ITENS : "compoe (1:N)"
     CONTRATOS ||--o{ VISITAS : "origina_visitas (1:N)"
+    CONTRATOS ||--o{ EQUIPAMENTOS_COMODATO : "vincula_ativos (1:N)"
     CLIENTES ||--o{ VISITAS : "possui (1:N)"
     CLIENTES ||--o{ EQUIPAMENTOS_COMODATO : "aloca (1:N)"
     CATEGORIA_EQUIPAMENTOS ||--o{ EQUIPAMENTOS : "classifica (1:N)"

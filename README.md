@@ -10,24 +10,30 @@ O **ERP Alaris** (anteriormente Biosp) é uma plataforma desenvolvida para empre
 
 ### 1. Módulo de Clientes e Prospecção
 - **Canais de Aquisição/Origem**: Registro da origem do cliente (Tráfego Pago, Indicação, Prospecção Ativa, Redes Sociais, Parcerias).
-- **Periodicidade de Atendimento**: Frequência de retorno recomendada ou contratada (Mensal, Bimestral, Trimestral, Avulso).
+- **Desacoplamento de Periodicidade**: Periodicidade gerenciada exclusivamente pelo módulo de Contratos, permitindo que um cliente possua múltiplos contratos independentes.
 - **Funil de Prospecção & Follow-up**: Categorização de leads que não fecharam de imediato (*"Retornar em 3 meses"*, *"Contrato com concorrente a vencer"*).
 - **Integração com Agenda**: Clientes com datas de retorno futuro geram lembretes automáticos na **Agenda Geral Unificada**.
-- **Localização Geográfica**: Cadastro estruturado com Cidade e Estado (UF).
+- **Localização Geográfica**: Cadastro estruturado com Cidade, Estado (UF) e campos de endereço detalhados (logradouro, número, bairro, complemento, CEP).
 
-### 2. Módulo Técnico: Equipamentos em Comodato e O.S.
+### 2. Módulo de Contratos e Propostas Comerciais
+- **Ciclo Comercial Integrado**: Cliente → Proposta Comercial → Aprovação → Contrato Ativo → Agenda Geral → Ordem de Serviço Manual.
+- **Projeção Dinâmica na Agenda (Opção A)**: Contratos ativos não gravam antecipadamente linhas de O.S. vazias no banco; a Agenda Geral projeta dinamicamente os atendimentos previstos (`Atendimento Contratual`), permitindo ao gestor emitir a O.S. real manualmente sob demanda.
+- **Integração com Comodatos**: Vínculo de ativos cedidos ao contrato (`contrato_id`), atualização automática de reposições ao concluir a O.S. e fluxo assistido de recolhimento de equipamentos na rescisão.
+- **Emissão Oficial em PDF (Folha Única A4)**: Propostas comerciais e contratos emitidos em folha única A4 com dados da Alaris Service, website oficial, cláusulas adicionais e rodapé com assinaturas e metadados.
+
+### 3. Módulo Técnico: Equipamentos em Comodato e O.S.
 - **Gestão de Comodato**: Controle de equipamentos instalados no cliente (ex.: Porta-iscas, armadilhas luminosas).
 - **Periodicidade de Reposição**: Frequência de manutenção/troca de iscas editável (ex.: a cada 15 dias).
 - **Vínculo com Estoque**: Cada equipamento é atrelado ao insumo químico do estoque utilizado na recarga.
 - **Geração de Ordem de Serviço (OS)**: Detalhamento para o técnico em campo (dados do cliente, serviço, implantação ou reposição, e quantidade exata de insumos a retirar do estoque).
 
-### 3. Estoque e Conversão Fracionada
+### 4. Estoque e Conversão Fracionada
 - **Múltiplas Naturezas de Produto**: Suporte a Líquidos (`L` / `mL`), Pós/Sólidos (`Kg` / `g`) e Unidades (`Un`, Frascos, Blocos).
 - **Seletores Padronizados com `<optgroup>`s**: Seleção assistida por dropdown impedindo preenchimento inconsistente e calculando automaticamente o fator de conversão fracionário.
 - **Cálculo de Custo Proporcional**: Apuração exata do custo por dose aplicada (ex.: frasco de 1.000 mL com custo de R$ 100 -> dose de 20 mL gera custo proporcional de R$ 2,00).
 - **Baixa Automática Atômica**: Ao concluir uma OS, o estoque é debitado com conversão precisa da fração utilizada.
 
-### 4. Visitas e Agenda Geral Unificada
+### 5. Visitas e Agenda Geral Unificada
 - **Categorização de Visitas**: Visita Comercial, Visita Técnica, Demonstração ou Execução de Serviço.
 - **Linhas de Serviço**: Controle de Pragas (foco atual) e estrutura preparada para expansão em Limpeza e Sanitização.
 - **Agenda Geral Unificada**: Ponto de controle integrando visitas marcadas, reposições de comodato e follow-ups de prospecção.
@@ -36,7 +42,7 @@ O **ERP Alaris** (anteriormente Biosp) é uma plataforma desenvolvida para empre
   - Na visualização ou PDF para o cliente, são exibidos **apenas o Serviço Prestado e o Valor Final**.
   - Informações de dosagem (mL), custos de insumos, diárias técnicas e margens de lucro permanecem estritamente restritas ao painel administrativo. Botão bloqueado para técnicos (`abort(403)`).
 
-### 5. Financeiro, Formação de Preço, DRE e Fluxo de Caixa
+### 6. Financeiro, Formação de Preço, DRE e Fluxo de Caixa
 - **Formação de Preço por OS**: Custo proporcional de produtos + mão de obra/diária do técnico + custos de deslocamento + gastos adicionais imprevistos com justificativa.
 - **Ações em Massa no Fluxo de Caixa**: Seleção múltipla por checkboxes permitindo liquidar, reabrir ou excluir movimentações em lote em transação atômica.
 - **Sincronização Atômica Contínua**: Espelhamento automático de receitas, diárias e despesas no Caixa com data de competência da OS (`$visita->data_hora`), sem duplicidades em edições e com expurgo de pendências em cancelamentos.
@@ -44,11 +50,11 @@ O **ERP Alaris** (anteriormente Biosp) é uma plataforma desenvolvida para empre
 - **Exportação em PDF no Backend**: Geração de relatório gerencial completo em PDF A4 Paisagem via DomPDF.
 - **Seletor de Data Amigável**: Componente `<x-month-picker>` com navegação mês a mês e trigger instantâneo.
 
-### 6. Perfis de Acesso e Segurança (ACL)
+### 7. Perfis de Acesso e Segurança (ACL)
 - **Papel Administrador (`admin`)**: Visão irrestrita de faturamento, margens, DRE e configurações globais.
 - **Papel Técnico (`tecnico`)**: Acesso focado exclusivamente à sua própria agenda de trabalho e ordens de serviço, sem visibilidade de dados financeiros da empresa ou avisos de faturamento.
 
-### 7. PWA e Experiência Mobile Nativa (App-Like UI)
+### 8. PWA e Experiência Mobile Nativa (App-Like UI)
 - **Instalação PWA**: Suporte completo a Progressive Web App com manifestos (`manifest.json` e `manifest.webmanifest`), `apple-touch-icon` e favicons operando sob a identidade visual oficial da marca (**`#23b4eb`**).
 - **Navegação Inferior Mobile (`#mobile-bottom-nav`)**: Barra fixa na base com 5 destinos (Início, Agenda, Visitas, Clientes/Comodatos, Mais), efeito glassmorphism e compatibilidade com safe-area insets do iOS e Android.
 - **Header Mobile Otimizado**: Título em linha única com truncamento responsivo (`min-w-0 flex-1 truncate whitespace-nowrap`), prevenindo quebras que sobrepunham ícones.

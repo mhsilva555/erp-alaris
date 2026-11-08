@@ -260,6 +260,21 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
   - **Accessors Formatados**: Disponibilização de propriedades calculadas (`$cliente->documento_formatado`, `$cliente->telefone_formatado`, `$cliente->cep_formatado`, `$tecnico->telefone_formatado`) para renderização formatada nas views e relatórios.
   - **Busca Híbrida**: O mecanismo de pesquisa permite localizar registros pesquisando tanto pela string formatada quanto apenas pelos dígitos numéricos.
 
+### 2.10. Módulo de Configurações Empresariais e Emissão Oficial de Documentos em PDF
+- **Gestão de Dados Institucionais (`/configuracoes`)**:
+  - Painel administrativo que permite ao gestor configurar todos os dados da empresa prestadora de serviços: Razão Social, Nome Fantasia, CNPJ, Inscrição Estadual, Alvará Sanitário / Licença Ambiental, Telefones/WhatsApp, E-mail oficial, Website (`empresa_website`), Slogan e Endereço físico completo da sede.
+- **Proposta Comercial e Contrato em PDF (Folha Única A4)**:
+  - Geração via rota `GET /contratos/{id}/pdf` (`contratos.pdf`), adaptada para download (`?download=1`) ou visualização em tela.
+  - Formatação tipográfica restrita ao layout de 1 folha A4 com tabelas compactas e elegantes.
+  - Exibição de:
+    - Cabeçalho institucional com marca oficial Alaris Cyan (`#23b4eb`), logotipo, identificação do documento e dados do cliente.
+    - Quadro de Serviços Contratados (tipo, descrição, quantidade e periodicidade).
+    - Equipamentos em Comodato vinculados ao contrato (quantidade e modelo, omitindo defensivos químicos e custos unitários).
+    - Condições financeiras: valor total, parcelamento e meio de pagamento.
+    - Cláusulas Adicionais e Descrição Completa registradas no contrato.
+    - Campo de data e assinaturas (Contratante e Contratada) com espaçamento superior harmonizado.
+    - Rodapé institucional consolidado com Razão Social, CNPJ, Telefone, E-mail, Website, Endereço e Alvará Sanitário.
+
 ---
 
 ## 3. Modelo de Dados (Data Dictionary Expandido)
@@ -281,15 +296,19 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único |
 | `nome` | VARCHAR(255) | Não | - | Nome ou Razão Social |
-| `documento` | VARCHAR(20) | Sim | NULL | CPF ou CNPJ |
+| `documento` | VARCHAR(20) | Sim | NULL | CPF ou CNPJ (apenas números) |
 | `email` | VARCHAR(255) | Sim | NULL | E-mail de contato |
-| `telefone` | VARCHAR(20) | Sim | NULL | Telefone / WhatsApp |
-| `endereco` | VARCHAR(255) | Sim | NULL | Endereço completo |
+| `telefone` | VARCHAR(20) | Sim | NULL | Telefone / WhatsApp (apenas números) |
+| `endereco` | VARCHAR(255) | Sim | NULL | Endereço formatado/completo legado |
+| `logradouro` | VARCHAR(255) | Sim | NULL | Rua, Avenida, Rodovia |
+| `numero` | VARCHAR(20) | Sim | NULL | Número do imóvel |
+| `bairro` | VARCHAR(100) | Sim | NULL | Bairro ou distrito |
+| `complemento` | VARCHAR(100) | Sim | NULL | Complemento (bloco, sala, apto) |
 | `cidade` | VARCHAR(100) | Não | - | Cidade |
 | `estado` | VARCHAR(2) | Não | - | UF (2 dígitos) |
-| `cep` | VARCHAR(10) | Sim | NULL | CEP |
+| `cep` | VARCHAR(10) | Sim | NULL | CEP (apenas números) |
 | `origem` | VARCHAR(50) | Sim | `'outros'` | Canal de captação (Trafego Pago, Indicacao, etc.) |
-| `periodicidade` | VARCHAR(50) | Sim | `'avulso'` | Frequência de atendimento |
+| `periodicidade` | VARCHAR(50) | Sim | `'avulso'` | Frequência de atendimento (legado desacoplado) |
 | `status_prospeccao`| VARCHAR(50) | Não | `'ativo'` | `ativo`, `em_negociacao`, `retornar_3_meses`, etc. |
 | `data_followup` | DATE | Sim | NULL | Data de retorno futuro na agenda |
 | `observacoes` | TEXT | Sim | NULL | Restrições ou detalhes do local |
@@ -350,6 +369,7 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador do comodato |
 | `cliente_id` | BIGINT UNSIGNED | Não | - | FK -> `clientes.id` (cascade) |
+| `contrato_id` | BIGINT UNSIGNED | Sim | NULL | FK -> `contratos.id` (null on delete / vínculo contratual) |
 | `equipamento_id` | BIGINT UNSIGNED | Sim | NULL | FK -> `equipamentos.id` (null on delete / restringe se ativo) |
 | `produto_id` | BIGINT UNSIGNED | Sim | NULL | FK -> `produtos.id` (insumo químico atrelado à reposição) |
 | `nome_equipamento` | VARCHAR(255) | Não | - | Ex.: Porta-Isca Externo Modelo Túnel |
@@ -367,6 +387,8 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único do contrato |
 | `cliente_id` | BIGINT UNSIGNED | Não | - | FK -> `clientes.id` (cascade) |
 | `numero` | VARCHAR(50) | Não | - | Código único (ex.: CTR-2026-0001) |
+| `titulo` | VARCHAR(255) | Sim | NULL | Título da proposta / contrato |
+| `descricao` | TEXT | Sim | NULL | Descrição completa e cláusulas adicionais impressas no PDF |
 | `tipo_vigencia` | VARCHAR(20) | Não | `'determinado'` | `'determinado'` ou `'indeterminado'` |
 | `data_inicio` | DATE | Não | - | Início da vigência |
 | `data_fim` | DATE | Sim | NULL | Fim da vigência (obrigatório se determinado) |
@@ -467,10 +489,15 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | Coluna | Tipo | Nulo | Default | Descrição |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador |
-| `chave` | VARCHAR(100) | Não | - | Identificador único (ex.: `aliquota_imposto_padrao`) |
-| `valor` | TEXT | Sim | NULL | Valor armazenado (ex.: `12.5`) |
+| `chave` | VARCHAR(100) | Não | - | Identificador único (ex.: `aliquota_imposto_padrao`, `empresa_razao_social`, `empresa_website`) |
+| `valor` | TEXT | Sim | NULL | Valor armazenado (ex.: `14.0`, `www.alarisservice.com.br`) |
 | `descricao` | VARCHAR(255) | Sim | NULL | Explicação do parâmetro |
 | `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
+
+*Principais Chaves Parametrizadas*:
+- Financeiras: `aliquota_imposto_padrao`, `diaria_tecnico_padrao`, `deslocamento_padrao`.
+- Institucionais / Dados da Empresa: `empresa_razao_social`, `empresa_nome_fantasia`, `empresa_cnpj`, `empresa_licenca_sanitaria`, `empresa_telefone`, `empresa_email`, `empresa_website`, `empresa_slogan`, `empresa_endereco`, `empresa_bairro`, `empresa_cidade`, `empresa_estado`, `empresa_cep`.
+- Métodos do Modelo: `Configuracao::dadosEmpresa(): array` centraliza a recuperação dos metadados para documentos e relatórios.
 
 ### 3.14. Tabela `notificacoes_agendamentos`
 | Coluna | Tipo | Nulo | Default | Descrição |

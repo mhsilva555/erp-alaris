@@ -38,7 +38,7 @@
                 {{-- Barra de Ações Operacionais --}}
                 <div class="flex flex-wrap items-center gap-2">
                     {{-- Botão de PDF / Imprimir (1 folha) --}}
-                    <a href="{{ route('contratos.pdf', $contrato) }}" target="_blank" class="btn btn-secondary btn-sm"
+                    <a href="{{ route('contratos.pdf', $contrato) }}" class="btn btn-secondary btn-sm"
                         title="Gerar PDF em 1 folha para envio ao cliente ou impressão">
                         <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         <span>{{ $contrato->ehProposta() ? 'Gerar PDF da Proposta' : 'Gerar PDF do Contrato' }}</span>
@@ -412,6 +412,163 @@
                             </tfoot>
                         </table>
                     </div>
+                </div>
+
+                {{-- Equipamentos em Comodato Vinculados --}}
+                <div class="card p-6 space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                                <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                                </svg>
+                                Equipamentos em Comodato ({{ $contrato->comodatos->count() }})
+                            </h3>
+                            <p class="text-xs mt-0.5" style="color: var(--color-surface-400);">
+                                Porta-iscas, armadilhas e dispositivos cedidos ao cliente sob este contrato
+                            </p>
+                        </div>
+                        @permissao('comodatos.criar')
+                        @if($contrato->status === \App\Models\Contrato::STATUS_ATIVO)
+                        <a href="{{ route('comodatos.create', ['cliente_id' => $contrato->cliente_id, 'contrato_id' => $contrato->id, 'retorno_contrato' => 1]) }}"
+                            class="btn btn-outline btn-sm text-xs text-amber-400 flex items-center gap-1.5 self-start sm:self-auto">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            <span>+ Alocar Equipamento</span>
+                        </a>
+                        @endif
+                        @endpermissao
+                    </div>
+
+                    @if(in_array($contrato->status, [\App\Models\Contrato::STATUS_CANCELADO, \App\Models\Contrato::STATUS_ENCERRADO]) && $contrato->comodatos->isNotEmpty())
+                        <div class="p-3.5 rounded-lg border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-amber-500/10 border-amber-500/30 text-amber-200">
+                            <div class="flex items-start gap-2.5">
+                                <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                </svg>
+                                <div class="text-xs">
+                                    <span class="font-bold text-amber-300 block">Equipamentos Pendentes de Recolhimento</span>
+                                    <span>Este contrato está {{ $contrato->statusLabel() }}, mas ainda possui <strong>{{ $contrato->comodatos->sum('quantidade') }} item(ns)</strong> alocado(s) no cliente.</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                                <a href="{{ route('visitas.create', ['cliente_id' => $contrato->cliente_id, 'contrato_id' => $contrato->id, 'tipo_visita' => 'tecnica', 'observacoes' => 'OS de Recolhimento de ' . $contrato->comodatos->sum('quantidade') . ' equipamentos em comodato por encerramento do Contrato ' . $contrato->numero]) }}"
+                                   class="btn btn-outline btn-sm text-xs border-amber-400/40 text-amber-300 hover:bg-amber-500/20">
+                                    Gerar O.S. de Recolhimento
+                                </a>
+                                @permissao('contratos.editar')
+                                <form action="{{ route('contratos.recolher-comodatos', $contrato) }}" method="POST" onsubmit="return confirm('Confirmar o recolhimento e a devolução de todos os equipamentos deste contrato de volta ao estoque disponível?');">
+                                    @csrf
+                                    <button type="submit" class="btn btn-sm text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold">
+                                        Devolver ao Estoque
+                                    </button>
+                                </form>
+                                @endpermissao
+                            </div>
+                        </div>
+                    @endif
+
+                    @if($contrato->comodatos->isEmpty())
+                        <div class="empty-state py-5">
+                            <div class="empty-state-icon text-amber-400" style="background: rgba(245, 158, 11, 0.1);">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                            </div>
+                            <h4 class="empty-state-title text-sm">Nenhum equipamento em comodato vinculado</h4>
+                            <p class="empty-state-desc max-w-md mx-auto text-xs">
+                                Aloque porta-iscas túnel, armadilhas luminosas ou outros itens de inventário para controlar os ciclos de reposição preventiva deste contrato.
+                            </p>
+                            @permissao('comodatos.criar')
+                            @if($contrato->status === \App\Models\Contrato::STATUS_ATIVO)
+                            <a href="{{ route('comodatos.create', ['cliente_id' => $contrato->cliente_id, 'contrato_id' => $contrato->id, 'retorno_contrato' => 1]) }}"
+                                class="btn btn-secondary btn-sm mt-3 text-xs">
+                                + Alocar Equipamento em Comodato
+                            </a>
+                            @endif
+                            @endpermissao
+                        </div>
+                    @else
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Equipamento / Modelo</th>
+                                        <th class="text-center">Quantidade</th>
+                                        <th>Insumo Vinculado</th>
+                                        <th>Ciclo</th>
+                                        <th>Próxima Reposição</th>
+                                        <th class="text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($contrato->comodatos as $comodato)
+                                        <tr class="animate-fadeIn">
+                                            <td>
+                                                <div class="font-medium text-white text-xs">{{ $comodato->nome_equipamento }}</div>
+                                                @if($comodato->observacoes)
+                                                    <span class="text-[11px] truncate max-w-xs block" style="color: var(--color-surface-400);">{{ $comodato->observacoes }}</span>
+                                                @endif
+                                            </td>
+                                            <td class="text-center font-bold text-white text-xs">
+                                                {{ $comodato->quantidade }} un
+                                            </td>
+                                            <td>
+                                                @if($comodato->produto)
+                                                    <span class="badge badge-neutral text-[11px]">{{ $comodato->produto->nome }}</span>
+                                                @else
+                                                    <span class="text-xs" style="color: var(--color-surface-500);">Nenhum</span>
+                                                @endif
+                                            </td>
+                                            <td class="text-xs" style="color: var(--color-surface-300);">
+                                                {{ $comodato->periodicidade_dias }} dias
+                                            </td>
+                                            <td>
+                                                @if(!$comodato->estaOperacionalmenteAtivo())
+                                                    <span class="badge badge-neutral text-xs">
+                                                        Previsto na Proposta
+                                                    </span>
+                                                @elseif($comodato->data_proxima_reposicao)
+                                                    @if($comodato->estaAtrasado())
+                                                        <span class="badge badge-danger text-xs">
+                                                            {{ $comodato->data_proxima_reposicao->format('d/m/Y') }} (Atrasada)
+                                                        </span>
+                                                    @elseif($comodato->data_proxima_reposicao->isToday())
+                                                        <span class="badge badge-warning text-xs">
+                                                            Hoje ({{ $comodato->data_proxima_reposicao->format('d/m/Y') }})
+                                                        </span>
+                                                    @else
+                                                        <span class="badge badge-info text-xs">
+                                                            {{ $comodato->data_proxima_reposicao->format('d/m/Y') }}
+                                                        </span>
+                                                    @endif
+                                                @else
+                                                    <span class="text-xs" style="color: var(--color-surface-500);">Não agendada</span>
+                                                @endif
+                                            </td>
+                                            <td class="text-right">
+                                                <div class="flex items-center justify-end gap-1.5">
+                                                    @if($comodato->estaOperacionalmenteAtivo())
+                                                    @permissao('comodatos.registrar_reposicao')
+                                                    <form action="{{ route('comodatos.reposicao', $comodato) }}" method="POST" class="inline"
+                                                        onsubmit="return confirm('Deseja registrar a reposição de insumos para este equipamento hoje? A próxima reposição será recalculada automaticamente.');">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-outline btn-sm text-xs text-emerald-400 hover:bg-emerald-500/10" title="Registrar Reposição Hoje">
+                                                            Reposição
+                                                        </button>
+                                                    </form>
+                                                    @endpermissao
+                                                    @endif
+                                                    @permissao('comodatos.ver')
+                                                    <a href="{{ route('comodatos.show', $comodato) }}" class="btn btn-secondary btn-sm text-xs">
+                                                        Ver
+                                                    </a>
+                                                    @endpermissao
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
                 </div>
 
                 {{-- Visitas e Ordens de Serviço Vinculadas --}}

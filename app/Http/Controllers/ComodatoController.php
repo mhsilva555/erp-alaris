@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Models\Contrato;
 use App\Models\Equipamento;
 use App\Models\EquipamentoComodato;
 use App\Models\Produto;
@@ -14,18 +15,25 @@ class ComodatoController extends Controller
 {
     public function index(Request $request)
     {
-        $query = EquipamentoComodato::with(['cliente', 'produto', 'equipamento']);
+        $query = EquipamentoComodato::with(['cliente', 'produto', 'equipamento', 'contrato']);
 
         if ($busca = $request->get('busca')) {
             $query->where(function ($q) use ($busca) {
                 $q->where('nome_equipamento', 'like', "%{$busca}%")
                     ->orWhereHas('cliente', fn ($c) => $c->where('nome', 'like', "%{$busca}%"))
+                    ->orWhereHas('contrato', fn ($ctr) => $ctr->where('numero', 'like', "%{$busca}%"))
                     ->orWhereHas('equipamento', fn ($e) => $e->where('nome', 'like', "%{$busca}%")->orWhere('modelo', 'like', "%{$busca}%"));
             });
         }
 
+        if ($contratoId = $request->get('contrato_id')) {
+            $query->where('contrato_id', $contratoId);
+        }
+
         if ($request->boolean('vencendo')) {
-            $query->where('data_proxima_reposicao', '<=', now()->addDays(2)->toDateString());
+            $query->operacionalmenteAtivos()
+                ->whereNotNull('data_proxima_reposicao')
+                ->whereDate('data_proxima_reposicao', '<=', now()->addDays(2)->toDateString());
         }
 
         $comodatos = $query->orderBy('data_proxima_reposicao')->paginate(15)->withQueryString();
@@ -39,14 +47,28 @@ class ComodatoController extends Controller
         $produtos = Produto::orderBy('nome')->get();
         $equipamentos = Equipamento::disponiveis()->orderBy('nome')->get();
         $clienteId = $request->get('cliente_id');
+        $contratoId = $request->get('contrato_id');
 
-        return view('comodatos.create', compact('clientes', 'produtos', 'equipamentos', 'clienteId'));
+        if ($contratoId && ! $clienteId) {
+            $contratoRef = Contrato::find($contratoId);
+            if ($contratoRef) {
+                $clienteId = $contratoRef->cliente_id;
+            }
+        }
+
+        $contratos = Contrato::with('cliente')
+            ->where('status', Contrato::STATUS_ATIVO)
+            ->orderBy('numero')
+            ->get();
+
+        return view('comodatos.create', compact('clientes', 'produtos', 'equipamentos', 'clienteId', 'contratoId', 'contratos'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
             'cliente_id' => 'required|exists:clientes,id',
+            'contrato_id' => 'nullable|exists:contratos,id',
             'equipamento_id' => 'nullable|exists:equipamentos,id',
             'produto_id' => 'nullable|exists:produtos,id',
             'nome_equipamento' => 'nullable|string|max:255',
@@ -55,6 +77,18 @@ class ComodatoController extends Controller
             'data_instalacao' => 'required|date',
             'observacoes' => 'nullable|string',
         ]);
+
+        if (! empty($validated['contrato_id'])) {
+            $contrato = Contrato::where('id', $validated['contrato_id'])
+                ->where('status', Contrato::STATUS_ATIVO)
+                ->first();
+
+            if (! $contrato || (int) $contrato->cliente_id !== (int) $validated['cliente_id']) {
+                return back()->withInput()->withErrors([
+                    'contrato_id' => 'O contrato selecionado deve estar ativo e pertencer ao cliente escolhido.',
+                ]);
+            }
+        }
 
         if (empty($validated['equipamento_id']) && empty($validated['nome_equipamento'])) {
             return back()->withInput()->withErrors([
@@ -86,6 +120,11 @@ class ComodatoController extends Controller
             }
         });
 
+        if ($request->boolean('retorno_contrato') && ! empty($validated['contrato_id'])) {
+            return redirect()->route('contratos.show', $validated['contrato_id'])
+                ->with('sucesso', 'Equipamento em comodato alocado ao contrato com sucesso.');
+        }
+
         return redirect()->route('comodatos.index')
             ->with('sucesso', 'Equipamento em comodato registrado com sucesso.');
     }
@@ -103,14 +142,19 @@ class ComodatoController extends Controller
         $clientes = Cliente::orderBy('nome')->get();
         $produtos = Produto::orderBy('nome')->get();
         $equipamentos = Equipamento::orderBy('nome')->get();
+        $contratos = Contrato::with('cliente')
+            ->where('status', Contrato::STATUS_ATIVO)
+            ->orderBy('numero')
+            ->get();
 
-        return view('comodatos.edit', compact('comodato', 'clientes', 'produtos', 'equipamentos'));
+        return view('comodatos.edit', compact('comodato', 'clientes', 'produtos', 'equipamentos', 'contratos'));
     }
 
     public function update(Request $request, EquipamentoComodato $comodato)
     {
         $validated = $request->validate([
             'cliente_id' => 'required|exists:clientes,id',
+            'contrato_id' => 'nullable|exists:contratos,id',
             'equipamento_id' => 'nullable|exists:equipamentos,id',
             'produto_id' => 'nullable|exists:produtos,id',
             'nome_equipamento' => 'nullable|string|max:255',
@@ -121,6 +165,18 @@ class ComodatoController extends Controller
             'data_proxima_reposicao' => 'nullable|date',
             'observacoes' => 'nullable|string',
         ]);
+
+        if (! empty($validated['contrato_id'])) {
+            $contrato = Contrato::where('id', $validated['contrato_id'])
+                ->where('status', Contrato::STATUS_ATIVO)
+                ->first();
+
+            if (! $contrato || (int) $contrato->cliente_id !== (int) $validated['cliente_id']) {
+                return back()->withInput()->withErrors([
+                    'contrato_id' => 'O contrato selecionado deve estar ativo e pertencer ao cliente escolhido.',
+                ]);
+            }
+        }
 
         $novoEquipamentoId = $validated['equipamento_id'] ?? null;
         $antigoEquipamentoId = $comodato->equipamento_id;
@@ -180,7 +236,7 @@ class ComodatoController extends Controller
     public function destroy(EquipamentoComodato $comodato)
     {
         DB::transaction(function () use ($comodato) {
-            if ($comodato->equipamento_id) {
+            if ($comodato->equipamento_id && $comodato->estaOperacionalmenteAtivo()) {
                 $comodato->equipamento?->increment('quantidade_disponivel', $comodato->quantidade);
             }
             $comodato->delete();

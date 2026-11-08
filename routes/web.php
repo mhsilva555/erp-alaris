@@ -58,6 +58,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/contratos/{contrato}/cancelar', [ContratoController::class, 'cancelar'])->name('contratos.cancelar');
     Route::post('/contratos/{contrato}/encerrar', [ContratoController::class, 'encerrar'])->name('contratos.encerrar');
     Route::post('/contratos/{contrato}/gerar-visitas', [ContratoController::class, 'gerarVisitasManuais'])->name('contratos.gerar-visitas');
+    Route::post('/contratos/{contrato}/recolher-comodatos', [ContratoController::class, 'recolherComodatos'])->name('contratos.recolher-comodatos');
 
     // Categorias de Equipamentos
     Route::get('/equipamentos/categorias', [CategoriaEquipamentoController::class, 'index'])->name('equipamentos.categorias.index');

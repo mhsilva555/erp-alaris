@@ -11,12 +11,12 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 - **Domínio de Negócio**: Gestão operacional e financeira de empresas de **Controle de Pragas Urbanas, Dedetização e Serviços de Higienização/Limpeza**.
 - **Módulos Principais**:
   - **Clientes & Funil de Prospecção**: Origem do cliente, status de prospecção com data de follow-up integrada à agenda geral, geocadastro com cidade e estado (desacoplado de periodicidade direta).
-  - **Contratos & Gestão Recorrente**: Contratos vinculados a clientes com prazo determinado ou indeterminado, itens de serviço contratados, periodicidades flexíveis (semanal, quinzenal, mensal, bimestral, trimestral, semestral, anual, personalizado com ajuste de dias inexistentes), geração automática de visitas com horizonte móvel de 90 dias e ciclo de vida completo.
+  - **Contratos & Gestão Recorrente**: Contratos vinculados a clientes com prazo determinado ou indeterminado, itens de serviço contratados, periodicidades flexíveis (semanal, quinzenal, mensal, bimestral, trimestral, semestral, anual, personalizado com ajuste de dias inexistentes), projeção dinâmica de agendamentos na Agenda Geral (Opção A) sem geração de O.S. vazias antecipadamente no banco e ciclo de vida completo.
   - **Técnicos & Perfis de Usuário**: Usuários vinculados a técnicos com permissões restritas (apenas visitas próprias, sem acesso a dados financeiros globais).
-  - **Equipamentos em Comodato**: Controle de porta-iscas e armadilhas no cliente, periodicidade de reposição em dias (editável), vínculo com produto do estoque e geração de OS.
+  - **Equipamentos em Comodato**: Controle de porta-iscas e armadilhas no cliente, periodicidade de reposição em dias (editável), vínculo opcional com contratos (`contrato_id`), produtos do estoque, sincronização de reposição via conclusão de OS e rotina de recolhimento na rescisão.
   - **Estoque & Conversão Fracionada**: Naturezas líquida, sólida e unidade, com cálculo de custo proporcional por dose fracionada (mL, g) baseado no custo base.
-  - **Visitas, OS & Agenda Unificada**: Categorias (comercial, técnica, demonstração, execução), serviços (controle de pragas, limpeza), agenda unificada (visitas + comodato + follow-ups).
-  - **Proposta Comercial (Sigilo de Custos)**: Visão do cliente restrita ao serviço e valor final, ocultando estritamente mLs, custos unitários, diárias e margens.
+  - **Visitas, OS & Agenda Unificada**: Categorias (comercial, técnica, demonstração, execução), serviços (controle de pragas, limpeza), agenda unificada (visitas reais + projeções contratuais + comodato + follow-ups).
+  - **Proposta Comercial (Sigilo de Custos)**: Visão do cliente restrita ao serviço e valor final, ocultando estritamente mLs, custos unitários, diárias e margens. Emissão de PDF oficial em folha única A4 com dados empresariais e website no rodapé.
   - **Financeiro & Formação de Preço**: Composição de custo da OS (produtos + diária + deslocamento), seletor de Nota Fiscal com acréscimo tributário percentual configurável, fluxo de caixa e relatório de Lucro Bruto.
   - **Dashboard Operacional & Notificações**: Alertas em tempo real (atrasadas, próximas, estoque crítico, reposição de comodato e follow-ups).
 
@@ -161,10 +161,10 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
   - O PDF expõe exclusivamente o escopo dos serviços, periodicidade, vigência, investimento final e condições de pagamento, omitindo estritamente custos internos de insumos, diárias técnicas e alíquotas de imposto.
   - Ao aprovar a proposta (`contratos.ativar`), o status é alterado para `ativo` e os atendimentos passam a ser projetados na Agenda Geral imediatamente.
 - **Projeção Dinâmica na Agenda & Emissão de O.S. sob Demanda (Opção A)**:
-  - Contratos ativos **não criam ordens de serviço vazias antecipadamente no banco de dados**.
-  - A Agenda Geral projeta dinamicamente os atendimentos previstos para o mês visualizado via `ContratoAgendamentoService::calcularDatasNoPeriodo()`.
-  - O gestor despacha a equipe emitindo a Ordem de Serviço real diretamente pela Agenda ou pela visualização do contrato, atribuindo o técnico de campo e horário exato.
-  - Ao emitir a O.S., a visita real substitui a projeção no calendário sem duplicidade.
+  - **Invariante de O.S. Manual**: Contratos ativos **nunca gravam antecipadamente linhas de O.S. (`visitas`) no banco de dados**. Rotinas diárias e comandos de background não criam visitas vazias automaticamente.
+  - A Agenda Geral (`/agendamentos`) projeta dinamicamente os agendamentos virtuais de atendimentos previstos para o mês visualizado via `ContratoAgendamentoService::calcularDatasNoPeriodo()`, exibidos como `Atendimento Contratual` com status `Previsto (Contrato)`.
+  - O gestor despacha a equipe emitindo a Ordem de Serviço real **manualmente sob demanda** através do botão **`Agendar OS`** no evento da Agenda ou no botão **`Emitir Ordem de Serviço`** na página do contrato, selecionando o técnico responsável e horário.
+  - Ao salvar a O.S., a visita física real substitui a projeção no calendário sem duplicidade (`$jaExisteOs`).
   - Tratamento seguro de datas inexistentes (ex.: dia 31 em meses de 28, 29 ou 30 dias ajustado via `min($dia, $mes->daysInMonth)`).
 - **Invariante de Faturamento da O.S. & Preço Fechado no Contrato**:
   - Ordens de Serviço geradas para contratos sob **Mensalidade Fixa / Preço Fechado** operam com `valor_cobrado = 0.00` ("Incluso no Contrato") para evitar faturamento em duplicidade no Fluxo de Caixa e DRE.
@@ -176,6 +176,25 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 - **Invariante de Preservação de Histórico Operacional**:
   - Ao alterar, suspender ou cancelar um contrato, o sistema expurga/cancela exclusivamente visitas futuras pendentes (`agendada`).
   - Visitas em andamento ou concluídas (`em_andamento`, `concluida`) e movimentações financeiras geradas são **estritamente preservadas**, mantendo a integridade e rastreabilidade contábil.
+
+### 3.15. Integração entre Módulos de Contratos e Comodatos
+- **Vínculo Estrutural**: A tabela `equipamentos_comodato` possui a chave estrangeira `contrato_id` (opcional), permitindo associar armadilhas e porta-iscas cedidos a um contrato ativo do cliente.
+- **Transparência Comercial no PDF**: Os equipamentos em comodato vinculados ao contrato são listados na Proposta Comercial e no Contrato formal (tipo de equipamento e quantidade cedida), omitindo defensivos e custos internos conforme a Regra de Ouro de Sigilo.
+- **Sincronização Operacional de Campo**:
+  - Formulários de O.S. vinculadas a contratos com comodato exibem a relação dos dispositivos instalados e seus respectivos insumos.
+  - Ao concluir uma O.S. associada ao contrato, o ciclo de reposição dos comodatos vinculados é automaticamente atualizado (`data_ultima_reposicao = now()` e `data_proxima_reposicao = now() + periodicidade_dias`).
+- **Ciclo de Vida & Rescisão com Comodatos**:
+  - Ao suspender, encerrar ou cancelar um contrato que possua comodatos ativos, o sistema exibe alerta operacional destacando a quantidade de itens pendentes de recolhimento.
+  - Disponibiliza atalhos para emissão de O.S. de recolhimento técnico ou devolução direta ao estoque patrimonial disponível (`contratos.recolher-comodatos`).
+
+### 3.16. Informações Empresariais e Customização de Documentos (PDF A4)
+- **Centralização Institucional (`/configuracoes`)**:
+  - Dados da Alaris Service cadastrados e parametrizáveis: Razão Social, Nome Fantasia, CNPJ, Alvará Sanitário / Licença Ambiental, Telefone/WhatsApp, E-mail, Website Oficial (`website_empresa`), Slogan e Endereço Completo da Sede (Logradouro, Bairro, Cidade, Estado, CEP).
+- **Emissão Oficial de Propostas e Contratos (Folha Única A4)**:
+  - Cabeçalho institucional com marca Alaris Cyan (`#23b4eb`), dados do cliente e escopo detalhado.
+  - Exibição integral das **Cláusulas Adicionais / Descrição Completa** pactuadas no contrato.
+  - Campo de Data e Assinaturas (Contratante e Contratada) com espaçamento superior harmonizado.
+  - Rodapé institucional contendo Razão Social, CNPJ, Contatos, Website da empresa, Endereço completo, Alvará Sanitário e autenticação eletrônica.
 
 ---
 

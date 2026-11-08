@@ -26,6 +26,7 @@ test('administrador pode visualizar e atualizar informacoes empresariais da alar
         'empresa_licenca_sanitaria' => 'Licença ANVISA 998877/2026',
         'empresa_telefone' => '(99) 98888-7777',
         'empresa_email' => 'comercial@alarisdedetizadora.com.br',
+        'empresa_website' => 'www.alarisdedetizadora.com.br',
         'empresa_endereco' => 'Av. Getúlio Vargas, 1500',
         'empresa_bairro' => 'Nova Imperatriz',
         'empresa_cidade' => 'Imperatriz',
@@ -42,11 +43,13 @@ test('administrador pode visualizar e atualizar informacoes empresariais da alar
     expect(Configuracao::get('empresa_nome_fantasia'))->toBe('Alaris Dedetizadora & Sanitização');
     expect(Configuracao::get('empresa_cnpj'))->toBe('12.345.678/0001-90');
     expect(Configuracao::get('empresa_email'))->toBe('comercial@alarisdedetizadora.com.br');
+    expect(Configuracao::get('empresa_website'))->toBe('www.alarisdedetizadora.com.br');
 
     $dados = Configuracao::dadosEmpresa();
     expect($dados['razaoSocial'])->toBe('ALARIS CONTROLE DE PRAGAS E VETORES LTDA');
     expect($dados['nomeFantasia'])->toBe('Alaris Dedetizadora & Sanitização');
     expect($dados['cnpj'])->toBe('12.345.678/0001-90');
+    expect($dados['website'])->toBe('www.alarisdedetizadora.com.br');
     expect($dados['enderecoCompleto'])->toContain('Av. Getúlio Vargas, 1500');
 });
 
@@ -56,6 +59,7 @@ test('informacoes empresariais atualizadas constam no cabecalho e assinaturas da
     Configuracao::set('empresa_cnpj', '77.888.999/0001-11');
     Configuracao::set('empresa_telefone', '(99) 97777-6666');
     Configuracao::set('empresa_email', 'atendimento@alarisbiotech.com.br');
+    Configuracao::set('empresa_website', 'www.alarisbiotech.com.br');
     Configuracao::set('empresa_slogan', 'Biotecnologia em Higienização e Controle de Vetores');
 
     $cliente = Cliente::create(['nome' => 'Supermercado Central', 'cidade' => 'Imperatriz', 'estado' => 'MA']);
@@ -80,7 +84,13 @@ test('informacoes empresariais atualizadas constam no cabecalho e assinaturas da
     $response->assertSee('77.888.999/0001-11');
     $response->assertSee('(99) 97777-6666');
     $response->assertSee('atendimento@alarisbiotech.com.br');
+    $response->assertSee('www.alarisbiotech.com.br');
 
     // Bloco de Assinaturas
     $response->assertSee('ALARIS SERVICE GESTAO AMBIENTAL LTDA');
+
+    // Rodapé Institucional da Empresa
+    $response->assertSee('footer-company');
+    $response->assertSee('footer-address');
+    $response->assertSee('atendimento@alarisbiotech.com.br');
 });

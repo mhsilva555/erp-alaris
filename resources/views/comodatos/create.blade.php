@@ -9,17 +9,51 @@
             @csrf
 
             <div class="space-y-4">
-                <div>
-                    <label class="form-label" for="cliente_id">Cliente Beneficiário *</label>
-                    <select id="cliente_id" name="cliente_id" class="form-select" required>
-                        <option value="">Selecione o cliente...</option>
-                        @foreach($clientes as $cli)
-                            <option value="{{ $cli->id }}" {{ (old('cliente_id', $clienteId) == $cli->id) ? 'selected' : '' }}>
-                                {{ $cli->nome }} {{ $cli->documento ? "({$cli->documento})" : '' }}
-                            </option>
-                        @endforeach
-                    </select>
+                @php
+                    $clienteAtualId = old('cliente_id', $clienteId);
+                    $contratoAtualId = old('contrato_id', $contratoId);
+                    $contratosDoCliente = $clienteAtualId
+                        ? $contratos->where('cliente_id', (int) $clienteAtualId)
+                        : collect();
+                    $contratosJson = $contratos->map(fn ($c) => [
+                        'id' => $c->id,
+                        'cliente_id' => $c->cliente_id,
+                        'label' => 'Contrato #' . $c->numero . ' — ' . ($c->titulo ?: $c->cliente->nome),
+                    ])->values();
+                @endphp
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="form-label" for="cliente_id">Cliente Beneficiário *</label>
+                        <select id="cliente_id" name="cliente_id" class="form-select" required onchange="aoMudarCliente(this.value)">
+                            <option value="">Selecione o cliente...</option>
+                            @foreach($clientes as $cli)
+                                <option value="{{ $cli->id }}" {{ ($clienteAtualId == $cli->id) ? 'selected' : '' }}>
+                                    {{ $cli->nome }} {{ $cli->documento ? "({$cli->documento})" : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="form-label" for="contrato_id">Contrato Vinculado (Opcional)</label>
+                        <select id="contrato_id" name="contrato_id" class="form-select" {{ !$clienteAtualId ? 'disabled' : '' }}>
+                            <option value="">{{ $clienteAtualId ? 'Nenhum (Comodato Avulso)' : 'Selecione um cliente primeiro...' }}</option>
+                            @foreach($contratosDoCliente as $ctr)
+                                <option value="{{ $ctr->id }}"
+                                    data-cliente="{{ $ctr->cliente_id }}"
+                                    {{ ($contratoAtualId == $ctr->id) ? 'selected' : '' }}>
+                                    Contrato #{{ $ctr->numero }} — {{ $ctr->titulo ?: $ctr->cliente->nome }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <p class="text-[11px] mt-1" style="color: var(--color-surface-400);">Lista apenas os contratos ativos do cliente selecionado.</p>
+                    </div>
                 </div>
+
+                @if(request('retorno_contrato') || request('contrato_id'))
+                    <input type="hidden" name="retorno_contrato" value="1">
+                @endif
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -134,6 +168,48 @@
         selectEquipamento.addEventListener('change', atualizarValidacao);
         inputQtd.addEventListener('input', atualizarValidacao);
         atualizarValidacao();
+
+        const todosContratosAtivos = @json($contratosJson);
+
+        window.aoMudarCliente = function(clienteId) {
+            const contratoSelect = document.getElementById('contrato_id');
+            if (!contratoSelect) return;
+
+            const valorAnterior = contratoSelect.value;
+            contratoSelect.innerHTML = '';
+
+            if (!clienteId) {
+                const optDefault = document.createElement('option');
+                optDefault.value = '';
+                optDefault.textContent = 'Selecione um cliente primeiro...';
+                contratoSelect.appendChild(optDefault);
+                contratoSelect.disabled = true;
+                return;
+            }
+
+            contratoSelect.disabled = false;
+            const optNenhum = document.createElement('option');
+            optNenhum.value = '';
+            optNenhum.textContent = 'Nenhum (Comodato Avulso)';
+            contratoSelect.appendChild(optNenhum);
+
+            const filtrados = todosContratosAtivos.filter(c => String(c.cliente_id) === String(clienteId));
+            filtrados.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.setAttribute('data-cliente', c.cliente_id);
+                opt.textContent = c.label;
+                if (String(c.id) === String(valorAnterior)) {
+                    opt.selected = true;
+                }
+                contratoSelect.appendChild(opt);
+            });
+        };
+
+        const cliSelect = document.getElementById('cliente_id');
+        if (cliSelect) {
+            window.aoMudarCliente(cliSelect.value);
+        }
     });
 </script>
 @endsection

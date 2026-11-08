@@ -48,9 +48,12 @@ class AgendamentoController extends Controller
 
         $visitas = $visitasQuery->orderBy('data_hora')->get();
 
-        // 1.1. Atendimentos de Contratos Ativos Projetados na Agenda
+        // 1.1. Atendimentos de Contratos Ativos Projetados na Agenda Geral (Opção A)
+        // Regra de Negócio: Contratos ativos não gravam O.S. vazias antecipadamente no banco de dados.
+        // A Agenda Geral projeta dinamicamente os atendimentos previstos para o período visualizado,
+        // permitindo que o gestor visualize os compromissos e clique no evento para emitir e despachar a O.S. manualmente.
         $itensContratosRecorrentes = collect();
-        if ((! $user || $user->isAdmin()) && ! $tecnicoId) {
+        if ((! $user || ! $user->isTecnico()) && ! $tecnicoId) {
             $contratosAtivos = Contrato::with(['cliente', 'itens'])
                 ->where('status', Contrato::STATUS_ATIVO)
                 ->get();
@@ -96,7 +99,7 @@ class AgendamentoController extends Controller
 
         // 1.2. Visitas Contratuais Recorrentes Projetadas para Clientes Ativos (Fallback Legado sem Contrato Ativo)
         $itensVisitasRecorrentes = collect();
-        if ((! $user || $user->isAdmin()) && ! $tecnicoId) {
+        if ((! $user || ! $user->isTecnico()) && ! $tecnicoId) {
             $clientesRecorrentes = Cliente::with('visitas')
                 ->where('status_prospeccao', Cliente::STATUS_ATIVO)
                 ->whereDoesntHave('contratos', fn ($q) => $q->where('status', Contrato::STATUS_ATIVO))
@@ -118,67 +121,51 @@ class AgendamentoController extends Controller
                 $anoMesViewed = $dataInicio->copy();
                 $mesesDiff = ($anoMesViewed->year - $anchorDate->year) * 12 + ($anoMesViewed->month - $anchorDate->month);
 
-                $visitasClienteNoMes = $visitas->where('cliente_id', $cli->id);
+                $visitasClienteNoMes = $visitas->filter(function ($v) use ($cli, $dataInicio, $dataFim) {
+                    return (int) $v->cliente_id === (int) $cli->id
+                        && $v->data_hora->gte($dataInicio)
+                        && $v->data_hora->lte($dataFim);
+                });
+
+                $intervaloMeses = match ($cli->periodicidade) {
+                    'mensal' => 1,
+                    'bimestral' => 2,
+                    'trimestral' => 3,
+                    'semestral' => 6,
+                    'anual' => 12,
+                    default => null,
+                };
+
+                $deveProjetar = false;
+                $datasParaProjetar = [];
 
                 if ($cli->periodicidade === 'quinzenal') {
-                    $primeiroDia = min($preferredDay, 15);
-                    $segundoDia = max($preferredDay, 16);
-                    if ($primeiroDia === $segundoDia) {
-                        $segundoDia = min(28, $primeiroDia + 15);
-                    }
-
-                    $diasParaProjetar = [];
-                    if ($visitasClienteNoMes->count() === 0) {
-                        $diasParaProjetar = [$primeiroDia, $segundoDia];
-                    } elseif ($visitasClienteNoMes->count() === 1) {
-                        $diaExistente = $visitasClienteNoMes->first()->data_hora->day;
-                        if ($diaExistente <= 15) {
-                            $diasParaProjetar = [$segundoDia];
-                        } else {
-                            $diasParaProjetar = [$primeiroDia];
+                    $diasValidos = [1, 15];
+                    foreach ($diasValidos as $dia) {
+                        $candidata = $dataInicio->copy()->day($dia)->setTime(9, 0);
+                        if ($candidata->gte($dataCriacao) && $candidata->lte($dataFim)) {
+                            $datasParaProjetar[] = $candidata;
                         }
                     }
-
-                    foreach ($diasParaProjetar as $dia) {
-                        $dataHoraItem = Carbon::parse($anoMesViewed->format('Y-m-').str_pad((string) $dia, 2, '0', STR_PAD_LEFT).' 09:00:00');
-
-                        // Ignora dias anteriores à data de cadastro do cliente (evita criar eventos 'passados' no mês de entrada)
-                        if ($dataHoraItem->lt($dataCriacao)) {
-                            continue;
+                    $deveProjetar = count($datasParaProjetar) > 0;
+                } elseif ($intervaloMeses !== null) {
+                    if ($mesesDiff >= 0 && ($mesesDiff % $intervaloMeses === 0)) {
+                        $deveProjetar = true;
+                        $candidata = $dataInicio->copy()->day($preferredDay)->setTime(9, 0);
+                        if ($candidata->gte($dataCriacao) && $candidata->lte($dataFim)) {
+                            $datasParaProjetar[] = $candidata;
                         }
-
-                        $itensVisitasRecorrentes->push([
-                            'tipo_item' => 'visita',
-                            'data_hora' => $dataHoraItem,
-                            'titulo' => "Visita Contratual: {$cli->nome}",
-                            'subtitulo' => 'Contrato Quinzenal • '.$cli->cidade_estado,
-                            'detalhes' => 'Serviço quinzenal previsto — clique para agendar a OS',
-                            'status' => 'Previsto (Recorrente)',
-                            'url' => route('visitas.create', ['cliente_id' => $cli->id, 'data' => $dataHoraItem->toDateString()]),
-                            'model' => $cli,
-                            'eh_recorrente_projetado' => true,
-                        ]);
                     }
-                } else {
-                    $intervaloMeses = match ($cli->periodicidade) {
-                        'mensal' => 1,
-                        'bimestral' => 2,
-                        'trimestral' => 3,
-                        'semestral' => 6,
-                        'anual' => 12,
-                        default => null,
-                    };
+                }
 
-                    if ($intervaloMeses && abs($mesesDiff) % $intervaloMeses === 0) {
-                        if ($visitasClienteNoMes->isEmpty()) {
-                            $dataHoraItem = Carbon::parse($anoMesViewed->format('Y-m-').str_pad((string) $preferredDay, 2, '0', STR_PAD_LEFT).' 09:00:00');
+                if ($deveProjetar) {
+                    $periodoNome = ucfirst($cli->periodicidade);
+                    foreach ($datasParaProjetar as $dataHoraItem) {
+                        $jaTemVisitaNoDia = $visitasClienteNoMes->contains(function ($v) use ($dataHoraItem) {
+                            return $v->data_hora->toDateString() === $dataHoraItem->toDateString();
+                        });
 
-                            // Ignora datas anteriores à data de cadastro do cliente
-                            if ($dataHoraItem->lt($dataCriacao)) {
-                                continue;
-                            }
-
-                            $periodoNome = ucfirst($cli->periodicidade);
+                        if (! $jaTemVisitaNoDia) {
                             $itensVisitasRecorrentes->push([
                                 'tipo_item' => 'visita',
                                 'data_hora' => $dataHoraItem,
@@ -240,11 +227,18 @@ class AgendamentoController extends Controller
         $itensComodatos = collect();
 
         if (! $user || $user->isAdmin()) {
-            $todosComodatos = EquipamentoComodato::with(['cliente', 'produto'])
+            $todosComodatos = EquipamentoComodato::with(['cliente', 'produto', 'contrato'])
                 ->whereNotNull('data_proxima_reposicao')
+                ->where(function ($q) {
+                    $q->whereNull('contrato_id')
+                        ->orWhereHas('contrato', function ($cq) {
+                            $cq->where('status', Contrato::STATUS_ATIVO);
+                        });
+                })
                 ->get();
 
             $comodatos = $todosComodatos;
+            $ocorrenciasComodatosBrutas = collect();
 
             foreach ($todosComodatos as $c) {
                 $anchor = $c->data_proxima_reposicao->copy()->startOfDay();
@@ -269,25 +263,96 @@ class AgendamentoController extends Controller
                     $iteracoes++;
                     if ($cur->gte($dataInicio)) {
                         $ehAnchorOriginal = $cur->isSameDay($c->data_proxima_reposicao);
-                        $itensComodatos->push([
-                            'tipo_item' => 'comodato',
-                            'data_hora' => $cur->copy()->setTime(9, 0),
-                            'titulo' => "Reposição: {$c->nome_equipamento}",
-                            'subtitulo' => $c->cliente->nome,
-                            'detalhes' => "Periodicidade: a cada {$c->periodicidade_dias} dias".($c->produto ? " • Insumo: {$c->produto->nome}" : ''),
-                            'status' => $ehAnchorOriginal ? ($c->estaAtrasado() ? 'Atrasado' : 'Agendado') : 'Previsto (Recorrente)',
-                            'url' => route('comodatos.show', $c),
-                            'url_os' => route('visitas.create', [
-                                'cliente_id' => $c->cliente_id,
-                                'comodato_id' => $c->id,
-                                'data' => $cur->format('Y-m-d\T09:00'),
-                                'observacoes' => "Reposição de comodato: {$c->nome_equipamento} ({$c->quantidade} un)",
-                            ]),
-                            'model' => $c,
-                            'eh_recorrente_projetado' => ! $ehAnchorOriginal,
+                        $ocorrenciasComodatosBrutas->push([
+                            'comodato' => $c,
+                            'data' => $cur->copy()->startOfDay(),
+                            'data_str' => $cur->toDateString(),
+                            'eh_anchor_original' => $ehAnchorOriginal,
                         ]);
                     }
                     $cur->addDays($intervalo);
+                }
+            }
+
+            // Agrupa ocorrências de comodatos vinculados ao mesmo contrato que caem no mesmo dia,
+            // gerando um único evento e uma única O.S. (evitando duplicidade de diária técnica e deslocamento).
+            $gruposComodatos = $ocorrenciasComodatosBrutas->groupBy(function (array $oc) {
+                $c = $oc['comodato'];
+                if ($c->contrato_id) {
+                    return "contrato_{$c->contrato_id}_{$oc['data_str']}";
+                }
+
+                return "avulso_{$c->id}_{$oc['data_str']}";
+            });
+
+            foreach ($gruposComodatos as $grupo) {
+                $primeira = $grupo->first();
+                /** @var EquipamentoComodato $cPrincipal */
+                $cPrincipal = $primeira['comodato'];
+                /** @var Carbon $dataRef */
+                $dataRef = $primeira['data'];
+
+                if ($grupo->count() === 1) {
+                    $ehAnchorOriginal = $primeira['eh_anchor_original'];
+                    $itensComodatos->push([
+                        'tipo_item' => 'comodato',
+                        'data_hora' => $dataRef->copy()->setTime(9, 0),
+                        'titulo' => "Reposição: {$cPrincipal->nome_equipamento}",
+                        'subtitulo' => $cPrincipal->cliente->nome.($cPrincipal->contrato ? " • Contrato {$cPrincipal->contrato->numero}" : ''),
+                        'detalhes' => "Periodicidade: a cada {$cPrincipal->periodicidade_dias} dias".($cPrincipal->produto ? " • Insumo: {$cPrincipal->produto->nome}" : ''),
+                        'status' => $ehAnchorOriginal ? ($cPrincipal->estaAtrasado() ? 'Atrasado' : 'Agendado') : 'Previsto (Recorrente)',
+                        'url' => route('comodatos.show', $cPrincipal),
+                        'url_os' => route('visitas.create', array_filter([
+                            'cliente_id' => $cPrincipal->cliente_id,
+                            'contrato_id' => $cPrincipal->contrato_id,
+                            'comodato_id' => $cPrincipal->id,
+                            'data' => $dataRef->format('Y-m-d\T09:00'),
+                            'observacoes' => "Reposição de comodato: {$cPrincipal->nome_equipamento} ({$cPrincipal->quantidade} un)".($cPrincipal->contrato ? " (Contrato {$cPrincipal->contrato->numero})" : ''),
+                        ])),
+                        'model' => $cPrincipal,
+                        'eh_recorrente_projetado' => ! $ehAnchorOriginal,
+                    ]);
+                } else {
+                    // Múltiplos comodatos do mesmo contrato no mesmo dia -> Unificados em 1 único evento e 1 única O.S.
+                    $comodatosDoGrupo = $grupo->pluck('comodato');
+                    $algumAnchorOriginal = $grupo->contains(fn ($oc) => $oc['eh_anchor_original']);
+                    $algumAtrasado = $grupo->contains(fn ($oc) => $oc['eh_anchor_original'] && $oc['comodato']->estaAtrasado());
+
+                    $resumoEquipamentos = $comodatosDoGrupo->map(function (EquipamentoComodato $item) {
+                        return "{$item->nome_equipamento} ({$item->quantidade} un)";
+                    })->implode(', ');
+
+                    $insumosUnicos = $comodatosDoGrupo
+                        ->map(fn (EquipamentoComodato $item) => $item->produto?->nome)
+                        ->filter()
+                        ->unique()
+                        ->implode(', ');
+
+                    $ciclosUnicos = $comodatosDoGrupo
+                        ->pluck('periodicidade_dias')
+                        ->unique()
+                        ->sort()
+                        ->implode('/');
+
+                    $itensComodatos->push([
+                        'tipo_item' => 'comodato',
+                        'data_hora' => $dataRef->copy()->setTime(9, 0),
+                        'titulo' => "Reposição: {$resumoEquipamentos}",
+                        'subtitulo' => $cPrincipal->cliente->nome.($cPrincipal->contrato ? " • Contrato {$cPrincipal->contrato->numero} ({$comodatosDoGrupo->count()} equipamentos unificados)" : ''),
+                        'detalhes' => "Periodicidade: a cada {$ciclosUnicos} dias".($insumosUnicos !== '' ? " • Insumos: {$insumosUnicos}" : ''),
+                        'status' => $algumAnchorOriginal ? ($algumAtrasado ? 'Atrasado' : 'Agendado') : 'Previsto (Recorrente)',
+                        'url' => $cPrincipal->contrato ? route('contratos.show', $cPrincipal->contrato) : route('comodatos.show', $cPrincipal),
+                        'url_os' => route('visitas.create', array_filter([
+                            'cliente_id' => $cPrincipal->cliente_id,
+                            'contrato_id' => $cPrincipal->contrato_id,
+                            'comodato_id' => $cPrincipal->id,
+                            'data' => $dataRef->format('Y-m-d\T09:00'),
+                            'observacoes' => "Reposição unificada de comodatos ({$cPrincipal->contrato?->numero}): {$resumoEquipamentos}",
+                        ])),
+                        'model' => $cPrincipal,
+                        'eh_recorrente_projetado' => ! $algumAnchorOriginal,
+                        'eh_comodato_unificado' => true,
+                    ]);
                 }
             }
         }
@@ -444,7 +509,14 @@ class AgendamentoController extends Controller
                 abort(403, 'Acesso restrito a administradores.');
             }
             $comodato = EquipamentoComodato::findOrFail($id);
-            $comodato->update(['data_proxima_reposicao' => null]);
+
+            if ($comodato->contrato_id && $comodato->data_proxima_reposicao) {
+                EquipamentoComodato::where('contrato_id', $comodato->contrato_id)
+                    ->whereDate('data_proxima_reposicao', $comodato->data_proxima_reposicao->toDateString())
+                    ->update(['data_proxima_reposicao' => null]);
+            } else {
+                $comodato->update(['data_proxima_reposicao' => null]);
+            }
 
             return back()->with('sucesso', "Alerta de reposição do equipamento '{$comodato->nome_equipamento}' removido da agenda.");
         }

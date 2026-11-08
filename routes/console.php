@@ -12,8 +12,3 @@ Schedule::command('agendamentos:verificar-notificacoes')
     ->everyMinute()
     ->withoutOverlapping()
     ->runInBackground();
-
-Schedule::command('contratos:gerar-visitas')
-    ->daily()
-    ->withoutOverlapping()
-    ->runInBackground();

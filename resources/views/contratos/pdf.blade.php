@@ -374,8 +374,8 @@
             background: #f0f9ff;
             padding: 4px 10px;
             border-left: 3px solid #23b4eb;
-            margin-top: 11px;
-            margin-bottom: 6px;
+            margin-top: 12px;
+            margin-bottom: 10px;
             border-radius: 0 4px 4px 0;
             line-height: 1.25;
         }
@@ -588,7 +588,7 @@
         }
 
         .sig-date {
-            margin-top: 8px;
+            margin-top: 25px;
             font-size: 10.5px;
             font-weight: 500;
             color: #475569;
@@ -599,9 +599,32 @@
             text-align: center;
             font-size: 8.5px;
             color: #94a3b8;
-            margin-top: 12px;
+            margin-top: 30px;
+            padding-top: 8px;
+            border-top: 1px solid #e2e8f0;
             page-break-inside: avoid;
             break-inside: avoid;
+        }
+
+        .footer-company {
+            font-weight: 600;
+            color: #475569;
+            font-size: 8.5px;
+            margin-bottom: 2px;
+            line-height: 1.3;
+        }
+
+        .footer-address {
+            font-size: 8px;
+            color: #64748b;
+            margin-bottom: 3px;
+            line-height: 1.25;
+        }
+
+        .footer-meta {
+            font-size: 7.5px;
+            color: #94a3b8;
+            letter-spacing: 0.2px;
         }
 
         /* Responsividade Mobile & PWA */
@@ -698,8 +721,8 @@
             .section-title {
                 font-size: 11px !important;
                 padding: 3.5px 8px !important;
-                margin-top: 9px !important;
-                margin-bottom: 5px !important;
+                margin-top: 12px !important;
+                margin-bottom: 10px !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
                 background: #f0f9ff !important;
@@ -794,15 +817,15 @@
             }
 
             .signatures {
-                margin-top: 20px !important;
-                gap: 30px !important;
+                margin-top: 14px !important;
+                gap: 28px !important;
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
             }
 
             .sig-line {
-                margin-top: 26px !important;
-                margin-bottom: 4px !important;
+                margin-top: 20px !important;
+                margin-bottom: 3px !important;
             }
 
             .sig-name {
@@ -814,17 +837,33 @@
             }
 
             .sig-date {
-                margin-top: 6px !important;
-                font-size: 10px !important;
+                margin-top: 25px !important;
+                font-size: 9.5px !important;
                 font-weight: 600 !important;
                 color: #475569 !important;
             }
 
             .footer-note {
-                margin-top: 10px !important;
+                margin-top: 30px !important;
+                padding-top: 8px !important;
+                border-top: 1px solid #e2e8f0 !important;
                 font-size: 8px !important;
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
+            }
+
+            .footer-company {
+                font-size: 8px !important;
+                margin-bottom: 1px !important;
+            }
+
+            .footer-address {
+                font-size: 7.5px !important;
+                margin-bottom: 2px !important;
+            }
+
+            .footer-meta {
+                font-size: 7px !important;
             }
 
             .watermark-container {
@@ -911,6 +950,7 @@
                                 <span><strong>CNPJ:</strong> {{ $empresa['cnpj'] }}</span>
                                 @if($empresa['telefone']) &bull; <span><strong>Tel:</strong> {{ $empresa['telefone'] }}</span> @endif
                                 @if($empresa['email']) &bull; <span>{{ $empresa['email'] }}</span> @endif
+                                @if(!empty($empresa['website'])) &bull; <span>{{ $empresa['website'] }}</span> @endif
                             </div>
                             <div style="font-size: 9.5px; color: #94a3b8; margin-top: 1px;">
                                 <span>{{ $empresa['enderecoCompleto'] }}</span>
@@ -1022,6 +1062,28 @@
                         <li>Emissão de Certificado Técnico de Execução e Garantia com validade perante órgãos fiscalizadores.</li>
                     </ul>
                 </div>
+
+                @if ($contrato->comodatos->isNotEmpty())
+                    <div class="comodato-box" style="margin-top: 4px; padding: 5px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
+                        <span style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; color: #475569; display: block; margin-bottom: 2px;">
+                            Equipamentos Cedidos em Regime de Comodato:
+                        </span>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: none; margin: 0;">
+                            @foreach ($contrato->comodatos as $cmd)
+                                <tr>
+                                    <td style="padding: 1px 0; border: none; color: #1e293b;">
+                                        &bull; <strong>{{ $cmd->nome_equipamento }}</strong> ({{ $cmd->quantidade }} un)
+                                        — Troca/Vistoria: A cada {{ $cmd->periodicidade_dias }} dias
+                                        @if ($cmd->produto) &bull; Insumo: {{ $cmd->produto->nome }} @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </table>
+                        <p style="margin: 2px 0 0 0; font-size: 8px; color: #64748b; font-style: italic;">
+                            * Equipamentos de propriedade da Contratada, cedidos sob comodato durante a vigência contratual.
+                        </p>
+                    </div>
+                @endif
 
                 {{-- 3. Cronograma Técnico & Periodicidade --}}
                 <div class="section-title">3. Cronograma de Atendimento & Vigência</div>
@@ -1139,7 +1201,19 @@
                 </div>
 
                 <div class="footer-note">
-                    {{ $contrato->numero }} &bull; Documento gerado eletronicamente pelo ERP Alaris em {{ now()->format('d/m/Y H:i') }} &bull; Página 1 de 1
+                    <div class="footer-company">
+                        {{ $empresa['razaoSocial'] }} &bull; CNPJ: {{ $empresa['cnpj'] }}
+                        @if($empresa['telefone']) &bull; Tel: {{ $empresa['telefone'] }} @endif
+                        @if($empresa['email']) &bull; {{ $empresa['email'] }} @endif
+                        @if(!empty($empresa['website'])) &bull; {{ $empresa['website'] }} @endif
+                    </div>
+                    <div class="footer-address">
+                        <span>{{ $empresa['enderecoCompleto'] }}</span>
+                        @if($empresa['licenca']) &bull; <span>{{ $empresa['licenca'] }}</span> @endif
+                    </div>
+                    <div class="footer-meta">
+                        {{ $contrato->numero }} &bull; Documento gerado eletronicamente pelo ERP Alaris em {{ now()->format('d/m/Y H:i') }} &bull; Página 1 de 1
+                    </div>
                 </div>
 
             </div> {{-- fim .proposal-content --}}

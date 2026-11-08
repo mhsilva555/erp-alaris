@@ -230,10 +230,48 @@
                 </div>
             </div>
 
-            {{-- 4. Condições Comerciais & Faturamento --}}
+            {{-- 4. Equipamentos em Comodato Inclusos (Opcional) --}}
+            <div class="card p-6 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5" style="color: var(--color-primary-400);">
+                            4. Equipamentos em Comodato Inclusos (Opcional)
+                        </h3>
+                        <p class="text-xs" style="color: var(--color-surface-400);">
+                            Inclua porta-iscas ou armadilhas na proposta/contrato. A data de instalação seguirá automaticamente a <strong>Data de Início da Vigência</strong>. Em modo Proposta Comercial, não baixa o estoque nem gera eventos na agenda até a aprovação.
+                        </p>
+                    </div>
+                    <button type="button" onclick="adicionarLinhaComodato()" class="btn btn-secondary btn-sm shrink-0 self-start sm:self-auto">
+                        + Adicionar Equipamento em Comodato
+                    </button>
+                </div>
+
+                <div class="table-container" id="wrapper-tabela-comodatos" style="display: none;">
+                    <table class="data-table" id="tabela-comodatos">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Equipamento do Catálogo</th>
+                                <th style="width: 12%;">Qtd (un)</th>
+                                <th style="width: 24%;">Insumo de Reposição</th>
+                                <th style="width: 14%;">Ciclo (Dias)</th>
+                                <th style="width: 16%;">Local / Obs</th>
+                                <th style="width: 4%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-comodatos">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="empty-comodatos" class="text-center py-4 rounded-lg border border-dashed" style="border-color: var(--color-surface-800); color: var(--color-surface-400);">
+                    <span class="text-xs">Nenhum equipamento em comodato incluído nesta proposta/contrato. Clique em <strong>"+ Adicionar Equipamento em Comodato"</strong> caso haja cessão de dispositivos.</span>
+                </div>
+            </div>
+
+            {{-- 5. Condições Comerciais & Faturamento --}}
             <div class="card p-6 space-y-4">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-white" style="color: var(--color-primary-400);">
-                    4. Condições Comerciais & Fechamento
+                    5. Condições Comerciais & Fechamento
                 </h3>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -360,7 +398,7 @@
                     Cancelar
                 </a>
                 <button type="submit" class="btn btn-primary px-6">
-                    Salvar Contrato
+                    Salvar Contrato/Proposta
                 </button>
             </div>
         </form>
@@ -444,6 +482,93 @@
             }
             btn.closest('tr').remove();
             recalcularTotais();
+        }
+
+        const catalogoEquipamentos = @json(($equipamentos ?? collect())->map(fn($e) => [
+            'id' => $e->id,
+            'label' => $e->nome . ($e->modelo ? ' (' . $e->modelo . ')' : '') . ' — Disp: ' . $e->quantidade_disponivel . ' un',
+        ])->values());
+
+        const catalogoProdutos = @json(($produtos ?? collect())->map(fn($p) => [
+            'id' => $p->id,
+            'label' => $p->nome,
+        ])->values());
+
+        let comodatoIndex = 0;
+
+        function atualizarVisibilidadeTabelaComodatos() {
+            const rows = document.querySelectorAll('#tbody-comodatos .comodato-row');
+            const wrapper = document.getElementById('wrapper-tabela-comodatos');
+            const emptyState = document.getElementById('empty-comodatos');
+            if (rows.length > 0) {
+                wrapper.style.display = '';
+                emptyState.style.display = 'none';
+            } else {
+                wrapper.style.display = 'none';
+                emptyState.style.display = '';
+            }
+        }
+
+        function adicionarLinhaComodato(dados = null) {
+            const tbody = document.getElementById('tbody-comodatos');
+            const tr = document.createElement('tr');
+            tr.className = 'comodato-row animate-fadeIn';
+            tr.dataset.index = comodatoIndex;
+
+            let opcoesEquip = '<option value="">Selecione o equipamento...</option>';
+            catalogoEquipamentos.forEach(eq => {
+                const sel = dados && String(dados.equipamento_id) === String(eq.id) ? 'selected' : '';
+                opcoesEquip += `<option value="${eq.id}" ${sel}>${eq.label}</option>`;
+            });
+
+            let opcoesProd = '<option value="">Sem insumo vinculado</option>';
+            catalogoProdutos.forEach(pr => {
+                const sel = dados && String(dados.produto_id) === String(pr.id) ? 'selected' : '';
+                opcoesProd += `<option value="${pr.id}" ${sel}>${pr.label}</option>`;
+            });
+
+            const qtdVal = dados && dados.quantidade ? dados.quantidade : 1;
+            const perVal = dados && dados.periodicidade_dias ? dados.periodicidade_dias : 15;
+            const obsVal = dados && dados.observacoes ? dados.observacoes : '';
+
+            tr.innerHTML = `
+                <td>
+                    <select name="comodatos[${comodatoIndex}][equipamento_id]" required class="form-select text-xs">
+                        ${opcoesEquip}
+                    </select>
+                </td>
+                <td>
+                    <input type="number" min="1" step="1" name="comodatos[${comodatoIndex}][quantidade]" required
+                        class="form-input text-xs" value="${qtdVal}">
+                </td>
+                <td>
+                    <select name="comodatos[${comodatoIndex}][produto_id]" class="form-select text-xs">
+                        ${opcoesProd}
+                    </select>
+                </td>
+                <td>
+                    <input type="number" min="1" step="1" name="comodatos[${comodatoIndex}][periodicidade_dias]" required
+                        class="form-input text-xs" value="${perVal}" placeholder="15">
+                </td>
+                <td>
+                    <input type="text" name="comodatos[${comodatoIndex}][observacoes]"
+                        class="form-input text-xs" value="${obsVal}" placeholder="Ex: Área externa">
+                </td>
+                <td class="text-center">
+                    <button type="button" onclick="removerLinhaComodato(this)" class="btn btn-danger-soft btn-sm p-1" title="Remover comodato">
+                        &times;
+                    </button>
+                </td>
+            `;
+
+            tbody.appendChild(tr);
+            comodatoIndex++;
+            atualizarVisibilidadeTabelaComodatos();
+        }
+
+        function removerLinhaComodato(btn) {
+            btn.closest('tr').remove();
+            atualizarVisibilidadeTabelaComodatos();
         }
 
         function parseMoeda(str) {
@@ -532,11 +657,16 @@
             return Math.round((num + Number.EPSILON) * 100) / 100;
         }
 
+        const oldComodatos = @json(array_values(old('comodatos', [])));
+
         document.addEventListener('DOMContentLoaded', () => {
             toggleVigencia();
             togglePeriodicidadeConfig();
             toggleNotaFiscal();
             recalcularTotais();
+            if (Array.isArray(oldComodatos) && oldComodatos.length > 0) {
+                oldComodatos.forEach(c => adicionarLinhaComodato(c));
+            }
         });
     </script>
 @endsection
