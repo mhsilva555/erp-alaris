@@ -105,6 +105,18 @@ class EquipamentoComodato extends Model
     {
         $data = $data ?? now();
         $this->data_ultima_reposicao = $data->toDateString();
+
+        if ($this->contrato_id) {
+            $this->loadMissing('contrato');
+            if ($this->contrato) {
+                $this->periodicidade_dias = $this->contrato->periodicidadeEmDias();
+                $this->data_proxima_reposicao = $this->contrato->calcularProximaDataReposicao($data)->toDateString();
+                $this->save();
+
+                return;
+            }
+        }
+
         $this->data_proxima_reposicao = $data->copy()->addDays($this->periodicidade_dias)->toDateString();
         $this->save();
     }

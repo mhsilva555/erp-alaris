@@ -47,6 +47,63 @@
                             $deslocamentoInicial = '0.00';
                         }
                     }
+
+                    $produtosIniciais = [];
+                    if (old('produtos')) {
+                        $produtosIniciais = old('produtos');
+                    } elseif ($contratoVinculado && $contratoVinculado->comodatos && $contratoVinculado->comodatos->isNotEmpty()) {
+                        $comodatosComProduto = $contratoVinculado->comodatos->whereNotNull('produto_id');
+                        foreach ($comodatosComProduto->groupBy('produto_id') as $prodId => $grupoCmds) {
+                            $prodObj = $produtos->firstWhere('id', $prodId) ?? $grupoCmds->first()->produto;
+                            $qtdSugerida = $grupoCmds->sum('quantidade');
+                            $fator = (float) ($prodObj->fator_conversao ?? 1);
+                            $saldo = (float) ($prodObj->quantidade_estoque ?? 0);
+                            $fracaoNec = $fator > 0 ? ($qtdSugerida / $fator) : $qtdSugerida;
+                            $resumoEquips = $grupoCmds->map(fn ($c) => $c->nome_equipamento.' ('.$c->quantidade.' un)')->implode(', ');
+
+                            $produtosIniciais[] = [
+                                'id' => $prodId,
+                                'quantidade' => ($saldo > 0 && $fracaoNec <= $saldo) ? $qtdSugerida : '',
+                                'origem_comodato' => $resumoEquips,
+                                'auto_comodato' => true,
+                            ];
+                        }
+                    } elseif (isset($comodato) && $comodato && $comodato->produto_id) {
+                        $prodObj = $produtos->firstWhere('id', $comodato->produto_id) ?? $comodato->produto;
+                        $qtdSugerida = (int) $comodato->quantidade;
+                        $fator = (float) ($prodObj->fator_conversao ?? 1);
+                        $saldo = (float) ($prodObj->quantidade_estoque ?? 0);
+                        $fracaoNec = $fator > 0 ? ($qtdSugerida / $fator) : $qtdSugerida;
+
+                        $produtosIniciais[] = [
+                            'id' => $comodato->produto_id,
+                            'quantidade' => ($saldo > 0 && $fracaoNec <= $saldo) ? $qtdSugerida : '',
+                            'origem_comodato' => $comodato->nome_equipamento.' ('.$comodato->quantidade.' un)',
+                            'auto_comodato' => true,
+                        ];
+                    }
+
+                    $contratosInsumosMap = [];
+                    if (isset($contratos)) {
+                        foreach ($contratos as $ctrItem) {
+                            $insumosCtr = [];
+                            if ($ctrItem->comodatos && $ctrItem->comodatos->isNotEmpty()) {
+                                foreach ($ctrItem->comodatos->whereNotNull('produto_id')->groupBy('produto_id') as $pId => $gCmds) {
+                                    $pObj = $produtos->firstWhere('id', $pId) ?? $gCmds->first()->produto;
+                                    $qtdSug = $gCmds->sum('quantidade');
+                                    $fat = (float) ($pObj->fator_conversao ?? 1);
+                                    $sld = (float) ($pObj->quantidade_estoque ?? 0);
+                                    $frac = $fat > 0 ? ($qtdSug / $fat) : $qtdSug;
+                                    $insumosCtr[] = [
+                                        'id' => $pId,
+                                        'quantidade' => ($sld > 0 && $frac <= $sld) ? $qtdSug : '',
+                                        'origem_comodato' => $gCmds->map(fn ($c) => $c->nome_equipamento.' ('.$c->quantidade.' un)')->implode(', '),
+                                    ];
+                                }
+                            }
+                            $contratosInsumosMap[$ctrItem->id] = $insumosCtr;
+                        }
+                    }
                 @endphp
 
                 @if (isset($comodato) && $comodato && !(isset($contrato) && $contrato))
@@ -269,19 +326,28 @@
                     @enderror
 
                     <div id="produtos-container" class="space-y-3">
-                        @if (old('produtos'))
-                            @foreach (old('produtos') as $i => $item)
+                        @if (!empty($produtosIniciais))
+                            @foreach ($produtosIniciais as $i => $item)
                                 @php
                                     $pSel = $produtos->firstWhere('id', $item['id'] ?? null);
                                     $unApl = $pSel->unidade_aplicacao ?? 'mL';
                                 @endphp
                                 <div class="produto-row p-3 rounded-lg border space-y-2 animate-fadeIn"
+                                    @if (!empty($item['auto_comodato'])) data-auto-comodato="1" @endif
                                     style="border-color: var(--color-border); background-color: var(--color-surface-subtle);">
+                                    @if (!empty($item['origem_comodato']))
+                                        <div class="flex items-center gap-1.5 text-[11px] font-medium text-sky-400">
+                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                                            </svg>
+                                            <span>Insumo vinculado ao comodato: <strong>{{ $item['origem_comodato'] }}</strong></span>
+                                        </div>
+                                    @endif
                                     <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                                         <div class="flex-1 min-w-0">
                                             <select name="produtos[{{ $i }}][id]"
                                                 class="form-select produto-select w-full" required
-                                                onchange="window.atualizarProdutoRow && window.atualizarProdutoRow(this); recalcularFinanceiroVisita()">
+                                                onchange="this.closest('.produto-row')?.removeAttribute('data-auto-comodato'); window.atualizarProdutoRow && window.atualizarProdutoRow(this); recalcularFinanceiroVisita()">
                                                 <option value="">Selecione o insumo / defensivo...</option>
                                                 @foreach ($produtos as $p)
                                                     <option value="{{ $p->id }}"
@@ -299,8 +365,8 @@
                                                 <input type="number" name="produtos[{{ $i }}][quantidade]"
                                                     step="any" min="0.0001"
                                                     value="{{ $item['quantidade'] ?? '' }}" placeholder="Qtd / Dose"
-                                                    class="form-input produto-qtd text-left sm:text-right !pr-10" required
-                                                    oninput="window.atualizarProdutoRow && window.atualizarProdutoRow(this); recalcularFinanceiroVisita()" />
+                                                    class="form-input produto-qtd text-left sm:text-right !pr-10" style="width: 10.5rem;" required
+                                                    oninput="this.closest('.produto-row')?.removeAttribute('data-auto-comodato'); window.atualizarProdutoRow && window.atualizarProdutoRow(this); recalcularFinanceiroVisita()" />
                                                 <span
                                                     class="produto-unidade-badge absolute right-2.5 text-xs font-semibold pointer-events-none text-slate-500">
                                                     {{ $unApl }}
@@ -499,8 +565,14 @@
         };
         window.__produtosOptions =
             `@foreach ($produtos as $p)<option value="{{ $p->id }}" class="{{ $p->quantidade_estoque <= 0 ? 'text-rose-500 font-semibold' : '' }}">{{ $p->nome }} ({{ $p->quantidade_estoque <= 0 ? 'SEM ESTOQUE' : 'Saldo: ' . $p->quantidade_estoque_formatada . ' ' . ($p->unidade_armazenamento ?? $p->unidade) }} &bull; Uso em: {{ $p->unidade_aplicacao ?? 'mL' }})</option>@endforeach`;
+        window.__contratosInsumosComodato = @json($contratosInsumosMap);
 
         document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('#produtos-container .produto-select').forEach(sel => {
+                if (window.atualizarProdutoRow) {
+                    window.atualizarProdutoRow(sel);
+                }
+            });
             if (window.recalcularFinanceiroVisita) {
                 window.recalcularFinanceiroVisita();
             }
@@ -585,6 +657,19 @@
                 if (tipoServicoSelect && tipoServico) {
                     tipoServicoSelect.value = tipoServico;
                 }
+            }
+
+            // Sincroniza insumos vinculados aos comodatos do contrato selecionado
+            const containerProdutos = document.getElementById('produtos-container');
+            if (containerProdutos) {
+                containerProdutos.querySelectorAll('.produto-row[data-auto-comodato="1"]').forEach(r => r.remove());
+                const insumosContrato = (opt.value && window.__contratosInsumosComodato && window.__contratosInsumosComodato[opt.value]) || [];
+                insumosContrato.forEach(insumo => {
+                    const jaExiste = Array.from(containerProdutos.querySelectorAll('.produto-select')).some(s => String(s.value) === String(insumo.id));
+                    if (!jaExiste && typeof window.addProdutoRow === 'function') {
+                        window.addProdutoRow(insumo.id, insumo.quantidade, insumo.origem_comodato, true);
+                    }
+                });
             }
 
             if (typeof window.recalcularFinanceiroVisita === 'function') {

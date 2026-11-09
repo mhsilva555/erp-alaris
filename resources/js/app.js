@@ -714,21 +714,33 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── Produtos dinâmicos na visita ──
-window.addProdutoRow = function () {
+window.addProdutoRow = function (produtoId = '', quantidade = '', origemComodato = '', autoComodato = false) {
     const container = document.getElementById('produtos-container');
     if (!container) return;
 
-    const index = container.children.length;
+    const index = Date.now() + Math.floor(Math.random() * 1000) + container.children.length;
     const optionsData = window.__produtosOptions || '';
 
     const row = document.createElement('div');
     row.className = 'produto-row p-3 rounded-lg border space-y-2 animate-fadeIn';
+    if (autoComodato) {
+        row.setAttribute('data-auto-comodato', '1');
+    }
     row.style.borderColor = 'var(--color-border)';
     row.style.backgroundColor = 'var(--color-surface-subtle)';
+
+    const headerComodato = origemComodato
+        ? `<div class="flex items-center gap-1.5 text-[11px] font-medium text-sky-400">
+               <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+               <span>Insumo vinculado ao comodato: <strong>${origemComodato}</strong></span>
+           </div>`
+        : '';
+
     row.innerHTML = `
+        ${headerComodato}
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <div class="flex-1 min-w-0">
-                <select name="produtos[${index}][id]" class="form-select produto-select w-full" required onchange="window.atualizarProdutoRow && window.atualizarProdutoRow(this); window.recalcularFinanceiroVisita && window.recalcularFinanceiroVisita();">
+                <select name="produtos[${index}][id]" class="form-select produto-select w-full" required onchange="this.closest('.produto-row')?.removeAttribute('data-auto-comodato'); window.atualizarProdutoRow && window.atualizarProdutoRow(this); window.recalcularFinanceiroVisita && window.recalcularFinanceiroVisita();">
                     <option value="">Selecione o insumo / defensivo...</option>
                     ${optionsData}
                 </select>
@@ -737,7 +749,7 @@ window.addProdutoRow = function () {
                 <div class="relative flex items-center">
                     <input type="number" name="produtos[${index}][quantidade]" step="any" min="0.0001"
                            placeholder="Qtd / Dose" class="form-input produto-qtd text-left sm:text-right !pr-10" style="width: 10.5rem;" required
-                           oninput="window.atualizarProdutoRow && window.atualizarProdutoRow(this); window.recalcularFinanceiroVisita && window.recalcularFinanceiroVisita();" />
+                           oninput="this.closest('.produto-row')?.removeAttribute('data-auto-comodato'); window.atualizarProdutoRow && window.atualizarProdutoRow(this); window.recalcularFinanceiroVisita && window.recalcularFinanceiroVisita();" />
                     <span class="produto-unidade-badge absolute right-2.5 text-xs font-semibold pointer-events-none text-slate-500">
                         mL
                     </span>
@@ -754,6 +766,18 @@ window.addProdutoRow = function () {
         </div>
     `;
     container.appendChild(row);
+
+    const sel = row.querySelector('.produto-select');
+    const qtdInput = row.querySelector('.produto-qtd');
+    if (sel && produtoId) {
+        sel.value = String(produtoId);
+    }
+    if (qtdInput && quantidade !== '' && quantidade !== null && quantidade !== undefined) {
+        qtdInput.value = quantidade;
+    }
+    if (sel && window.atualizarProdutoRow) {
+        window.atualizarProdutoRow(sel);
+    }
     if (window.recalcularFinanceiroVisita) {
         window.recalcularFinanceiroVisita();
     }

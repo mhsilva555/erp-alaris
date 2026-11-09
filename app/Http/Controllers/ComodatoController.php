@@ -73,11 +73,12 @@ class ComodatoController extends Controller
             'produto_id' => 'nullable|exists:produtos,id',
             'nome_equipamento' => 'nullable|string|max:255',
             'quantidade' => 'required|integer|min:1',
-            'periodicidade_dias' => 'required|integer|min:1',
+            'periodicidade_dias' => 'nullable|required_without:contrato_id|integer|min:1',
             'data_instalacao' => 'required|date',
             'observacoes' => 'nullable|string',
         ]);
 
+        $contrato = null;
         if (! empty($validated['contrato_id'])) {
             $contrato = Contrato::where('id', $validated['contrato_id'])
                 ->where('status', Contrato::STATUS_ATIVO)
@@ -88,6 +89,8 @@ class ComodatoController extends Controller
                     'contrato_id' => 'O contrato selecionado deve estar ativo e pertencer ao cliente escolhido.',
                 ]);
             }
+
+            $validated['periodicidade_dias'] = $contrato->periodicidadeEmDias();
         }
 
         if (empty($validated['equipamento_id']) && empty($validated['nome_equipamento'])) {
@@ -111,7 +114,9 @@ class ComodatoController extends Controller
 
         $instalacao = Carbon::parse($validated['data_instalacao']);
         $validated['data_ultima_reposicao'] = $instalacao->toDateString();
-        $validated['data_proxima_reposicao'] = $instalacao->copy()->addDays((int) $validated['periodicidade_dias'])->toDateString();
+        $validated['data_proxima_reposicao'] = $contrato
+            ? $contrato->calcularProximaDataReposicao($instalacao)->toDateString()
+            : $instalacao->copy()->addDays((int) $validated['periodicidade_dias'])->toDateString();
 
         DB::transaction(function () use ($validated, $equipamento) {
             EquipamentoComodato::create($validated);
@@ -159,7 +164,7 @@ class ComodatoController extends Controller
             'produto_id' => 'nullable|exists:produtos,id',
             'nome_equipamento' => 'nullable|string|max:255',
             'quantidade' => 'required|integer|min:1',
-            'periodicidade_dias' => 'required|integer|min:1',
+            'periodicidade_dias' => 'nullable|required_without:contrato_id|integer|min:1',
             'data_instalacao' => 'required|date',
             'data_ultima_reposicao' => 'nullable|date',
             'data_proxima_reposicao' => 'nullable|date',
@@ -175,6 +180,14 @@ class ComodatoController extends Controller
                 return back()->withInput()->withErrors([
                     'contrato_id' => 'O contrato selecionado deve estar ativo e pertencer ao cliente escolhido.',
                 ]);
+            }
+
+            $validated['periodicidade_dias'] = $contrato->periodicidadeEmDias();
+            if (empty($validated['data_proxima_reposicao']) || (int) $comodato->contrato_id !== (int) $contrato->id) {
+                $refDate = ! empty($validated['data_ultima_reposicao'])
+                    ? Carbon::parse($validated['data_ultima_reposicao'])
+                    : Carbon::parse($validated['data_instalacao']);
+                $validated['data_proxima_reposicao'] = $contrato->calcularProximaDataReposicao($refDate)->toDateString();
             }
         }
 

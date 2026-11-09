@@ -10,7 +10,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proposta Comercial #{{ $visita->id }} — Alaris Service</title>
+    <title>Proposta Comercial #{{ $visita->id }} — {{ $visita->cliente->nome }}</title>
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
     <style>
@@ -616,7 +616,7 @@
     <script>
         function compartilharDocumento() {
             const dados = {
-                title: 'Proposta Comercial #{{ $visita->id }} — Alaris Service',
+                title: 'Proposta Comercial #{{ $visita->id }} — {{ addslashes($visita->cliente->nome) }}',
                 text: 'Proposta Comercial #{{ $visita->id }} - Cliente: {{ addslashes($visita->cliente->nome) }}',
                 url: window.location.href
             };

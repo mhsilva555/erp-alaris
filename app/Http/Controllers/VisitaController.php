@@ -186,11 +186,17 @@ class VisitaController extends Controller
                     $fracao = $prod->calcularFracaoBaixa($dose);
                     $fracaoBaixar = $deveBaixar ? $fracao : 0.0;
 
-                    $sync[$prod->id] = [
-                        'quantidade' => $dose,
-                        'custo_proporcional' => $custoItem,
-                        'fracao_baixada' => $fracaoBaixar,
-                    ];
+                    if (isset($sync[$prod->id])) {
+                        $sync[$prod->id]['quantidade'] += $dose;
+                        $sync[$prod->id]['custo_proporcional'] += $custoItem;
+                        $sync[$prod->id]['fracao_baixada'] += $fracaoBaixar;
+                    } else {
+                        $sync[$prod->id] = [
+                            'quantidade' => $dose,
+                            'custo_proporcional' => $custoItem,
+                            'fracao_baixada' => $fracaoBaixar,
+                        ];
+                    }
                 }
             }
 

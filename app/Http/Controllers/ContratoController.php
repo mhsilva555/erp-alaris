@@ -132,7 +132,7 @@ class ContratoController extends Controller
             'comodatos.*.nome_equipamento' => 'nullable|string|max:255',
             'comodatos.*.produto_id' => 'nullable|exists:produtos,id',
             'comodatos.*.quantidade' => 'required|integer|min:1',
-            'comodatos.*.periodicidade_dias' => 'required|integer|min:1',
+            'comodatos.*.periodicidade_dias' => 'nullable|integer|min:1',
             'comodatos.*.observacoes' => 'nullable|string',
         ]);
 
@@ -285,7 +285,7 @@ class ContratoController extends Controller
             'comodatos.*.nome_equipamento' => 'nullable|string|max:255',
             'comodatos.*.produto_id' => 'nullable|exists:produtos,id',
             'comodatos.*.quantidade' => 'required|integer|min:1',
-            'comodatos.*.periodicidade_dias' => 'required|integer|min:1',
+            'comodatos.*.periodicidade_dias' => 'nullable|integer|min:1',
             'comodatos.*.observacoes' => 'nullable|string',
         ]);
 
@@ -293,6 +293,7 @@ class ContratoController extends Controller
         $dataInicioMudou = $contrato->data_inicio->toDateString() !== $validated['data_inicio'];
 
         $periodicidadeMudou = $contrato->periodicidade !== $validated['periodicidade']
+            || (string) $contrato->periodicidade_dias !== (string) ($validated['periodicidade_dias'] ?? '')
             || $dataInicioMudou
             || (string) $contrato->dia_preferencial !== (string) ($validated['dia_preferencial'] ?? '')
             || (string) $contrato->dia_semana !== (string) ($validated['dia_semana'] ?? '');
@@ -338,10 +339,12 @@ class ContratoController extends Controller
                     $contrato,
                     $validated['comodatos'] ?? [],
                     $eraAtivoAntes,
-                    $dataInicioMudou
+                    $dataInicioMudou || $periodicidadeMudou
                 );
             } elseif (! $eraAtivoAntes && $contrato->status === Contrato::STATUS_ATIVO) {
                 $this->ativarComodatosDoContrato($contrato);
+            } elseif ($periodicidadeMudou) {
+                $this->sincronizarPeriodicidadeComodatosDoContrato($contrato, $dataInicioMudou);
             }
 
             if ($contrato->status === Contrato::STATUS_ATIVO) {
@@ -393,7 +396,8 @@ class ContratoController extends Controller
         $contrato->load(['cliente', 'itens', 'meioPagamento', 'comodatos.equipamento', 'comodatos.produto']);
 
         if ($request->get('download') === '1' || $request->header('Accept') === 'application/pdf') {
-            $nomeArquivo = ($contrato->ehProposta() ? 'Proposta_Comercial_' : 'Contrato_').$contrato->numero.'.pdf';
+            $nomeClienteArquivo = str_replace(['/', '\\'], '-', $contrato->cliente->nome);
+            $nomeArquivo = ($contrato->ehProposta() ? 'Proposta Comercial' : 'Contrato').' #'.$contrato->numero.' — '.$nomeClienteArquivo.'.pdf';
             $pdfEngine = true;
 
             $pdf = Pdf::loadView('contratos.pdf', compact('contrato', 'pdfEngine'))
@@ -603,7 +607,7 @@ class ContratoController extends Controller
             }
 
             $qtd = max(1, (int) ($cData['quantidade'] ?? 1));
-            $periodicidadeDias = max(1, (int) ($cData['periodicidade_dias'] ?? 15));
+            $periodicidadeDias = $contrato->periodicidadeEmDias();
             $produtoId = ! empty($cData['produto_id']) ? (int) $cData['produto_id'] : null;
             $obs = $cData['observacoes'] ?? null;
 
@@ -672,13 +676,13 @@ class ContratoController extends Controller
                     : $novaDataInstalacao;
                 $novaProximaReposicao = $comodatoExistente->data_proxima_reposicao
                     ? $comodatoExistente->data_proxima_reposicao->toDateString()
-                    : $dataInstalacao->copy()->addDays($periodicidadeDias)->toDateString();
+                    : $contrato->calcularProximaDataReposicao($dataInstalacao)->toDateString();
 
                 if ($nuncaRepostoEmCampo && ($dataInicioMudou || $periodicidadeDias !== $antigaPeriodicidade || ! $eraAtivoAntes)) {
                     $novaUltimaReposicao = $novaDataInstalacao;
-                    $novaProximaReposicao = $dataInstalacao->copy()->addDays($periodicidadeDias)->toDateString();
-                } elseif (! $nuncaRepostoEmCampo && $periodicidadeDias !== $antigaPeriodicidade) {
-                    $novaProximaReposicao = Carbon::parse($novaUltimaReposicao)->addDays($periodicidadeDias)->toDateString();
+                    $novaProximaReposicao = $contrato->calcularProximaDataReposicao($dataInstalacao)->toDateString();
+                } elseif (! $nuncaRepostoEmCampo && ($dataInicioMudou || $periodicidadeDias !== $antigaPeriodicidade)) {
+                    $novaProximaReposicao = $contrato->calcularProximaDataReposicao(Carbon::parse($novaUltimaReposicao))->toDateString();
                 }
 
                 $comodatoExistente->update([
@@ -714,7 +718,7 @@ class ContratoController extends Controller
                     'periodicidade_dias' => $periodicidadeDias,
                     'data_instalacao' => $dataInstalacao->toDateString(),
                     'data_ultima_reposicao' => $dataInstalacao->toDateString(),
-                    'data_proxima_reposicao' => $dataInstalacao->copy()->addDays($periodicidadeDias)->toDateString(),
+                    'data_proxima_reposicao' => $contrato->calcularProximaDataReposicao($dataInstalacao)->toDateString(),
                     'observacoes' => $obs,
                 ]);
 
@@ -734,6 +738,36 @@ class ContratoController extends Controller
     }
 
     /**
+     * Sincroniza a periodicidade e próxima data de reposição dos comodatos vinculados quando a frequência do contrato muda.
+     */
+    private function sincronizarPeriodicidadeComodatosDoContrato(Contrato $contrato, bool $dataInicioMudou = false): void
+    {
+        $comodatos = $contrato->comodatos()->get();
+        if ($comodatos->isEmpty()) {
+            return;
+        }
+
+        $dataInstalacao = Carbon::parse($contrato->data_inicio)->startOfDay();
+        $periodicidadeDias = $contrato->periodicidadeEmDias();
+
+        foreach ($comodatos as $comodato) {
+            $nuncaRepostoEmCampo = ! $comodato->data_ultima_reposicao
+                || ($comodato->data_instalacao && $comodato->data_ultima_reposicao->isSameDay($comodato->data_instalacao));
+
+            $novaInstalacao = $dataInicioMudou ? $dataInstalacao->toDateString() : ($comodato->data_instalacao?->toDateString() ?? $dataInstalacao->toDateString());
+            $novaUltima = $nuncaRepostoEmCampo ? $novaInstalacao : $comodato->data_ultima_reposicao->toDateString();
+            $novaProxima = $contrato->calcularProximaDataReposicao(Carbon::parse($novaUltima))->toDateString();
+
+            $comodato->update([
+                'periodicidade_dias' => $periodicidadeDias,
+                'data_instalacao' => $novaInstalacao,
+                'data_ultima_reposicao' => $novaUltima,
+                'data_proxima_reposicao' => $novaProxima,
+            ]);
+        }
+    }
+
+    /**
      * Ativa operacionalmente os comodatos de uma proposta/rascunho quando o contrato é aprovado/ativado:
      * debita o saldo físico do inventário e alinha a data de instalação com a data_inicio do contrato.
      */
@@ -745,6 +779,7 @@ class ContratoController extends Controller
         }
 
         $dataInstalacao = Carbon::parse($contrato->data_inicio)->startOfDay();
+        $periodicidadeDias = $contrato->periodicidadeEmDias();
 
         foreach ($comodatos as $idx => $comodato) {
             if ($comodato->equipamento) {
@@ -756,12 +791,11 @@ class ContratoController extends Controller
                 $comodato->equipamento->decrement('quantidade_disponivel', $comodato->quantidade);
             }
 
-            $periodicidadeDias = max(1, (int) $comodato->periodicidade_dias);
-
             $comodato->update([
+                'periodicidade_dias' => $periodicidadeDias,
                 'data_instalacao' => $dataInstalacao->toDateString(),
                 'data_ultima_reposicao' => $dataInstalacao->toDateString(),
-                'data_proxima_reposicao' => $dataInstalacao->copy()->addDays($periodicidadeDias)->toDateString(),
+                'data_proxima_reposicao' => $contrato->calcularProximaDataReposicao($dataInstalacao)->toDateString(),
             ]);
         }
     }

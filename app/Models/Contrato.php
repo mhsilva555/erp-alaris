@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ContratoAgendamentoService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -265,6 +266,28 @@ class Contrato extends Model
         }
 
         return self::PERIODICIDADES[$this->periodicidade] ?? ucfirst($this->periodicidade);
+    }
+
+    public function periodicidadeEmDias(): int
+    {
+        return match ($this->periodicidade) {
+            self::PERIODICIDADE_SEMANAL => 7,
+            self::PERIODICIDADE_QUINZENAL => 15,
+            self::PERIODICIDADE_MENSAL => 30,
+            self::PERIODICIDADE_BIMESTRAL => 60,
+            self::PERIODICIDADE_TRIMESTRAL => 90,
+            self::PERIODICIDADE_SEMESTRAL => 180,
+            self::PERIODICIDADE_ANUAL => 365,
+            self::PERIODICIDADE_PERSONALIZADO => max(1, (int) ($this->periodicidade_dias ?: 30)),
+            default => 30,
+        };
+    }
+
+    public function calcularProximaDataReposicao(?Carbon $aposData = null): Carbon
+    {
+        $ref = ($aposData ?? $this->data_inicio ?? now())->copy()->startOfDay();
+
+        return app(ContratoAgendamentoService::class)->calcularProximaData($this, $ref);
     }
 
     public function modeloCobrancaLabel(): string

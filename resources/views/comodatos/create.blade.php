@@ -18,7 +18,9 @@
                     $contratosJson = $contratos->map(fn ($c) => [
                         'id' => $c->id,
                         'cliente_id' => $c->cliente_id,
-                        'label' => 'Contrato #' . $c->numero . ' — ' . ($c->titulo ?: $c->cliente->nome),
+                        'periodicidade_dias' => $c->periodicidadeEmDias(),
+                        'periodicidade_label' => $c->periodicidadeLabel(),
+                        'label' => 'Contrato #' . $c->numero . ' — ' . ($c->titulo ?: $c->cliente->nome) . ' (' . $c->periodicidadeLabel() . ')',
                     ])->values();
                 @endphp
 
@@ -37,13 +39,15 @@
 
                     <div>
                         <label class="form-label" for="contrato_id">Contrato Vinculado (Opcional)</label>
-                        <select id="contrato_id" name="contrato_id" class="form-select" {{ !$clienteAtualId ? 'disabled' : '' }}>
+                        <select id="contrato_id" name="contrato_id" class="form-select" {{ !$clienteAtualId ? 'disabled' : '' }} onchange="aoMudarContrato()">
                             <option value="">{{ $clienteAtualId ? 'Nenhum (Comodato Avulso)' : 'Selecione um cliente primeiro...' }}</option>
                             @foreach($contratosDoCliente as $ctr)
                                 <option value="{{ $ctr->id }}"
                                     data-cliente="{{ $ctr->cliente_id }}"
+                                    data-periodicidade-dias="{{ $ctr->periodicidadeEmDias() }}"
+                                    data-periodicidade-label="{{ $ctr->periodicidadeLabel() }}"
                                     {{ ($contratoAtualId == $ctr->id) ? 'selected' : '' }}>
-                                    Contrato #{{ $ctr->numero }} — {{ $ctr->titulo ?: $ctr->cliente->nome }}
+                                    Contrato #{{ $ctr->numero }} — {{ $ctr->titulo ?: $ctr->cliente->nome }} ({{ $ctr->periodicidadeLabel() }})
                                 </option>
                             @endforeach
                         </select>
@@ -100,7 +104,7 @@
                     <div>
                         <label class="form-label" for="periodicidade_dias">Ciclo de Reposição (em Dias) *</label>
                         <input type="number" id="periodicidade_dias" name="periodicidade_dias" value="{{ old('periodicidade_dias', 15) }}" min="1" class="form-input" required>
-                        <p class="text-[11px] mt-1" style="color: var(--color-surface-400);">Ex: 15 dias, 30 dias. Campo livre e editável.</p>
+                        <p id="periodicidade_hint" class="text-[11px] mt-1" style="color: var(--color-surface-400);">Ex: 15 dias, 30 dias. Campo livre e editável para comodato avulso.</p>
                     </div>
                 </div>
 
@@ -198,18 +202,48 @@
                 const opt = document.createElement('option');
                 opt.value = c.id;
                 opt.setAttribute('data-cliente', c.cliente_id);
+                opt.setAttribute('data-periodicidade-dias', c.periodicidade_dias);
+                opt.setAttribute('data-periodicidade-label', c.periodicidade_label);
                 opt.textContent = c.label;
                 if (String(c.id) === String(valorAnterior)) {
                     opt.selected = true;
                 }
                 contratoSelect.appendChild(opt);
             });
+
+            window.aoMudarContrato();
+        };
+
+        window.aoMudarContrato = function() {
+            const contratoSelect = document.getElementById('contrato_id');
+            const inputPer = document.getElementById('periodicidade_dias');
+            const hintPer = document.getElementById('periodicidade_hint');
+            if (!contratoSelect || !inputPer) return;
+
+            const opt = contratoSelect.options[contratoSelect.selectedIndex];
+            if (opt && opt.value) {
+                const dias = opt.getAttribute('data-periodicidade-dias') || '30';
+                const label = opt.getAttribute('data-periodicidade-label') || '';
+                inputPer.value = dias;
+                inputPer.readOnly = true;
+                inputPer.classList.add('opacity-70');
+                if (hintPer) {
+                    hintPer.textContent = `Acompanha automaticamente a periodicidade do contrato (${label} — ${dias} dias).`;
+                }
+            } else {
+                inputPer.readOnly = false;
+                inputPer.classList.remove('opacity-70');
+                if (hintPer) {
+                    hintPer.textContent = 'Ex: 15 dias, 30 dias. Campo livre e editável para comodato avulso.';
+                }
+            }
         };
 
         const cliSelect = document.getElementById('cliente_id');
         if (cliSelect) {
             window.aoMudarCliente(cliSelect.value);
         }
+        window.aoMudarContrato();
     });
 </script>
 @endsection

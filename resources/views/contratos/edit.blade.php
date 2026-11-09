@@ -178,7 +178,8 @@
                     <div id="wrapper-intervalo-dias" class="hidden">
                         <label class="form-label" for="periodicidade_dias">Intervalo em Dias *</label>
                         <input type="number" id="periodicidade_dias" name="periodicidade_dias" min="1"
-                            value="{{ old('periodicidade_dias', $contrato->periodicidade_dias ?? 30) }}" class="form-input" placeholder="Ex: 45">
+                            value="{{ old('periodicidade_dias', $contrato->periodicidade_dias ?? 30) }}" class="form-input" placeholder="Ex: 45"
+                            oninput="sincronizarCicloComodatos()">
                     </div>
 
                     <div>
@@ -289,7 +290,7 @@
                             4. Equipamentos em Comodato Inclusos (Opcional)
                         </h3>
                         <p class="text-xs" style="color: var(--color-surface-400);">
-                            Gerencie os porta-iscas e armadilhas vinculados a este contrato. A data de instalação segue a <strong>Data de Início da Vigência</strong>.
+                            Gerencie os porta-iscas e armadilhas vinculados a este contrato. A data de instalação e o ciclo de reposição acompanham automaticamente a <strong>vigência e periodicidade do contrato</strong>.
                         </p>
                     </div>
                     <button type="button" onclick="adicionarLinhaComodato()" class="btn btn-secondary btn-sm shrink-0 self-start sm:self-auto">
@@ -304,7 +305,7 @@
                                 <th style="width: 30%;">Equipamento do Catálogo</th>
                                 <th style="width: 12%;">Qtd (un)</th>
                                 <th style="width: 24%;">Insumo de Reposição</th>
-                                <th style="width: 14%;">Ciclo (Dias)</th>
+                                <th style="width: 14%;">Ciclo de Reposição</th>
                                 <th style="width: 16%;">Local / Obs</th>
                                 <th style="width: 4%;"></th>
                             </tr>
@@ -484,6 +485,49 @@
             } else if (['mensal', 'bimestral', 'trimestral', 'semestral', 'anual'].includes(p)) {
                 wDiaPref.classList.remove('hidden');
             }
+
+            sincronizarCicloComodatos();
+        }
+
+        function obterCicloContrato() {
+            const p = document.getElementById('periodicidade')?.value || 'mensal';
+            const diasCustom = parseInt(document.getElementById('periodicidade_dias')?.value || '30', 10) || 30;
+            const mapaDias = {
+                semanal: 7,
+                quinzenal: 15,
+                mensal: 30,
+                bimestral: 60,
+                trimestral: 90,
+                semestral: 180,
+                anual: 365,
+                atendimento_unico: 30,
+                personalizado: diasCustom
+            };
+            const mapaLabels = {
+                semanal: 'Semanal (7 dias)',
+                quinzenal: 'Quinzenal (15 dias)',
+                mensal: 'Mensal (30 dias)',
+                bimestral: 'Bimestral (60 dias)',
+                trimestral: 'Trimestral (90 dias)',
+                semestral: 'Semestral (180 dias)',
+                anual: 'Anual (365 dias)',
+                atendimento_unico: 'Atendimento Único',
+                personalizado: `A cada ${diasCustom} dias`
+            };
+            return {
+                dias: mapaDias[p] || 30,
+                label: mapaLabels[p] || 'Segue contrato'
+            };
+        }
+
+        function sincronizarCicloComodatos() {
+            const ciclo = obterCicloContrato();
+            document.querySelectorAll('#tbody-comodatos .comodato-row').forEach(row => {
+                const inputDias = row.querySelector('.comodato-periodicidade-input');
+                const badgeLabel = row.querySelector('.comodato-periodicidade-label');
+                if (inputDias) inputDias.value = ciclo.dias;
+                if (badgeLabel) badgeLabel.textContent = ciclo.label;
+            });
         }
 
         let itemIndex = {{ $contrato->itens->count() ?: 1 }};
@@ -578,7 +622,7 @@
             const idVal = dados && dados.id ? dados.id : '';
             const nomeVal = dados && dados.nome_equipamento ? dados.nome_equipamento : '';
             const qtdVal = dados && dados.quantidade ? dados.quantidade : 1;
-            const perVal = dados && dados.periodicidade_dias ? dados.periodicidade_dias : 15;
+            const ciclo = obterCicloContrato();
             const obsVal = dados && dados.observacoes ? dados.observacoes : '';
 
             tr.innerHTML = `
@@ -599,8 +643,11 @@
                     </select>
                 </td>
                 <td>
-                    <input type="number" min="1" step="1" name="comodatos[${comodatoIndex}][periodicidade_dias]" required
-                        class="form-input text-xs" value="${perVal}" placeholder="15">
+                    <input type="hidden" name="comodatos[${comodatoIndex}][periodicidade_dias]"
+                        class="comodato-periodicidade-input" value="${ciclo.dias}">
+                    <span class="badge badge-info text-[11px] comodato-periodicidade-label" title="Segue automaticamente a periodicidade do contrato">
+                        ${ciclo.label}
+                    </span>
                 </td>
                 <td>
                     <input type="text" name="comodatos[${comodatoIndex}][observacoes]"

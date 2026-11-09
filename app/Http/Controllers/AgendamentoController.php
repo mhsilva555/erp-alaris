@@ -31,15 +31,19 @@ class AgendamentoController extends Controller
         $dataFim = Carbon::parse($mes.'-01')->endOfMonth();
 
         // 1. Visitas Agendadas no período
-        $visitasQuery = Visita::with(['cliente', 'tecnico', 'contrato'])
+        $visitasQuery = Visita::with(['cliente', 'tecnico', 'contrato.comodatos.produto', 'comodato.produto'])
             ->whereBetween('data_hora', [$dataInicio, $dataFim])
             ->where('status', '!=', Visita::STATUS_CANCELADA);
 
         // Se o usuário for Administrador, ele não precisa ver Ordens de Serviços geradas
-        // para um comodato na Agenda, pois dentro do Evento de Comodato já existem as OSs vinculadas.
-        // Se for um técnico, exibe normalmente para que ele execute sua OS de campo.
+        // para um comodato avulso na Agenda, pois dentro do Evento de Comodato já existem as OSs vinculadas.
+        // Contudo, OSs vinculadas a um Contrato (mesmo que possuam comodato_id) são exibidas normalmente
+        // para substituir a projeção do Atendimento Contratual sem duplicidade.
         if (! $user || $user->isAdmin()) {
-            $visitasQuery->whereNull('comodato_id');
+            $visitasQuery->where(function ($q) {
+                $q->whereNull('comodato_id')
+                    ->orWhereNotNull('contrato_id');
+            });
         }
 
         if ($tecnicoId) {
@@ -52,9 +56,10 @@ class AgendamentoController extends Controller
         // Regra de Negócio: Contratos ativos não gravam O.S. vazias antecipadamente no banco de dados.
         // A Agenda Geral projeta dinamicamente os atendimentos previstos para o período visualizado,
         // permitindo que o gestor visualize os compromissos e clique no evento para emitir e despachar a O.S. manualmente.
+        // Caso o contrato possua equipamentos em comodato vinculados, estes são unificados neste mesmo evento.
         $itensContratosRecorrentes = collect();
         if ((! $user || ! $user->isTecnico()) && ! $tecnicoId) {
-            $contratosAtivos = Contrato::with(['cliente', 'itens'])
+            $contratosAtivos = Contrato::with(['cliente', 'itens', 'comodatos.produto', 'comodatos.equipamento'])
                 ->where('status', Contrato::STATUS_ATIVO)
                 ->get();
 
@@ -62,6 +67,24 @@ class AgendamentoController extends Controller
 
             foreach ($contratosAtivos as $ctr) {
                 $datasNoPeriodo = $serviceAgendamento->calcularDatasNoPeriodo($ctr, $dataInicio, $dataFim);
+                $temComodato = $ctr->comodatos->isNotEmpty();
+                $resumoEquipamentos = '';
+                $insumosUnicos = '';
+                $observacoesPadrao = null;
+
+                if ($temComodato) {
+                    $resumoEquipamentos = $ctr->comodatos->map(function (EquipamentoComodato $item) {
+                        return "{$item->nome_equipamento} ({$item->quantidade} un)";
+                    })->implode(', ');
+
+                    $insumosUnicos = $ctr->comodatos
+                        ->map(fn (EquipamentoComodato $item) => $item->produto?->nome)
+                        ->filter()
+                        ->unique()
+                        ->implode(', ');
+
+                    $observacoesPadrao = "Atendimento contratual ({$ctr->numero}) + Reposição de comodatos: {$resumoEquipamentos}";
+                }
 
                 foreach ($datasNoPeriodo as $dataHoraPrevista) {
                     // Prevenção de duplicidade com O.S. já emitida:
@@ -75,23 +98,35 @@ class AgendamentoController extends Controller
                         continue;
                     }
 
+                    $subtitulo = "Contrato {$ctr->numero} ({$ctr->periodicidadeLabel()}) • {$ctr->cliente->cidade_estado}";
+                    if ($temComodato) {
+                        $qtdEquips = $ctr->comodatos->count();
+                        $subtitulo .= " • {$qtdEquips} ".($qtdEquips === 1 ? 'comodato vinculado' : 'comodatos vinculados');
+                    }
+
+                    $detalhes = $temComodato
+                        ? "Comodato incluso: {$resumoEquipamentos}".($insumosUnicos !== '' ? " • Insumos: {$insumosUnicos}" : '')
+                        : 'Serviço contratual previsto — clique para emitir e despachar a O.S.';
+
                     $itensContratosRecorrentes->push([
                         'tipo_item' => 'visita',
                         'data_hora' => $dataHoraPrevista,
                         'titulo' => "Atendimento Contratual: {$ctr->cliente->nome}",
-                        'subtitulo' => "Contrato {$ctr->numero} ({$ctr->periodicidadeLabel()}) • {$ctr->cliente->cidade_estado}",
-                        'detalhes' => 'Serviço contratual previsto — clique para emitir e despachar a O.S.',
+                        'subtitulo' => $subtitulo,
+                        'detalhes' => $detalhes,
                         'status' => 'Previsto (Contrato)',
-                        'url' => route('visitas.create', [
+                        'url' => route('visitas.create', array_filter([
                             'cliente_id' => $ctr->cliente_id,
                             'contrato_id' => $ctr->id,
                             'data' => $dataHoraPrevista->format('Y-m-d\TH:i'),
                             'tipo_servico' => $ctr->tipo_servico,
-                        ]),
+                            'observacoes' => $observacoesPadrao,
+                        ])),
                         'model' => $ctr,
                         'contrato' => $ctr,
                         'eh_recorrente_projetado' => true,
                         'eh_contrato_projetado' => true,
+                        'possui_comodato_vinculado' => $temComodato,
                     ]);
                 }
             }
@@ -222,23 +257,19 @@ class AgendamentoController extends Controller
             ]);
         }
 
-        // 2. Comodatos com Reposição Programada e Recorrências Projetadas
+        // 2. Comodatos Avulsos com Reposição Programada e Recorrências Projetadas
+        // Obs: Comodatos vinculados a um contrato (contrato_id != null) são unificados diretamente
+        // no evento de Atendimento Contratual do respectivo contrato, evitando duplicidade de eventos e O.S.
         $comodatos = collect();
         $itensComodatos = collect();
 
         if (! $user || $user->isAdmin()) {
-            $todosComodatos = EquipamentoComodato::with(['cliente', 'produto', 'contrato'])
+            $todosComodatos = EquipamentoComodato::with(['cliente', 'produto'])
                 ->whereNotNull('data_proxima_reposicao')
-                ->where(function ($q) {
-                    $q->whereNull('contrato_id')
-                        ->orWhereHas('contrato', function ($cq) {
-                            $cq->where('status', Contrato::STATUS_ATIVO);
-                        });
-                })
+                ->whereNull('contrato_id')
                 ->get();
 
             $comodatos = $todosComodatos;
-            $ocorrenciasComodatosBrutas = collect();
 
             foreach ($todosComodatos as $c) {
                 $anchor = $c->data_proxima_reposicao->copy()->startOfDay();
@@ -263,96 +294,25 @@ class AgendamentoController extends Controller
                     $iteracoes++;
                     if ($cur->gte($dataInicio)) {
                         $ehAnchorOriginal = $cur->isSameDay($c->data_proxima_reposicao);
-                        $ocorrenciasComodatosBrutas->push([
-                            'comodato' => $c,
-                            'data' => $cur->copy()->startOfDay(),
-                            'data_str' => $cur->toDateString(),
-                            'eh_anchor_original' => $ehAnchorOriginal,
+                        $itensComodatos->push([
+                            'tipo_item' => 'comodato',
+                            'data_hora' => $cur->copy()->setTime(9, 0),
+                            'titulo' => "Reposição: {$c->nome_equipamento}",
+                            'subtitulo' => $c->cliente->nome,
+                            'detalhes' => "Periodicidade: a cada {$c->periodicidade_dias} dias".($c->produto ? " • Insumo: {$c->produto->nome}" : ''),
+                            'status' => $ehAnchorOriginal ? ($c->estaAtrasado() ? 'Atrasado' : 'Agendado') : 'Previsto (Recorrente)',
+                            'url' => route('comodatos.show', $c),
+                            'url_os' => route('visitas.create', array_filter([
+                                'cliente_id' => $c->cliente_id,
+                                'comodato_id' => $c->id,
+                                'data' => $cur->format('Y-m-d\T09:00'),
+                                'observacoes' => "Reposição de comodato: {$c->nome_equipamento} ({$c->quantidade} un)",
+                            ])),
+                            'model' => $c,
+                            'eh_recorrente_projetado' => ! $ehAnchorOriginal,
                         ]);
                     }
                     $cur->addDays($intervalo);
-                }
-            }
-
-            // Agrupa ocorrências de comodatos vinculados ao mesmo contrato que caem no mesmo dia,
-            // gerando um único evento e uma única O.S. (evitando duplicidade de diária técnica e deslocamento).
-            $gruposComodatos = $ocorrenciasComodatosBrutas->groupBy(function (array $oc) {
-                $c = $oc['comodato'];
-                if ($c->contrato_id) {
-                    return "contrato_{$c->contrato_id}_{$oc['data_str']}";
-                }
-
-                return "avulso_{$c->id}_{$oc['data_str']}";
-            });
-
-            foreach ($gruposComodatos as $grupo) {
-                $primeira = $grupo->first();
-                /** @var EquipamentoComodato $cPrincipal */
-                $cPrincipal = $primeira['comodato'];
-                /** @var Carbon $dataRef */
-                $dataRef = $primeira['data'];
-
-                if ($grupo->count() === 1) {
-                    $ehAnchorOriginal = $primeira['eh_anchor_original'];
-                    $itensComodatos->push([
-                        'tipo_item' => 'comodato',
-                        'data_hora' => $dataRef->copy()->setTime(9, 0),
-                        'titulo' => "Reposição: {$cPrincipal->nome_equipamento}",
-                        'subtitulo' => $cPrincipal->cliente->nome.($cPrincipal->contrato ? " • Contrato {$cPrincipal->contrato->numero}" : ''),
-                        'detalhes' => "Periodicidade: a cada {$cPrincipal->periodicidade_dias} dias".($cPrincipal->produto ? " • Insumo: {$cPrincipal->produto->nome}" : ''),
-                        'status' => $ehAnchorOriginal ? ($cPrincipal->estaAtrasado() ? 'Atrasado' : 'Agendado') : 'Previsto (Recorrente)',
-                        'url' => route('comodatos.show', $cPrincipal),
-                        'url_os' => route('visitas.create', array_filter([
-                            'cliente_id' => $cPrincipal->cliente_id,
-                            'contrato_id' => $cPrincipal->contrato_id,
-                            'comodato_id' => $cPrincipal->id,
-                            'data' => $dataRef->format('Y-m-d\T09:00'),
-                            'observacoes' => "Reposição de comodato: {$cPrincipal->nome_equipamento} ({$cPrincipal->quantidade} un)".($cPrincipal->contrato ? " (Contrato {$cPrincipal->contrato->numero})" : ''),
-                        ])),
-                        'model' => $cPrincipal,
-                        'eh_recorrente_projetado' => ! $ehAnchorOriginal,
-                    ]);
-                } else {
-                    // Múltiplos comodatos do mesmo contrato no mesmo dia -> Unificados em 1 único evento e 1 única O.S.
-                    $comodatosDoGrupo = $grupo->pluck('comodato');
-                    $algumAnchorOriginal = $grupo->contains(fn ($oc) => $oc['eh_anchor_original']);
-                    $algumAtrasado = $grupo->contains(fn ($oc) => $oc['eh_anchor_original'] && $oc['comodato']->estaAtrasado());
-
-                    $resumoEquipamentos = $comodatosDoGrupo->map(function (EquipamentoComodato $item) {
-                        return "{$item->nome_equipamento} ({$item->quantidade} un)";
-                    })->implode(', ');
-
-                    $insumosUnicos = $comodatosDoGrupo
-                        ->map(fn (EquipamentoComodato $item) => $item->produto?->nome)
-                        ->filter()
-                        ->unique()
-                        ->implode(', ');
-
-                    $ciclosUnicos = $comodatosDoGrupo
-                        ->pluck('periodicidade_dias')
-                        ->unique()
-                        ->sort()
-                        ->implode('/');
-
-                    $itensComodatos->push([
-                        'tipo_item' => 'comodato',
-                        'data_hora' => $dataRef->copy()->setTime(9, 0),
-                        'titulo' => "Reposição: {$resumoEquipamentos}",
-                        'subtitulo' => $cPrincipal->cliente->nome.($cPrincipal->contrato ? " • Contrato {$cPrincipal->contrato->numero} ({$comodatosDoGrupo->count()} equipamentos unificados)" : ''),
-                        'detalhes' => "Periodicidade: a cada {$ciclosUnicos} dias".($insumosUnicos !== '' ? " • Insumos: {$insumosUnicos}" : ''),
-                        'status' => $algumAnchorOriginal ? ($algumAtrasado ? 'Atrasado' : 'Agendado') : 'Previsto (Recorrente)',
-                        'url' => $cPrincipal->contrato ? route('contratos.show', $cPrincipal->contrato) : route('comodatos.show', $cPrincipal),
-                        'url_os' => route('visitas.create', array_filter([
-                            'cliente_id' => $cPrincipal->cliente_id,
-                            'contrato_id' => $cPrincipal->contrato_id,
-                            'comodato_id' => $cPrincipal->id,
-                            'data' => $dataRef->format('Y-m-d\T09:00'),
-                            'observacoes' => "Reposição unificada de comodatos ({$cPrincipal->contrato?->numero}): {$resumoEquipamentos}",
-                        ])),
-                        'model' => $cPrincipal,
-                        'eh_recorrente_projetado' => ! $algumAnchorOriginal,
-                        'eh_comodato_unificado' => true,
-                    ]);
                 }
             }
         }
@@ -367,27 +327,40 @@ class AgendamentoController extends Controller
                 ->get();
         }
 
+        // Mapeamento dos itens de visitas reais para visualização unificada na agenda
+        $itensVisitas = $visitas->map(function (Visita $v) {
+            $temComodatoContrato = $v->contrato && $v->contrato->comodatos->isNotEmpty();
+            $resumoComodatos = $temComodatoContrato
+                ? $v->contrato->comodatos->map(fn (EquipamentoComodato $c) => "{$c->nome_equipamento} ({$c->quantidade} un)")->implode(', ')
+                : null;
+
+            return [
+                'tipo_item' => 'visita',
+                'data_hora' => $v->data_hora,
+                'titulo' => "OS #{$v->id} — {$v->cliente->nome}",
+                'subtitulo' => $v->tipoServicoLabel().' • '.($v->tecnico?->nome ?? 'Sem técnico').($v->contrato ? " • Contrato: {$v->contrato->numero}" : '').(($v->comodato_id || $temComodatoContrato) ? ' • Reposição de Comodato' : ''),
+                'detalhes' => ($v->area_tratada ? "Área: {$v->area_tratada}" : ($v->tipo_praga ?? 'Monitoramento')).($resumoComodatos ? " • Comodato: {$resumoComodatos}" : ''),
+                'status' => $v->statusLabel(),
+                'url' => route('visitas.show', $v),
+                'model' => $v,
+                'contrato' => $v->contrato,
+                'eh_recorrente_projetado' => false,
+                'possui_comodato_vinculado' => (bool) ($v->comodato_id || $temComodatoContrato),
+            ];
+        });
+
+        // Contabiliza tanto os comodatos avulsos quanto os atendimentos contratuais / OSs que possuem comodatos vinculados
+        $totalComodatosContabilizados = $itensComodatos->count()
+            + $itensContratosRecorrentes->filter(fn ($i) => ! empty($i['possui_comodato_vinculado']))->count()
+            + $itensVisitas->filter(fn ($i) => ! empty($i['possui_comodato_vinculado']))->count();
+
         // Totais gerais (incluindo ocorrências reais, contratos projetados, legados e retornos)
         $totais = [
             'total_visitas' => $visitas->count() + $itensContratosRecorrentes->count() + $itensVisitasRecorrentes->count() + $itensRetornosPreventivos->count(),
-            'total_comodatos' => $itensComodatos->count(),
+            'total_comodatos' => $totalComodatosContabilizados,
             'total_followups' => $followups->count(),
             'total_geral' => $visitas->count() + $itensContratosRecorrentes->count() + $itensVisitasRecorrentes->count() + $itensRetornosPreventivos->count() + $itensComodatos->count() + $followups->count(),
         ];
-
-        // Mapeamento dos itens de visitas reais para visualização unificada na agenda
-        $itensVisitas = $visitas->map(fn (Visita $v) => [
-            'tipo_item' => 'visita',
-            'data_hora' => $v->data_hora,
-            'titulo' => "OS #{$v->id} — {$v->cliente->nome}",
-            'subtitulo' => $v->tipoServicoLabel().' • '.($v->tecnico?->nome ?? 'Sem técnico').($v->contrato ? " • Contrato: {$v->contrato->numero}" : '').($v->comodato_id ? ' • Reposição de Comodato' : ''),
-            'detalhes' => $v->area_tratada ? "Área: {$v->area_tratada}" : ($v->tipo_praga ?? 'Monitoramento'),
-            'status' => $v->statusLabel(),
-            'url' => route('visitas.show', $v),
-            'model' => $v,
-            'contrato' => $v->contrato,
-            'eh_recorrente_projetado' => false,
-        ]);
 
         $itensFollowups = $followups->map(fn (Cliente $cli) => [
             'tipo_item' => 'followup',
@@ -409,8 +382,12 @@ class AgendamentoController extends Controller
                 ->concat($itensVisitasRecorrentes)
                 ->concat($itensRetornosPreventivos);
         }
-        if ($tipoFiltro === 'todos' || $tipoFiltro === 'comodatos') {
+        if ($tipoFiltro === 'todos') {
             $agenda = $agenda->concat($itensComodatos);
+        } elseif ($tipoFiltro === 'comodatos') {
+            $agenda = $agenda->concat($itensComodatos)
+                ->concat($itensContratosRecorrentes->filter(fn ($i) => ! empty($i['possui_comodato_vinculado'])))
+                ->concat($itensVisitas->filter(fn ($i) => ! empty($i['possui_comodato_vinculado'])));
         }
         if ($tipoFiltro === 'todos' || $tipoFiltro === 'followups') {
             $agenda = $agenda->concat($itensFollowups);

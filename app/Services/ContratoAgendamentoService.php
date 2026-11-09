@@ -116,6 +116,24 @@ class ContratoAgendamentoService
     }
 
     /**
+     * Calcula a próxima data prevista de atendimento do contrato estritamente após a data de referência.
+     */
+    public function calcularProximaData(Contrato $contrato, ?Carbon $aposData = null): Carbon
+    {
+        $ref = ($aposData ?? $contrato->data_inicio ?? now())->copy()->startOfDay();
+        $limite = $ref->copy()->addDays(400)->endOfDay();
+
+        $datas = $this->calcularDatasPrevistas($contrato, $limite);
+        $proxima = $datas->first(fn (Carbon $d) => $d->copy()->startOfDay()->gt($ref));
+
+        if ($proxima) {
+            return $proxima->copy()->startOfDay();
+        }
+
+        return $ref->copy()->addDays($contrato->periodicidadeEmDias())->startOfDay();
+    }
+
+    /**
      * Calcula a lista de momentos (Carbon) para atendimento de acordo com a periodicidade e regras do contrato.
      *
      * @return Collection<int, Carbon>

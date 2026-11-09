@@ -868,6 +868,7 @@ test('18. emissao de pdf de contrato e proposta mantendo sigilo comercial', func
     // Visualização da Proposta com PWA Action Bar
     $response = $this->actingAs($this->admin)->get(route('contratos.pdf', $contrato));
     $response->assertOk();
+    $response->assertSee('<title>Proposta Comercial #CTR-2026-0101 — Hospital Santa Clara</title>', false);
     $response->assertSee('PROPOSTA COMERCIAL');
     $response->assertSee('Hospital Santa Clara');
     $response->assertSee('R$ 1.200,00');
@@ -888,6 +889,12 @@ test('18. emissao de pdf de contrato e proposta mantendo sigilo comercial', func
     $responsePdf = $this->actingAs($this->admin)->get(route('contratos.pdf', [$contrato, 'download' => 1]));
     $responsePdf->assertOk();
     expect($responsePdf->headers->get('content-type'))->toContain('application/pdf');
+
+    // Quando ativo, o título do documento passa a ser Contrato #CTR-2026-0101 — Hospital Santa Clara
+    $contrato->update(['status' => Contrato::STATUS_ATIVO]);
+    $responseContrato = $this->actingAs($this->admin)->get(route('contratos.pdf', $contrato));
+    $responseContrato->assertOk();
+    $responseContrato->assertSee('<title>Contrato #CTR-2026-0101 — Hospital Santa Clara</title>', false);
 });
 
 test('19. remocao de links de proposta comercial da listagem e detalhes de OS', function () {

@@ -276,7 +276,7 @@
                                             </div>
 
                                             <div>
-                                                <div class="flex items-center gap-2">
+                                                <div class="flex items-center gap-2 flex-wrap">
                                                     <span
                                                         class="text-xs font-bold uppercase tracking-wider
                                                 @if ($item['tipo_item'] === 'visita') {{ ($item['eh_retorno_preventivo'] ?? false) ? 'text-teal-400' : 'text-blue-400' }}
@@ -302,6 +302,11 @@
                                                     <span class="text-xs " style="color: var(--color-surface-400);">
                                                         {{ $item['data_hora']->format('H:i') }}
                                                     </span>
+                                                    @if (($item['possui_comodato_vinculado'] ?? false) && $item['tipo_item'] === 'visita')
+                                                        <span class="badge badge-cyan text-[10px] py-0.5 px-1.5">
+                                                            + Comodato Incluso
+                                                        </span>
+                                                    @endif
                                                 </div>
 
                                                 <div class="text-sm font-semibold text-white mt-0.5">

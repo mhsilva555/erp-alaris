@@ -16,7 +16,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $ehProposta ? 'Proposta Comercial' : 'Contrato' }} #{{ $contrato->numero }} — {{ $empresa['nomeFantasia'] }}</title>
+    <title>{{ $ehProposta ? 'Proposta Comercial' : 'Contrato' }} #{{ $contrato->numero }} — {{ $contrato->cliente->nome }}</title>
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
     <style>
@@ -1223,7 +1223,7 @@
     <script>
         function compartilharDocumento() {
             const dados = {
-                title: '{{ $ehProposta ? "Proposta Comercial" : "Contrato" }} #{{ $contrato->numero }} — Alaris Service',
+                title: '{{ $ehProposta ? "Proposta Comercial" : "Contrato" }} #{{ $contrato->numero }} — {{ addslashes($contrato->cliente->nome) }}',
                 text: '{{ $ehProposta ? "Proposta Comercial" : "Contrato" }} #{{ $contrato->numero }} - Cliente: {{ addslashes($contrato->cliente->nome) }}',
                 url: window.location.href
             };
