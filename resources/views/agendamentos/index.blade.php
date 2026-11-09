@@ -7,10 +7,10 @@
 
         {{-- Header & Filtros --}}
         <div class="card p-6">
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-                <div>
+            <div class="flex flex-col 2xl:flex-row 2xl:items-center 2xl:justify-between gap-4 mb-6">
+                <div class="min-w-0">
                     <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                        <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-6 h-6 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
@@ -21,7 +21,7 @@
                     </p>
                 </div>
 
-                <form method="GET" action="{{ route('agendamentos.index') }}" class="flex flex-wrap items-center gap-3">
+                <form method="GET" action="{{ route('agendamentos.index') }}" class="flex flex-wrap items-center gap-2.5">
                     <input type="hidden" name="modo" id="form-modo-input" value="{{ $modo }}">
                     <input type="hidden" name="tipo" value="{{ $tipoFiltro }}">
                     @if (request('tecnico_id'))

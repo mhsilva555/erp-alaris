@@ -81,7 +81,7 @@
                             };
                         @endphp
                         <tr class="animate-fadeIn">
-                            <td>
+                            <td class="whitespace-nowrap">
                                 <span class="font-medium text-white">{{ $visita->data_hora->format('d/m/Y') }}</span>
                                 <span class="text-xs ml-1 "
                                     style="color: var(--color-surface-400);">{{ $visita->data_hora->format('H:i') }}</span>
@@ -131,7 +131,7 @@
                                     {{ $visita->statusLabel() }}
                                 </span>
                             </td>
-                            <td class="text-right">
+                            <td class="text-right whitespace-nowrap">
                                 <div class="flex items-center justify-end gap-1">
                                     @permissao('visitas.gerar_os')
                                     <a href="{{ route('visitas.os', $visita) }}"

@@ -5,7 +5,7 @@
 @section('content')
     <div class="space-y-5">
         {{-- Header & Estatísticas --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4">
             <div class="card stat-card">
                 <div class="flex items-center justify-between">
                     <div>
@@ -70,7 +70,7 @@
                 </div>
             </div>
 
-            <div class="card stat-card sm:col-span-2 lg:col-span-1">
+            <div class="card stat-card sm:col-span-2 lg:col-span-2 2xl:col-span-1">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="stat-label">Receita Recorrente</p>
@@ -90,8 +90,8 @@
         {{-- Filtros e Ações --}}
         <div class="card p-4">
             <form method="GET" action="{{ route('contratos.index') }}"
-                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-12 gap-3 items-center">
-                <div class="relative sm:col-span-2 md:col-span-4 xl:col-span-4">
+                class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
+                <div class="relative sm:col-span-2 lg:col-span-5 xl:col-span-3">
                     <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style="color: var(--color-surface-400);"
                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -101,7 +101,7 @@
                         placeholder="Buscar por número, título ou cliente..." class="form-input !pl-10">
                 </div>
 
-                <div class="md:col-span-1 xl:col-span-2">
+                <div class="lg:col-span-3 xl:col-span-2">
                     <select name="status" class="form-select" onchange="this.form.submit()">
                         <option value="">Todos os status...</option>
                         @foreach (\App\Models\Contrato::STATUSES as $key => $label)
@@ -112,7 +112,7 @@
                     </select>
                 </div>
 
-                <div class="md:col-span-1 xl:col-span-2">
+                <div class="lg:col-span-4 xl:col-span-2">
                     <select name="tipo_vigencia" class="form-select" onchange="this.form.submit()">
                         <option value="">Todas as vigências...</option>
                         @foreach (\App\Models\Contrato::VIGENCIAS as $key => $label)
@@ -123,7 +123,7 @@
                     </select>
                 </div>
 
-                <div class="md:col-span-1 xl:col-span-2">
+                <div class="lg:col-span-6 xl:col-span-2">
                     <select name="cliente_id" class="form-select" onchange="this.form.submit()">
                         <option value="">Todos os clientes...</option>
                         @foreach ($clientes as $cli)
@@ -134,7 +134,7 @@
                     </select>
                 </div>
 
-                <div class="md:col-span-1 xl:col-span-2 flex items-center gap-1.5">
+                <div class="sm:col-span-2 lg:col-span-6 xl:col-span-3 flex items-center justify-end gap-1.5">
                     @if (request()->hasAny(['busca', 'status', 'tipo_vigencia', 'cliente_id']))
                         <a href="{{ route('contratos.index') }}" class="btn btn-outline btn-sm py-2 px-2.5 text-xs shrink-0" title="Limpar filtros">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -144,7 +144,7 @@
                     <a href="{{ route('contratos.create', ['tipo' => 'proposta']) }}" class="btn btn-secondary btn-sm text-amber-400 text-xs shrink-0" title="Criar Nova Proposta Comercial">
                         + Proposta
                     </a>
-                    <a href="{{ route('contratos.create') }}" class="btn btn-primary btn-sm text-xs flex-1 justify-center shrink-0" title="Criar Novo Contrato">
+                    <a href="{{ route('contratos.create') }}" class="btn btn-primary btn-sm text-xs flex-1 xl:flex-initial justify-center shrink-0" title="Criar Novo Contrato">
                         + Contrato
                     </a>
                     @endpermissao
@@ -161,7 +161,7 @@
                         <th>Cliente</th>
                         <th>Vigência & Datas</th>
                         <th>Periodicidade</th>
-                        <th class="hidden md:table-cell">Visitas (Total/Exec)</th>
+                        <th class="hidden xl:table-cell">Visitas (Total/Exec)</th>
                         <th>Valor & Cobrança</th>
                         <th>Status</th>
                         <th class="text-right">Ações</th>
@@ -170,12 +170,12 @@
                 <tbody>
                     @forelse($contratos as $contrato)
                         <tr class="animate-fadeIn">
-                            <td>
+                            <td class="whitespace-nowrap">
                                 <a href="{{ route('contratos.show', $contrato) }}" class="font-bold text-white hover:underline text-sm block">
                                     {{ $contrato->numero }}
                                 </a>
                                 @if($contrato->titulo)
-                                    <span class="text-xs truncate block max-w-xs" style="color: var(--color-surface-400);">{{ $contrato->titulo }}</span>
+                                    <span class="text-xs truncate block max-w-[200px]" style="color: var(--color-surface-400);">{{ $contrato->titulo }}</span>
                                 @endif
                             </td>
                             <td>
@@ -184,7 +184,7 @@
                                 </a>
                                 <span class="text-xs" style="color: var(--color-surface-400);">{{ $contrato->cliente->cidade_estado }}</span>
                             </td>
-                            <td>
+                            <td class="whitespace-nowrap">
                                 <span class="font-medium text-white text-xs">{{ $contrato->vigenciaLabel() }}</span>
                                 <div class="text-[11px]" style="color: var(--color-surface-400);">
                                     Início: {{ $contrato->data_inicio->format('d/m/Y') }}
@@ -199,24 +199,24 @@
                                     {{ $contrato->tipoServicoLabel() }}
                                 </div>
                             </td>
-                            <td class="hidden md:table-cell text-xs">
+                            <td class="hidden xl:table-cell text-xs whitespace-nowrap">
                                 <span class="font-bold text-white">{{ $contrato->visitas_count }}</span> agendada(s)
                                 <div class="text-[11px] text-emerald-400">
                                     {{ $contrato->visitas_concluidas_count }} concluída(s)
                                 </div>
                             </td>
-                            <td>
-                                <div class=" font-bold text-white text-sm">
+                            <td class="whitespace-nowrap">
+                                <div class="font-bold text-white text-sm">
                                     R$ {{ number_format($contrato->valor_total, 2, ',', '.') }}
                                 </div>
                                 <span class="text-[11px] block" style="color: var(--color-surface-400);">{{ $contrato->modeloCobrancaLabel() }}</span>
                             </td>
-                            <td>
+                            <td class="whitespace-nowrap">
                                 <span class="badge {{ $contrato->statusBadge() }}">
                                     {{ $contrato->statusLabel() }}
                                 </span>
                             </td>
-                            <td class="text-right">
+                            <td class="text-right whitespace-nowrap">
                                 <div class="flex items-center justify-end gap-1">
                                     <a href="{{ route('contratos.pdf', $contrato) }}"
                                         class="btn btn-secondary btn-sm text-xs text-emerald-400"

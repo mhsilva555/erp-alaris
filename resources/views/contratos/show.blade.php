@@ -216,9 +216,9 @@
         </div>
 
         {{-- Detalhes em Grid --}}
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {{-- Coluna 1: Dados do Cliente & Condições --}}
-            <div class="space-y-6 lg:col-span-1">
+            <div class="space-y-6 lg:col-span-5 xl:col-span-4">
                 {{-- Cliente --}}
                 <div class="card p-5 space-y-3">
                     <h3 class="text-xs font-bold uppercase tracking-wider text-white" style="color: var(--color-primary-400);">
@@ -230,7 +230,7 @@
                             {{ $contrato->cliente->nome }}
                         </a>
                     </div>
-                    <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                         <div>
                             <span class="form-label">CPF / CNPJ</span>
                             <span class="text-white">{{ $contrato->cliente->documento_formatado ?? $contrato->cliente->documento ?? '—' }}</span>
@@ -369,7 +369,7 @@
             </div>
 
             {{-- Coluna 2 e 3: Itens Contratados & Histórico de Visitas --}}
-            <div class="space-y-6 lg:col-span-2">
+            <div class="space-y-6 lg:col-span-7 xl:col-span-8">
                 {{-- Serviços Contratados --}}
                 <div class="card p-6 space-y-4">
                     <h3 class="text-base font-semibold text-white flex items-center gap-2">

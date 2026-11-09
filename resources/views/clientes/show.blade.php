@@ -6,14 +6,14 @@
 <div class="space-y-6">
     {{-- Info Card --}}
     <div class="card p-6">
-        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-            <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold text-white preserve-white" style="background: linear-gradient(135deg, var(--color-primary-700), var(--color-primary-500));">
+        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
+            <div class="flex items-center gap-4 min-w-0">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold text-white preserve-white shrink-0" style="background: linear-gradient(135deg, var(--color-primary-700), var(--color-primary-500));">
                     {{ mb_substr($cliente->nome, 0, 1) }}
                 </div>
-                <div>
-                    <div class="flex items-center gap-2">
-                        <h2 class="text-xl font-bold text-white">{{ $cliente->nome }}</h2>
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h2 class="text-xl font-bold text-white truncate">{{ $cliente->nome }}</h2>
                         @php
                             $badgeClass = match($cliente->status_prospeccao) {
                                 'ativo' => 'badge-success',
@@ -38,12 +38,12 @@
                     </div>
                     @permissao('clientes.acessar_dados')
                         @if($cliente->documento)
-                            <p class="text-xs " style="color: var(--color-surface-400);">{{ $cliente->documento_formatado ?? $cliente->documento }}</p>
+                            <p class="text-xs truncate" style="color: var(--color-surface-400);">{{ $cliente->documento_formatado ?? $cliente->documento }}</p>
                         @endif
                     @endpermissao
                 </div>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
                 @permissao('comodatos.criar')
                 <a href="{{ route('comodatos.create', ['cliente_id' => $cliente->id]) }}" class="btn btn-secondary btn-sm">
                     <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>

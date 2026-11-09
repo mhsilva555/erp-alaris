@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -18,6 +19,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Padrão de Paginação Tailwind
+        Paginator::useTailwind();
+
         // 1. Gate interceptor: admin tem acesso irrestrito, ou checa a permissão granular
         Gate::before(function ($user, string $ability) {
             if ($user->isAdmin()) {

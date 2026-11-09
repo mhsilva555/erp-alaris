@@ -191,8 +191,8 @@
 </div>
 
 {{-- Modal de Gestão de Categorias --}}
-<div id="modalCategorias" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onclick="if(event.target === this) fecharModalCategorias()">
-    <div class="card max-w-lg w-full p-6 space-y-5 animate-fadeIn shadow-2xl relative" style="border: 1px solid var(--color-surface-700);">
+<div id="modalCategorias" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto" onclick="if(event.target === this) fecharModalCategorias()">
+    <div class="card max-w-lg w-full max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 space-y-5 animate-fadeIn shadow-2xl relative" style="border: 1px solid var(--color-surface-700);">
         {{-- Cabeçalho do Modal --}}
         <div class="flex items-center justify-between pb-3" style="border-bottom: 1px solid var(--color-surface-800);">
             <div class="flex items-center gap-3">

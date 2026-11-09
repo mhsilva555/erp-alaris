@@ -103,7 +103,7 @@
                         <span class="text-[10px] font-bold uppercase tracking-wider block mb-2" style="color: var(--color-surface-400);">
                             Permissões Comuns do Módulo
                         </span>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-5 gap-2.5">
                             @foreach ($comuns as $chave => $p)
                                 @php
                                     $tipo = explode('.', $chave)[1] ?? '';

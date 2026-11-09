@@ -445,7 +445,7 @@
                             </div>
 
                             <div>
-                                <div class="flex items-center justify-between">
+                                <div class="flex items-center justify-between flex-wrap gap-1">
                                     <label class="form-label mb-0" for="custo_mao_de_obra">Diária / Mão de Obra Técnico (R$)</label>
                                     <span id="label-diaria-tecnico" class="text-[11px] text-emerald-400 font-medium"></span>
                                 </div>
