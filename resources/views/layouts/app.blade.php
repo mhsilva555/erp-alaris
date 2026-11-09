@@ -13,13 +13,19 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon-32x32.png') }}">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon-16x16.png') }}">
-    <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
-    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('apple-touch-icon.png') }}">
-    <link rel="manifest" href="{{ asset('manifest.json') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2">
+    <link rel="icon" type="image/png" href="/favicon.png?v=2">
+    <link rel="shortcut icon" href="/favicon.ico?v=2">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180x180.png?v=2">
+    <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon-167x167.png?v=2">
+    <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152x152.png?v=2">
+    <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120x120.png?v=2">
+    <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon-precomposed.png?v=2">
+    <link rel="manifest" href="/manifest.json?v=2">
     <meta name="theme-color" content="#23b4eb">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Alaris">
@@ -138,9 +144,20 @@
                     </a>
                 @endpermissao
 
-                @algumapermissao(['tecnicos.ver', 'financeiro.ver', 'financeiro.relatorio_dre', 'configuracoes.ver', 'perfis.ver'])
+                @algumapermissao(['tecnicos.ver', 'financeiro.ver', 'financeiro.relatorio_dre', 'unidades.ver', 'configuracoes.ver', 'perfis.ver'])
                     <div class="pt-3 pb-1 px-3 text-[10px] font-bold uppercase tracking-wider text-surface-400"
                         style="color: var(--color-surface-400);">Gestão & Controladoria</div>
+
+                    @permissao('unidades.ver')
+                        <a href="{{ route('unidades.index') }}"
+                            class="sidebar-link {{ request()->routeIs('unidades.*') ? 'active' : '' }}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                            Unidades (Matriz/Filiais)
+                        </a>
+                    @endpermissao
 
                     @permissao('tecnicos.ver')
                         <a href="{{ route('tecnicos.index') }}"

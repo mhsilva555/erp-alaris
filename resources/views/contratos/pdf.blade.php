@@ -8,7 +8,7 @@
     $dataEmissao = now()->format('d/m/Y');
     $isPdfEngine = isset($pdfEngine) && $pdfEngine;
     $podeExibirImg = extension_loaded('gd') || ! $isPdfEngine;
-    $empresa = \App\Models\Configuracao::dadosEmpresa();
+    $empresa = $contrato->dadosEmpresaDocumento();
 @endphp
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -903,6 +903,18 @@
             </div>
 
             <div class="pwa-bar-right">
+                @if (isset($unidades) && $unidades->isNotEmpty())
+                    <select aria-label="Unidade Emitente" onchange="if(this.value) window.location.href = '{{ route('contratos.pdf', $contrato) }}?unidade_id=' + this.value;"
+                        style="background: rgba(255, 255, 255, 0.08); color: #f9fafb; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                        @foreach ($unidades as $unid)
+                            <option value="{{ $unid->id }}" style="color: #0f172a; background: #ffffff;"
+                                {{ ($contrato->unidade_id ?? ($empresa['unidadeId'] ?? null)) == $unid->id ? 'selected' : '' }}>
+                                {{ $unid->nome }} ({{ $unid->ehMatriz() ? 'Matriz' : 'Filial' }})
+                            </option>
+                        @endforeach
+                    </select>
+                @endif
+
                 <button type="button" class="pwa-btn pwa-btn-share" onclick="compartilharDocumento()">
                     <svg class="pwa-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round"

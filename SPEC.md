@@ -596,7 +596,8 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 6. **Desempenho e Responsividade**:
    - Layout 100% responsivo para operação mobile por técnicos no campo via smartphone.
 7. **PWA e Identidade Visual Padronizada (#23b4eb)**:
-   - Sistema opera como Progressive Web App instalável (PWA) com manifestos (`manifest.json` e `manifest.webmanifest`), `<meta name="theme-color">` e tokens primários centrados em `#23b4eb`, além de novos ícones oficiais em formato circular.
+   - Sistema opera como Progressive Web App instalável (PWA) com manifestos (`manifest.json` e `manifest.webmanifest`), `<meta name="theme-color">`, `background_color` e tokens primários centrados em `#23b4eb`.
+   - Para compatibilidade total entre **Android** e **iOS (Safari Web Clip)**, todos os ícones de aplicativo (`apple-touch-icon*.png` em `180x180`, `167x167`, `152x152`, `120x120` e `/icons/icon-*.png`) são gerados em **PNG RGB 24-bit opaco (sem canal alfa)** com preenchimento total (*full-bleed*), referenciados por caminhos relativos à raiz com *cache-busting* (`?v=2`) e suporte a proxies reversos (`trustProxies(at: '*')`), prevenindo bloqueio por *Mixed Content* ou fallback de monograma no iPhone. Favicons de navegador (`favicon*.png`, `favicon.ico`) preservam o recorte circular.
 8. **Ergonomia e Layout Nativo Mobile (App-Like UX)**:
    - Navegação inferior fixa no smartphone (`#mobile-bottom-nav`) com 5 destinos, compensação de área segura de gestos (`env(safe-area-inset-bottom)`), rolagem principal com espaçamento seguro (`pb-24`), cabeçalho anti-quebra em linha única e central de notificações confinada à viewport do aparelho.
 9. **Tipografia Padrão & Proibição Estrita de `font-mono`**:

@@ -16,7 +16,7 @@
                 Configurações da Plataforma
             </h2>
             <p class="text-sm mt-1" style="color: var(--color-surface-400);">
-                Gerencie os dados institucionais da Alaris exibidos nas propostas/contratos e os parâmetros operacionais de cálculo.
+                Gerencie os parâmetros operacionais de cálculo e acesse o cadastro de unidades (Matriz e Filiais).
             </p>
         </div>
 
@@ -41,13 +41,10 @@
             </div>
         @endif
 
-        <form action="{{ route('configuracoes.update') }}" method="POST" class="space-y-6">
-            @csrf
-            @method('PUT')
-
-            {{-- 1. Informações Empresariais da Alaris Service --}}
-            <div class="card p-6 space-y-5">
-                <div class="flex items-center gap-2 pb-3 border-b" style="border-color: var(--color-surface-800);">
+        {{-- 1. Atalho para Unidades da Empresa (Matriz & Filiais) --}}
+        <div class="card p-6 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b" style="border-color: var(--color-surface-800);">
+                <div class="flex items-center gap-2">
                     <div class="p-2 rounded-lg bg-sky-500/10 text-sky-400">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -56,127 +53,67 @@
                     </div>
                     <div>
                         <h3 class="text-sm font-bold text-white uppercase tracking-wider">
-                            1. Informações Empresariais da Alaris Service
+                            Unidades da Empresa (Matriz & Filiais)
                         </h3>
                         <p class="text-xs" style="color: var(--color-surface-400);">
-                            Dados da Contratada impressos no cabeçalho, escopo e assinaturas das Propostas Comerciais e Contratos.
+                            Dados institucionais (Razão Social, CNPJ, Endereço e Contatos) exibidos nos PDFs de Propostas, Contratos e O.S.
                         </p>
                     </div>
                 </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {{-- Razão Social --}}
-                    <div class="sm:col-span-2">
-                        <label for="empresa_razao_social" class="form-label">Razão Social Oficial *</label>
-                        <input type="text" id="empresa_razao_social" name="empresa_razao_social"
-                            value="{{ old('empresa_razao_social', $empresa['razaoSocial']) }}"
-                            class="form-input font-bold" placeholder="Ex: ALARIS SERVICE LTDA">
-                        <span class="form-hint">Razão Social cadastrada no CNPJ</span>
-                    </div>
-
-                    {{-- Nome Fantasia --}}
-                    <div>
-                        <label for="empresa_nome_fantasia" class="form-label">Nome Fantasia / Marca *</label>
-                        <input type="text" id="empresa_nome_fantasia" name="empresa_nome_fantasia"
-                            value="{{ old('empresa_nome_fantasia', $empresa['nomeFantasia']) }}"
-                            class="form-input" placeholder="Ex: Alaris Service">
-                    </div>
-
-                    {{-- CNPJ --}}
-                    <div>
-                        <label for="empresa_cnpj" class="form-label">CNPJ da Empresa *</label>
-                        <input type="text" id="empresa_cnpj" name="empresa_cnpj"
-                            value="{{ old('empresa_cnpj', $empresa['cnpj']) }}"
-                            class="form-input font-bold" placeholder="00.000.000/0000-00" data-mask="documento">
-                    </div>
-
-                    {{-- Licença Sanitária / Alvará --}}
-                    <div class="sm:col-span-2">
-                        <label for="empresa_licenca_sanitaria" class="form-label">Alvará Sanitário / Licença Ambiental</label>
-                        <input type="text" id="empresa_licenca_sanitaria" name="empresa_licenca_sanitaria"
-                            value="{{ old('empresa_licenca_sanitaria', $empresa['licenca']) }}"
-                            class="form-input" placeholder="Ex: Alvará Sanitário Municipal • Licença Ambiental SEMMA">
-                    </div>
-
-                    {{-- Telefone / WhatsApp --}}
-                    <div>
-                        <label for="empresa_telefone" class="form-label">Telefone / WhatsApp Comercial</label>
-                        <input type="text" id="empresa_telefone" name="empresa_telefone"
-                            value="{{ old('empresa_telefone', $empresa['telefone']) }}"
-                            class="form-input" placeholder="(00) 00000-0000" data-mask="telefone">
-                    </div>
-
-                    {{-- E-mail Comercial --}}
-                    <div>
-                        <label for="empresa_email" class="form-label">E-mail Comercial / Atendimento</label>
-                        <input type="email" id="empresa_email" name="empresa_email"
-                            value="{{ old('empresa_email', $empresa['email']) }}"
-                            class="form-input" placeholder="contato@alarisservice.com.br">
-                    </div>
-
-                    {{-- Website da Empresa --}}
-                    <div>
-                        <label for="empresa_website" class="form-label">Endereço do Website da Empresa</label>
-                        <input type="text" id="empresa_website" name="empresa_website"
-                            value="{{ old('empresa_website', $empresa['website'] ?? '') }}"
-                            class="form-input" placeholder="Ex: www.alarisservice.com.br">
-                    </div>
-
-                    {{-- Slogan / Segmento --}}
-                    <div class="sm:col-span-3">
-                        <label for="empresa_slogan" class="form-label">Slogan / Ramo de Atuação</label>
-                        <input type="text" id="empresa_slogan" name="empresa_slogan"
-                            value="{{ old('empresa_slogan', $empresa['slogan']) }}"
-                            class="form-input" placeholder="Ex: Soluções em Controle Integrado de Pragas & Higienização">
-                    </div>
-
-                    {{-- Endereço Completo --}}
-                    <div>
-                        <div class="flex items-center justify-between">
-                            <label for="empresa_cep" class="form-label mb-1">CEP da Sede</label>
-                            <span id="empresa-cep-status" class="text-xs text-sky-400 font-medium hidden">Buscando...</span>
-                        </div>
-                        <div class="relative">
-                            <input type="text" id="empresa_cep" name="empresa_cep"
-                                value="{{ old('empresa_cep', $empresa['cep']) }}"
-                                class="form-input" placeholder="00000-000" data-mask="cep" autocomplete="postal-code">
-                            <span id="empresa-cep-spinner" class="hidden absolute right-3 top-2.5 text-sky-400">
-                                <svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            </span>
-                        </div>
-                    </div>
-
-                    <div class="sm:col-span-2">
-                        <label for="empresa_endereco" class="form-label">Endereço da Sede (Logradouro e Número)</label>
-                        <input type="text" id="empresa_endereco" name="empresa_endereco"
-                            value="{{ old('empresa_endereco', $empresa['endereco']) }}"
-                            class="form-input" placeholder="Ex: R. Frei Epifânio da Abadia, 120">
-                    </div>
-
-                    <div>
-                        <label for="empresa_bairro" class="form-label">Bairro</label>
-                        <input type="text" id="empresa_bairro" name="empresa_bairro"
-                            value="{{ old('empresa_bairro', $empresa['bairro']) }}"
-                            class="form-input" placeholder="Ex: Centro">
-                    </div>
-
-                    <div>
-                        <label for="empresa_cidade" class="form-label">Cidade</label>
-                        <input type="text" id="empresa_cidade" name="empresa_cidade"
-                            value="{{ old('empresa_cidade', $empresa['cidade']) }}"
-                            class="form-input" placeholder="Ex: Imperatriz">
-                    </div>
-
-                    <div>
-                        <label for="empresa_estado" class="form-label">Estado (UF)</label>
-                        <input type="text" id="empresa_estado" name="empresa_estado" maxlength="2"
-                            value="{{ old('empresa_estado', $empresa['estado']) }}"
-                            class="form-input uppercase" placeholder="MA">
-                    </div>
-                </div>
+                <a href="{{ route('unidades.index') }}" class="btn btn-secondary btn-sm shrink-0">
+                    <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    Gerenciar Matriz & Filiais
+                </a>
             </div>
 
-            {{-- 2. Parâmetros Operacionais & Fiscais --}}
+            @if(isset($unidades) && $unidades->isNotEmpty())
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    @foreach($unidades as $unidade)
+                        <div class="p-3.5 rounded-xl flex items-start justify-between gap-3"
+                            style="background: var(--color-surface-950); border: 1px solid {{ $unidade->padrao ? 'rgba(35, 180, 235, 0.35)' : 'var(--color-surface-800)' }};">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-sm font-bold text-white truncate">{{ $unidade->nome }}</span>
+                                    <span class="badge {{ $unidade->ehMatriz() ? 'bg-sky-500/15 text-sky-400 border-sky-500/30' : 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30' }} text-[10px]">
+                                        {{ $unidade->tipo_label }}
+                                    </span>
+                                    @if($unidade->padrao)
+                                        <span class="badge bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]">Padrão</span>
+                                    @endif
+                                </div>
+                                <p class="text-xs text-slate-300 mt-1 truncate">{{ $unidade->razao_social }}</p>
+                                <p class="text-[11px] mt-0.5" style="color: var(--color-surface-400);">
+                                    {{ $unidade->cnpj_formatado ?: 'CNPJ não informado' }}
+                                    @if($unidade->cidade)
+                                        • {{ $unidade->cidade }}/{{ $unidade->estado }}
+                                    @endif
+                                </p>
+                            </div>
+                            @permissao('unidades.editar')
+                                <a href="{{ route('unidades.edit', $unidade) }}" class="text-xs text-sky-400 hover:text-sky-300 font-semibold shrink-0">
+                                    Editar
+                                </a>
+                            @endpermissao
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <div class="p-4 rounded-xl flex items-center justify-between gap-3 text-xs"
+                    style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800); color: var(--color-surface-400);">
+                    <span>Nenhuma unidade cadastrada. Cadastre a Matriz e as Filiais para personalizar o cabeçalho e rodapé dos documentos.</span>
+                    <a href="{{ route('unidades.create') }}" class="btn btn-primary btn-sm shrink-0">Nova Unidade</a>
+                </div>
+            @endif
+        </div>
+
+        {{-- 2. Parâmetros Operacionais & Fiscais --}}
+        <form action="{{ route('configuracoes.update') }}" method="POST" class="space-y-6">
+            @csrf
+            @method('PUT')
+
             <div class="card p-6 space-y-4">
                 <div class="flex items-center gap-2 pb-3 border-b" style="border-color: var(--color-surface-800);">
                     <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
@@ -187,7 +124,7 @@
                     </div>
                     <div>
                         <h3 class="text-sm font-bold text-white uppercase tracking-wider">
-                            2. Parâmetros Operacionais & Custos Padrão
+                            Parâmetros Operacionais & Custos Padrão
                         </h3>
                         <p class="text-xs" style="color: var(--color-surface-400);">
                             Valores base para formação de custos de O.S., contratos recorrentes e DRE.
@@ -242,101 +179,11 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                         </svg>
-                        Salvar Todas as Configurações
+                        Salvar Parâmetros Operacionais
                     </button>
                 @endpermissao
             </div>
         </form>
 
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const cepInput = document.getElementById('empresa_cep');
-            const enderecoInput = document.getElementById('empresa_endereco');
-            const bairroInput = document.getElementById('empresa_bairro');
-            const cidadeInput = document.getElementById('empresa_cidade');
-            const estadoInput = document.getElementById('empresa_estado');
-            const hintEl = document.getElementById('empresa-cep-hint');
-            const spinnerEl = document.getElementById('empresa-cep-spinner');
-            const statusEl = document.getElementById('empresa-cep-status');
-
-            if (!cepInput) return;
-
-            let ultimoCepConsultado = '';
-
-            async function consultarViaCep(cep) {
-                const cepLimpo = cep.replace(/\D/g, '');
-                if (cepLimpo.length !== 8) return;
-                if (cepLimpo === ultimoCepConsultado) return;
-
-                ultimoCepConsultado = cepLimpo;
-
-                if (spinnerEl) spinnerEl.classList.remove('hidden');
-                if (statusEl) {
-                    statusEl.textContent = 'Buscando endereço...';
-                    statusEl.classList.remove('hidden');
-                }
-                if (hintEl) hintEl.textContent = 'Consultando ViaCEP...';
-
-                try {
-                    const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
-                    if (!response.ok) throw new Error('Falha na consulta');
-
-                    const data = await response.json();
-
-                    if (data.erro) {
-                        if (hintEl) {
-                            hintEl.textContent = 'CEP não encontrado.';
-                            hintEl.classList.add('text-amber-400');
-                        }
-                        if (statusEl) statusEl.textContent = 'Não encontrado';
-                        return;
-                    }
-
-                    if (enderecoInput && data.logradouro) {
-                        enderecoInput.value = data.logradouro;
-                    }
-                    if (bairroInput && data.bairro) {
-                        bairroInput.value = data.bairro;
-                    }
-                    if (cidadeInput && data.localidade) {
-                        cidadeInput.value = data.localidade;
-                    }
-                    if (estadoInput && data.uf) {
-                        estadoInput.value = data.uf.toUpperCase();
-                    }
-
-                    if (hintEl) {
-                        hintEl.textContent = 'Endereço carregado via CEP!';
-                        hintEl.classList.remove('text-amber-400');
-                        hintEl.classList.add('text-emerald-400');
-                    }
-
-                    if (enderecoInput) {
-                        enderecoInput.focus();
-                    }
-                } catch (e) {
-                    if (hintEl) hintEl.textContent = 'Erro ao consultar ViaCEP.';
-                } finally {
-                    if (spinnerEl) spinnerEl.classList.add('hidden');
-                    if (statusEl) statusEl.classList.add('hidden');
-                }
-            }
-
-            cepInput.addEventListener('input', function () {
-                const cepLimpo = this.value.replace(/\D/g, '');
-                if (cepLimpo.length === 8) {
-                    consultarViaCep(this.value);
-                }
-            });
-
-            cepInput.addEventListener('blur', function () {
-                const cepLimpo = this.value.replace(/\D/g, '');
-                if (cepLimpo.length === 8) {
-                    consultarViaCep(this.value);
-                }
-            });
-        });
-    </script>
 @endsection

@@ -57,7 +57,24 @@
                         </select>
                     </div>
 
-                    <div class="sm:col-span-2">
+                    <div>
+                        <label class="form-label" for="unidade_id">Unidade Emitente (Matriz / Filial)</label>
+                        <select id="unidade_id" name="unidade_id" class="form-select">
+                            @if (isset($unidades) && $unidades->isNotEmpty())
+                                @foreach ($unidades as $unid)
+                                    <option value="{{ $unid->id }}"
+                                        {{ old('unidade_id', $unidadePadrao?->id) == $unid->id ? 'selected' : '' }}>
+                                        {{ $unid->nome }} ({{ $unid->ehMatriz() ? 'Matriz' : 'Filial' }} • CNPJ: {{ $unid->cnpj_formatado }})
+                                    </option>
+                                @endforeach
+                            @else
+                                <option value="">Sede Padrão (Configurações Gerais)</option>
+                            @endif
+                        </select>
+                        <span class="form-hint">Define o cabeçalho e rodapé do PDF</span>
+                    </div>
+
+                    <div>
                         <label class="form-label" for="titulo">Título / Objeto Resumido</label>
                         <input type="text" id="titulo" name="titulo" value="{{ old('titulo') }}"
                             class="form-input" placeholder="Ex: Controle Integrado de Pragas - Unidade Fabril">

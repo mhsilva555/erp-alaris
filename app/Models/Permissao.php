@@ -149,6 +149,18 @@ class Permissao extends Model
                 ],
             ],
 
+            'unidades' => [
+                'nome' => 'Unidades da Empresa (Matriz e Filiais)',
+                'descricao' => 'Cadastro de matriz e filiais com dados institucionais para emissão de propostas, contratos e O.S.',
+                'permissoes' => [
+                    'unidades.ver' => ['nome' => 'Ver Unidades', 'descricao' => 'Visualizar unidades cadastradas (matriz e filiais).'],
+                    'unidades.criar' => ['nome' => 'Criar Unidades', 'descricao' => 'Cadastrar novas unidades / filiais da empresa.'],
+                    'unidades.editar' => ['nome' => 'Editar Unidades', 'descricao' => 'Alterar razão social, CNPJ, endereço e contatos da unidade.'],
+                    'unidades.deletar' => ['nome' => 'Deletar Unidades', 'descricao' => 'Remover unidades da empresa.'],
+                    'unidades.acessar_dados' => ['nome' => 'Acessar Dados Institucionais', 'descricao' => 'Visualizar licenças sanitárias e dados fiscais das unidades.'],
+                ],
+            ],
+
             'configuracoes' => [
                 'nome' => 'Configurações do Sistema',
                 'descricao' => 'Parâmetros fiscais (alíquota de NF), diária técnica e cron.',

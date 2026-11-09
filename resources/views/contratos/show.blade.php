@@ -25,6 +25,11 @@
                         <span class="badge badge-neutral">
                             {{ $contrato->vigenciaLabel() }}
                         </span>
+                        @if($contrato->unidade)
+                            <span class="badge badge-cyan" title="Unidade Emitente: {{ $contrato->unidade->razao_social }} • CNPJ: {{ $contrato->unidade->cnpj_formatado }}">
+                                {{ $contrato->unidade->nome }} ({{ $contrato->unidade->ehMatriz() ? 'Matriz' : 'Filial' }})
+                            </span>
+                        @endif
                     </div>
 
                     <p class="text-xs mt-1" style="color: var(--color-surface-400);">

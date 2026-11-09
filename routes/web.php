@@ -15,6 +15,7 @@ use App\Http\Controllers\PerfilController;
 use App\Http\Controllers\ProdutoController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TecnicoController;
+use App\Http\Controllers\UnidadeEmpresaController;
 use App\Http\Controllers\VisitaController;
 use Illuminate\Support\Facades\Route;
 
@@ -85,6 +86,9 @@ Route::middleware('auth')->group(function () {
     // Agenda Geral Unificada
     Route::get('/agendamentos', [AgendamentoController::class, 'index'])->name('agendamentos.index');
     Route::delete('/agendamentos/{tipo}/{id}', [AgendamentoController::class, 'destroy'])->name('agendamentos.destroy');
+
+    // Unidades da Empresa (Matriz e Filiais)
+    Route::resource('unidades', UnidadeEmpresaController::class)->parameters(['unidades' => 'unidade'])->except(['show']);
 
     // Rotas Restritas a Administradores (Financeiro, Usuários, Configurações)
     Route::middleware('admin')->group(function () {

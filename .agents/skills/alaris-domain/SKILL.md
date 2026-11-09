@@ -105,6 +105,9 @@ Always use `whereDate()` for date boundaries to avoid string comparison truncati
 
 ### 2.7. Mobile-First App UX & PWA Color Standard (#23b4eb)
 - The brand primary color and PWA theme color is strictly `#23b4eb` (Alaris Cyan).
+- **iOS & Android PWA Icon Invariant**:
+  - Home Screen icons (`public/apple-touch-icon*.png` at `180x180`, `167x167`, `152x152`, `120x120` and `public/icons/icon-*.png`) MUST be **full-bleed opaque 24-bit RGB PNGs (no alpha channel / Color Type 2)** with the white Alaris drop centered, so iOS applies its native squircle mask and Android applies adaptive masks without black corners or monogram ("A") fallbacks.
+  - All `<link rel="apple-touch-icon*">` and `<link rel="manifest">` tags in Blade layouts (`layouts/app.blade.php` and `auth/login.blade.php`) must use root-relative paths (`/apple-touch-icon.png?v=2`, `/manifest.json?v=2`) alongside `$middleware->trustProxies(at: '*')` in `bootstrap/app.php` to prevent iOS Safari Mixed Content (`http://` on `https://`) blocks behind reverse proxies.
 - Mobile layout operates with native app ergonomics:
   - Responsive topbar with `truncate min-w-0 whitespace-nowrap` on module titles to prevent multi-line overlapping.
   - Native Mobile Bottom Navigation Bar (`#mobile-bottom-nav`) with 5 core tabs, glassmorphic backdrop blur, and safe area inset support (`env(safe-area-inset-bottom)`).

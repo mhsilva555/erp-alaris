@@ -13,8 +13,8 @@ beforeEach(function () {
 test('administrador pode visualizar e atualizar informacoes empresariais da alaris nas configuracoes', function () {
     $response = $this->actingAs($this->admin)->get(route('configuracoes.index'));
     $response->assertOk();
-    $response->assertSee('Informações Empresariais da Alaris Service');
-    $response->assertSee('Razão Social Oficial');
+    $response->assertSee('Unidades da Empresa (Matriz & Filiais)', false);
+    $response->assertSee('Parâmetros Operacionais & Custos Padrão', false);
 
     // Atualiza os dados da empresa
     $updateResponse = $this->actingAs($this->admin)->put(route('configuracoes.update'), [

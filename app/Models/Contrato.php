@@ -107,6 +107,7 @@ class Contrato extends Model
     protected $fillable = [
         'numero',
         'cliente_id',
+        'unidade_id',
         'titulo',
         'descricao',
         'status',
@@ -154,6 +155,18 @@ class Contrato extends Model
     public function cliente(): BelongsTo
     {
         return $this->belongsTo(Cliente::class);
+    }
+
+    public function unidade(): BelongsTo
+    {
+        return $this->belongsTo(UnidadeEmpresa::class, 'unidade_id');
+    }
+
+    public function dadosEmpresaDocumento(): array
+    {
+        $this->loadMissing('unidade');
+
+        return Configuracao::dadosEmpresa($this->unidade);
     }
 
     public function meioPagamento(): BelongsTo

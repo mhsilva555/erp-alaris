@@ -103,6 +103,8 @@ class PerfilPermissaoSeeder extends Seeder
             'agendamentos.ver', 'agendamentos.criar', 'agendamentos.editar', 'agendamentos.deletar', 'agendamentos.acessar_dados', 'agendamentos.excluir_evento',
             // Técnicos
             'tecnicos.ver', 'tecnicos.criar', 'tecnicos.editar', 'tecnicos.acessar_dados',
+            // Unidades
+            'unidades.ver', 'unidades.acessar_dados',
         ];
         $idsGerente = array_intersect_key($permissoesMap, array_flip($chavesGerente));
         $perfilGerente->permissoes()->sync(array_values($idsGerente));
@@ -129,6 +131,7 @@ class PerfilPermissaoSeeder extends Seeder
             'comodatos.ver', 'comodatos.acessar_dados',
             'produtos.ver', 'produtos.acessar_dados',
             'tecnicos.ver', 'tecnicos.acessar_dados',
+            'unidades.ver', 'unidades.acessar_dados',
             'agendamentos.ver',
         ];
         $idsFinanceiro = array_intersect_key($permissoesMap, array_flip($chavesFinanceiro));

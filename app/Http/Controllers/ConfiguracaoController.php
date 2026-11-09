@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Models\Configuracao;
+use App\Models\UnidadeEmpresa;
 use Illuminate\Http\Request;
 
 class ConfiguracaoController extends Controller
@@ -16,13 +19,18 @@ class ConfiguracaoController extends Controller
         $diariaTecnicoPadrao = $diariaTecnico;
 
         $empresa = Configuracao::dadosEmpresa();
+        $unidades = UnidadeEmpresa::orderByDesc('padrao')
+            ->orderByRaw("CASE WHEN tipo = 'matriz' THEN 0 ELSE 1 END ASC")
+            ->orderBy('nome')
+            ->get();
 
         return view('configuracoes.index', compact(
             'aliquotaImposto',
             'diariaTecnico',
             'aliquotaImpostoPadrao',
             'diariaTecnicoPadrao',
-            'empresa'
+            'empresa',
+            'unidades'
         ));
     }
 
@@ -32,7 +40,7 @@ class ConfiguracaoController extends Controller
             'aliquota_imposto_padrao' => 'required|numeric|min:0|max:100',
             'diaria_tecnico_padrao' => 'required|numeric|min:0',
 
-            // Informações Empresariais
+            // Informações Empresariais (retrocompatibilidade caso enviadas)
             'empresa_razao_social' => 'nullable|string|max:255',
             'empresa_nome_fantasia' => 'nullable|string|max:255',
             'empresa_cnpj' => 'nullable|string|max:30',
@@ -51,7 +59,6 @@ class ConfiguracaoController extends Controller
         Configuracao::set('aliquota_imposto_padrao', (string) $validated['aliquota_imposto_padrao'], 'Alíquota padrão de acréscimo para Nota Fiscal (%)');
         Configuracao::set('diaria_tecnico_padrao', (string) $validated['diaria_tecnico_padrao'], 'Valor padrão de mão de obra/diária por visita (R$)');
 
-        // Grava dados empresariais da Alaris
         $camposEmpresa = [
             'empresa_razao_social' => 'Razão Social oficial da empresa',
             'empresa_nome_fantasia' => 'Nome Fantasia da marca',
@@ -69,10 +76,12 @@ class ConfiguracaoController extends Controller
         ];
 
         foreach ($camposEmpresa as $campo => $desc) {
-            Configuracao::set($campo, $validated[$campo] ?? null, $desc);
+            if ($request->has($campo)) {
+                Configuracao::set($campo, $validated[$campo] ?? null, $desc);
+            }
         }
 
         return redirect()->route('configuracoes.index')
-            ->with('sucesso', 'Configurações operacionais e empresariais atualizadas com sucesso.');
+            ->with('sucesso', 'Parâmetros operacionais atualizados com sucesso.');
     }
 }

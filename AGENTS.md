@@ -143,8 +143,11 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 
 ### 3.11. Identidade Visual Oficial, Cor Primária e PWA (#23b4eb)
 - A cor primária e de marca é padronizada estritamente em **`#23b4eb`** (Alaris Cyan).
-- Todos os manifestos PWA (`manifest.json`, `manifest.webmanifest`), `<meta name="theme-color">`, favicons e tokens CSS do `@theme` operam sob essa referência visual.
-- O novo conjunto de ícones PWA e favicons (`/icons/icon-*.png`, `apple-touch-icon.png`, `favicon.ico`) adota o símbolo oficial circular da gota Alaris.
+- Todos os manifestos PWA (`manifest.json`, `manifest.webmanifest`), `<meta name="theme-color">`, `background_color`, favicons e tokens CSS do `@theme` operam sob essa referência visual.
+- **Invariante de Ícones PWA no iOS (iPhone/iPad) e Android**:
+  - Os ícones de instalação na Tela de Início (`public/apple-touch-icon.png`, `apple-touch-icon-precomposed.png`, `apple-touch-icon-180x180.png`, `167x167`, `152x152`, `120x120`, bem como `public/icons/icon-180.png`, `icon-192.png`, `icon-512.png` e *maskables*) devem ser **PNGs RGB 24-bit 100% opacos (Color Type 2, sem canal alfa/transparência)** preenchendo todo o quadrado (*full-bleed*) com o fundo oficial Alaris e a gota branca centralizada, permitindo que o iOS aplique sua máscara *squircle* nativa e o Android aplique os *adaptive icons* sem bordas pretas ou fallback de monograma ("A").
+  - Os favicons de aba de navegador (`favicon-32x32.png`, `favicon-16x16.png`, `favicon.png`, `favicon.ico`) mantêm o formato circular com fundo transparente.
+  - As tags `<link rel="apple-touch-icon*">`, `<link rel="icon">` e `<link rel="manifest">` no `<head>` devem utilizar **caminhos relativos à raiz** (ex.: `/apple-touch-icon.png?v=2`, `/manifest.json?v=2`) em vez de `asset()`, combinados com `$middleware->trustProxies(at: '*')` em `bootstrap/app.php`, evitando bloqueio de *Mixed Content* (`http://` em páginas `https://`) no Safari/iOS quando servido atrás de proxy reverso ou túnel HTTPS.
 
 ### 3.12. Experiência Mobile Nativa (PWA & Layout de App)
 - **Header Mobile Anti-Overlap**: O título do módulo no header deve manter sempre `min-w-0 flex-1 truncate whitespace-nowrap` em linha única, impedindo quebras que sobreponham o header.

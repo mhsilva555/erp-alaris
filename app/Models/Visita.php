@@ -50,6 +50,7 @@ class Visita extends Model
 
     protected $fillable = [
         'cliente_id',
+        'unidade_id',
         'contrato_id',
         'comodato_id',
         'tecnico_id',
@@ -93,6 +94,19 @@ class Visita extends Model
     public function cliente(): BelongsTo
     {
         return $this->belongsTo(Cliente::class);
+    }
+
+    public function unidade(): BelongsTo
+    {
+        return $this->belongsTo(UnidadeEmpresa::class, 'unidade_id');
+    }
+
+    public function dadosEmpresaDocumento(): array
+    {
+        $this->loadMissing(['unidade', 'contrato.unidade']);
+        $unidade = $this->unidade ?? $this->contrato?->unidade;
+
+        return Configuracao::dadosEmpresa($unidade);
     }
 
     public function contrato(): BelongsTo

@@ -10,6 +10,7 @@ use App\Models\MovimentacaoFinanceira;
 use App\Models\NotificacaoAgendamento;
 use App\Models\Produto;
 use App\Models\Tecnico;
+use App\Models\UnidadeEmpresa;
 use App\Models\Visita;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,7 @@ class VisitaController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Visita::with(['cliente', 'tecnico', 'contrato']);
+        $query = Visita::with(['cliente', 'unidade', 'tecnico', 'contrato']);
 
         // Se for técnico, filtra estritamente as suas próprias visitas
         if ($request->user() && $request->user()->isTecnico()) {
@@ -64,10 +65,16 @@ class VisitaController extends Controller
         $aliquotaPadrao = (float) Configuracao::get('aliquota_imposto_padrao', '14.0');
         $diariaPadrao = (float) Configuracao::get('diaria_tecnico_padrao', '50.00');
         $comodato = $request->filled('comodato_id') ? EquipamentoComodato::with(['cliente', 'produto', 'equipamento'])->find($request->comodato_id) : null;
-        $contrato = $request->filled('contrato_id') ? Contrato::with(['cliente', 'itens', 'comodatos.produto', 'comodatos.equipamento'])->find($request->contrato_id) : null;
+        $contrato = $request->filled('contrato_id') ? Contrato::with(['cliente', 'unidade', 'itens', 'comodatos.produto', 'comodatos.equipamento'])->find($request->contrato_id) : null;
         $contratos = Contrato::with(['comodatos.produto', 'comodatos.equipamento'])->where('status', Contrato::STATUS_ATIVO)->orderBy('numero')->get();
+        $unidades = UnidadeEmpresa::ativas()
+            ->orderByDesc('padrao')
+            ->orderByRaw("CASE WHEN tipo = 'matriz' THEN 0 ELSE 1 END ASC")
+            ->orderBy('nome')
+            ->get();
+        $unidadePadrao = UnidadeEmpresa::padraoAtiva();
 
-        return view('visitas.create', compact('clientes', 'produtos', 'tecnicos', 'aliquotaPadrao', 'diariaPadrao', 'comodato', 'contrato', 'contratos'));
+        return view('visitas.create', compact('clientes', 'produtos', 'tecnicos', 'aliquotaPadrao', 'diariaPadrao', 'comodato', 'contrato', 'contratos', 'unidades', 'unidadePadrao'));
     }
 
     public function store(Request $request)
@@ -76,6 +83,7 @@ class VisitaController extends Controller
 
         $validated = $request->validate([
             'cliente_id' => 'required|exists:clientes,id',
+            'unidade_id' => 'nullable|exists:unidades_empresa,id',
             'contrato_id' => 'nullable|exists:contratos,id',
             'comodato_id' => 'nullable|exists:equipamentos_comodato,id',
             'data_hora' => 'required|date',
@@ -168,7 +176,7 @@ class VisitaController extends Controller
         }
 
         $visitaCriada = null;
-        DB::transaction(function () use ($validated, $statusVisita, $valorCobrado, $custoMaoDeObra, $custoDeslocamento, $gastosAdicionais, $exigeNf, $aliquotaImposto, $valorImposto, $ehMensalidadeContrato, &$visitaCriada) {
+        DB::transaction(function () use ($validated, $contrato, $statusVisita, $valorCobrado, $custoMaoDeObra, $custoDeslocamento, $gastosAdicionais, $exigeNf, $aliquotaImposto, $valorImposto, $ehMensalidadeContrato, &$visitaCriada) {
             $custoProdutos = 0.0;
             $sync = [];
             $deveBaixar = $statusVisita !== Visita::STATUS_CANCELADA;
@@ -204,6 +212,9 @@ class VisitaController extends Controller
             $lucroBruto = $ehMensalidadeContrato ? 0.00 : ($valorCobrado - ($custoOperacional + $valorImposto));
 
             $visitaData = collect($validated)->except('produtos')->toArray();
+            if (empty($visitaData['unidade_id'])) {
+                $visitaData['unidade_id'] = $contrato?->unidade_id ?? UnidadeEmpresa::padraoAtiva()?->id;
+            }
             $visitaData['exige_nota_fiscal'] = $exigeNf;
             $visitaData['valor_cobrado'] = $valorCobrado;
             $visitaData['custo_produtos'] = $custoProdutos;
@@ -250,23 +261,33 @@ class VisitaController extends Controller
     {
         $this->autorizarAcessoVisita($visita);
 
-        $visita->load(['cliente', 'tecnico', 'produtos', 'comodato.produto', 'contrato.comodatos.produto']);
+        $visita->load(['cliente', 'unidade', 'tecnico', 'produtos', 'comodato.produto', 'contrato.unidade', 'contrato.comodatos.produto']);
+        $unidades = UnidadeEmpresa::ativas()
+            ->orderByDesc('padrao')
+            ->orderByRaw("CASE WHEN tipo = 'matriz' THEN 0 ELSE 1 END ASC")
+            ->orderBy('nome')
+            ->get();
 
-        return view('visitas.show', compact('visita'));
+        return view('visitas.show', compact('visita', 'unidades'));
     }
 
     public function edit(Visita $visita)
     {
         $this->autorizarAcessoVisita($visita);
 
-        $visita->load(['produtos', 'comodato', 'contrato', 'cliente']);
+        $visita->load(['produtos', 'unidade', 'comodato', 'contrato', 'cliente']);
         $clientes = Cliente::orderBy('nome')->get();
         $produtos = Produto::orderBy('nome')->get();
         $tecnicos = Tecnico::where('ativo', true)->orderBy('nome')->get();
+        $unidades = UnidadeEmpresa::ativas()
+            ->orderByDesc('padrao')
+            ->orderByRaw("CASE WHEN tipo = 'matriz' THEN 0 ELSE 1 END ASC")
+            ->orderBy('nome')
+            ->get();
         $aliquotaPadrao = (float) Configuracao::get('aliquota_imposto_padrao', '14.0');
         $diariaPadrao = (float) Configuracao::get('diaria_tecnico_padrao', '50.00');
 
-        return view('visitas.edit', compact('visita', 'clientes', 'produtos', 'tecnicos', 'aliquotaPadrao', 'diariaPadrao'));
+        return view('visitas.edit', compact('visita', 'clientes', 'produtos', 'tecnicos', 'unidades', 'aliquotaPadrao', 'diariaPadrao'));
     }
 
     public function update(Request $request, Visita $visita)
@@ -276,6 +297,7 @@ class VisitaController extends Controller
 
         $validated = $request->validate([
             'cliente_id' => 'required|exists:clientes,id',
+            'unidade_id' => 'nullable|exists:unidades_empresa,id',
             'contrato_id' => 'nullable|exists:contratos,id',
             'comodato_id' => 'nullable|exists:equipamentos_comodato,id',
             'data_hora' => 'required|date',
@@ -449,6 +471,9 @@ class VisitaController extends Controller
             $lucroBruto = $ehMensalidadeContrato ? 0.00 : ($valorCobrado - ($custoOperacional + $valorImposto));
 
             $visitaData = collect($validated)->except('produtos')->toArray();
+            if (empty($visitaData['unidade_id'])) {
+                $visitaData['unidade_id'] = $visita->unidade_id ?? UnidadeEmpresa::padraoAtiva()?->id;
+            }
             $visitaData['exige_nota_fiscal'] = $exigeNf;
             $visitaData['valor_cobrado'] = $valorCobrado;
             $visitaData['custo_produtos'] = $custoProdutos;
@@ -626,14 +651,21 @@ class VisitaController extends Controller
     /**
      * Gera Ordem de Serviço (OS) detalhada para o técnico em campo.
      */
-    public function ordemServico(Visita $visita)
+    public function ordemServico(Visita $visita, Request $request)
     {
         $this->autorizarAcessoVisita($visita);
 
+        if ($request->filled('unidade_id')) {
+            $unidadeSelecionada = UnidadeEmpresa::findOrFail($request->integer('unidade_id'));
+            $visita->update(['unidade_id' => $unidadeSelecionada->id]);
+        }
+
         $visita->load([
+            'unidade',
             'cliente.comodatos.produto',
             'cliente.comodatos.equipamento',
             'cliente.comodatos.contrato',
+            'contrato.unidade',
             'contrato.comodatos.produto',
             'contrato.comodatos.equipamento',
             'comodato.produto',
@@ -643,22 +675,39 @@ class VisitaController extends Controller
             'contrato.itens',
         ]);
 
-        return view('visitas.os', compact('visita'));
+        $unidades = UnidadeEmpresa::ativas()
+            ->orderByDesc('padrao')
+            ->orderByRaw("CASE WHEN tipo = 'matriz' THEN 0 ELSE 1 END ASC")
+            ->orderBy('nome')
+            ->get();
+
+        return view('visitas.os', compact('visita', 'unidades'));
     }
 
     /**
      * Gera Proposta Comercial para o cliente (com estrito sigilo de custos e mL).
      */
-    public function propostaCliente(Visita $visita)
+    public function propostaCliente(Visita $visita, Request $request)
     {
         $user = auth()->user();
         if (! $user || ! $user->isAdmin()) {
             abort(403, 'Acesso restrito a administradores. Técnicos não possuem acesso a propostas comerciais.');
         }
 
-        $visita->load(['cliente', 'tecnico']);
+        if ($request->filled('unidade_id')) {
+            $unidadeSelecionada = UnidadeEmpresa::findOrFail($request->integer('unidade_id'));
+            $visita->update(['unidade_id' => $unidadeSelecionada->id]);
+        }
 
-        return view('visitas.proposta', compact('visita'));
+        $visita->load(['cliente', 'unidade', 'tecnico', 'contrato.unidade']);
+
+        $unidades = UnidadeEmpresa::ativas()
+            ->orderByDesc('padrao')
+            ->orderByRaw("CASE WHEN tipo = 'matriz' THEN 0 ELSE 1 END ASC")
+            ->orderBy('nome')
+            ->get();
+
+        return view('visitas.proposta', compact('visita', 'unidades'));
     }
 
     private function autorizarAcessoVisita(Visita $visita): void

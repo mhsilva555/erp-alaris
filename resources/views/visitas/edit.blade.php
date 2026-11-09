@@ -42,6 +42,23 @@
                             </select>
                         </div>
 
+                        <div class="sm:col-span-2">
+                            <label class="form-label" for="unidade_id">Unidade Emitente da O.S. (Matriz / Filial)</label>
+                            <select id="unidade_id" name="unidade_id" class="form-select">
+                                @if (isset($unidades) && $unidades->isNotEmpty())
+                                    @foreach ($unidades as $unid)
+                                        <option value="{{ $unid->id }}"
+                                            {{ old('unidade_id', $visita->unidade_id ?? $visita->contrato?->unidade_id) == $unid->id ? 'selected' : '' }}>
+                                            {{ $unid->nome }} ({{ $unid->ehMatriz() ? 'Matriz' : 'Filial' }} • CNPJ: {{ $unid->cnpj_formatado }})
+                                        </option>
+                                    @endforeach
+                                @else
+                                    <option value="">Sede Padrão (Configurações Gerais)</option>
+                                @endif
+                            </select>
+                            <span class="form-hint">Define qual unidade aparecerá no cabeçalho e rodapé da folha de O.S.</span>
+                        </div>
+
                         <div>
                             <label class="form-label" for="tipo_visita">Categoria da Visita *</label>
                             <select id="tipo_visita" name="tipo_visita" class="form-select" required>

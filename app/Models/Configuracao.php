@@ -32,8 +32,19 @@ class Configuracao extends Model
         );
     }
 
-    public static function dadosEmpresa(): array
+    public static function dadosEmpresa(?UnidadeEmpresa $unidade = null): array
     {
+        if ($unidade) {
+            return $unidade->dadosParaDocumento();
+        }
+
+        if (! static::where('chave', 'empresa_razao_social')->exists()) {
+            $unidadePadrao = UnidadeEmpresa::padraoAtiva();
+            if ($unidadePadrao) {
+                return $unidadePadrao->dadosParaDocumento();
+            }
+        }
+
         $razaoSocial = static::get('empresa_razao_social', 'ALARIS SERVICE LTDA');
         $nomeFantasia = static::get('empresa_nome_fantasia', 'Alaris Service');
         $cnpj = static::get('empresa_cnpj', '38.628.132/0001-35');

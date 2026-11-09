@@ -10,6 +10,7 @@ use App\Models\Equipamento;
 use App\Models\EquipamentoComodato;
 use App\Models\MeioPagamento;
 use App\Models\Produto;
+use App\Models\UnidadeEmpresa;
 use App\Models\Visita;
 use App\Services\ContratoAgendamentoService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -24,7 +25,7 @@ class ContratoController extends Controller
     {
         $this->autorizar('contratos.ver');
 
-        $query = Contrato::with(['cliente', 'itens'])->withCount([
+        $query = Contrato::with(['cliente', 'unidade', 'itens'])->withCount([
             'visitas',
             'visitas as visitas_concluidas_count' => fn ($q) => $q->where('status', Visita::STATUS_CONCLUIDA),
             'visitas as visitas_pendentes_count' => fn ($q) => $q->where('status', Visita::STATUS_AGENDADA),
@@ -86,10 +87,16 @@ class ContratoController extends Controller
         $meiosPagamento = MeioPagamento::where('ativo', true)->orderBy('nome')->get();
         $equipamentos = Equipamento::orderBy('nome')->get();
         $produtos = Produto::orderBy('nome')->get();
+        $unidades = UnidadeEmpresa::ativas()
+            ->orderByDesc('padrao')
+            ->orderByRaw("CASE WHEN tipo = 'matriz' THEN 0 ELSE 1 END ASC")
+            ->orderBy('nome')
+            ->get();
+        $unidadePadrao = UnidadeEmpresa::padraoAtiva();
         $aliquotaPadrao = (float) Configuracao::get('aliquota_imposto_padrao', '14.0');
         $diariaPadrao = (float) Configuracao::get('diaria_tecnico_padrao', '50.00');
 
-        return view('contratos.create', compact('clientes', 'clientePreSelecionado', 'proximoNumero', 'meiosPagamento', 'equipamentos', 'produtos', 'aliquotaPadrao', 'diariaPadrao'));
+        return view('contratos.create', compact('clientes', 'clientePreSelecionado', 'proximoNumero', 'meiosPagamento', 'equipamentos', 'produtos', 'unidades', 'unidadePadrao', 'aliquotaPadrao', 'diariaPadrao'));
     }
 
     public function store(Request $request, ContratoAgendamentoService $service)
@@ -101,6 +108,7 @@ class ContratoController extends Controller
         $validated = $request->validate([
             'numero' => 'required|string|max:50|unique:contratos,numero',
             'cliente_id' => 'required|exists:clientes,id',
+            'unidade_id' => 'nullable|exists:unidades_empresa,id',
             'titulo' => 'nullable|string|max:255',
             'descricao' => 'nullable|string',
             'status' => 'required|in:proposta,ativo,rascunho',
@@ -138,6 +146,9 @@ class ContratoController extends Controller
 
         $contrato = DB::transaction(function () use ($validated, $request) {
             $dataContrato = collect($validated)->except(['itens', 'comodatos'])->toArray();
+            if (empty($dataContrato['unidade_id'])) {
+                $dataContrato['unidade_id'] = UnidadeEmpresa::padraoAtiva()?->id;
+            }
             $dataContrato['permite_renovacao'] = $request->has('permite_renovacao');
             $dataContrato['exige_nota_fiscal'] = $request->has('exige_nota_fiscal');
             $dataContrato['percentual_imposto'] = $dataContrato['exige_nota_fiscal']
@@ -197,6 +208,7 @@ class ContratoController extends Controller
 
         $contrato->load([
             'cliente',
+            'unidade',
             'meioPagamento',
             'itens',
             'comodatos' => function ($q) {
@@ -207,6 +219,12 @@ class ContratoController extends Controller
             },
         ]);
 
+        $unidades = UnidadeEmpresa::ativas()
+            ->orderByDesc('padrao')
+            ->orderByRaw("CASE WHEN tipo = 'matriz' THEN 0 ELSE 1 END ASC")
+            ->orderBy('nome')
+            ->get();
+
         $metricas = [
             'total_visitas' => $contrato->visitas->count(),
             'concluidas' => $contrato->visitas->where('status', Visita::STATUS_CONCLUIDA)->count(),
@@ -216,7 +234,7 @@ class ContratoController extends Controller
             'comodatos_atrasados' => $contrato->comodatos->filter->estaAtrasado()->count(),
         ];
 
-        return view('contratos.show', compact('contrato', 'metricas'));
+        return view('contratos.show', compact('contrato', 'metricas', 'unidades'));
     }
 
     public function edit(Contrato $contrato)
@@ -232,11 +250,16 @@ class ContratoController extends Controller
         $meiosPagamento = MeioPagamento::where('ativo', true)->orderBy('nome')->get();
         $equipamentos = Equipamento::orderBy('nome')->get();
         $produtos = Produto::orderBy('nome')->get();
+        $unidades = UnidadeEmpresa::ativas()
+            ->orderByDesc('padrao')
+            ->orderByRaw("CASE WHEN tipo = 'matriz' THEN 0 ELSE 1 END ASC")
+            ->orderBy('nome')
+            ->get();
         $aliquotaPadrao = (float) Configuracao::get('aliquota_imposto_padrao', '14.0');
         $diariaPadrao = (float) Configuracao::get('diaria_tecnico_padrao', '50.00');
-        $contrato->load(['itens', 'meioPagamento', 'comodatos.equipamento', 'comodatos.produto']);
+        $contrato->load(['itens', 'unidade', 'meioPagamento', 'comodatos.equipamento', 'comodatos.produto']);
 
-        return view('contratos.edit', compact('contrato', 'clientes', 'meiosPagamento', 'equipamentos', 'produtos', 'aliquotaPadrao', 'diariaPadrao'));
+        return view('contratos.edit', compact('contrato', 'clientes', 'meiosPagamento', 'equipamentos', 'produtos', 'unidades', 'aliquotaPadrao', 'diariaPadrao'));
     }
 
     public function update(Request $request, Contrato $contrato, ContratoAgendamentoService $service)
@@ -253,6 +276,7 @@ class ContratoController extends Controller
         $validated = $request->validate([
             'numero' => 'required|string|max:50|unique:contratos,numero,'.$contrato->id,
             'cliente_id' => 'required|exists:clientes,id',
+            'unidade_id' => 'nullable|exists:unidades_empresa,id',
             'titulo' => 'nullable|string|max:255',
             'descricao' => 'nullable|string',
             'tipo_vigencia' => 'required|in:determinado,indeterminado',
@@ -393,14 +417,25 @@ class ContratoController extends Controller
     {
         $this->autorizar('contratos.ver');
 
-        $contrato->load(['cliente', 'itens', 'meioPagamento', 'comodatos.equipamento', 'comodatos.produto']);
+        if ($request->filled('unidade_id')) {
+            $unidadeSelecionada = UnidadeEmpresa::findOrFail($request->integer('unidade_id'));
+            $contrato->update(['unidade_id' => $unidadeSelecionada->id]);
+        }
+
+        $contrato->load(['cliente', 'unidade', 'itens', 'meioPagamento', 'comodatos.equipamento', 'comodatos.produto']);
+
+        $unidades = UnidadeEmpresa::ativas()
+            ->orderByDesc('padrao')
+            ->orderByRaw("CASE WHEN tipo = 'matriz' THEN 0 ELSE 1 END ASC")
+            ->orderBy('nome')
+            ->get();
 
         if ($request->get('download') === '1' || $request->header('Accept') === 'application/pdf') {
             $nomeClienteArquivo = str_replace(['/', '\\'], '-', $contrato->cliente->nome);
             $nomeArquivo = ($contrato->ehProposta() ? 'Proposta Comercial' : 'Contrato').' #'.$contrato->numero.' — '.$nomeClienteArquivo.'.pdf';
             $pdfEngine = true;
 
-            $pdf = Pdf::loadView('contratos.pdf', compact('contrato', 'pdfEngine'))
+            $pdf = Pdf::loadView('contratos.pdf', compact('contrato', 'unidades', 'pdfEngine'))
                 ->setPaper('a4', 'portrait')
                 ->setOptions([
                     'isHtml5ParserEnabled' => true,
@@ -411,7 +446,7 @@ class ContratoController extends Controller
             return $pdf->stream($nomeArquivo);
         }
 
-        return view('contratos.pdf', compact('contrato'));
+        return view('contratos.pdf', compact('contrato', 'unidades'));
     }
 
     public function suspender(Contrato $contrato, ContratoAgendamentoService $service)

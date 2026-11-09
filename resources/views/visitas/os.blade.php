@@ -3,6 +3,7 @@
     $logoDataUri = file_exists($logoPath)
         ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath))
         : asset('images/logo.png');
+    $empresa = $visita->dadosEmpresaDocumento();
 @endphp
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -424,6 +425,18 @@
             </div>
 
             <div class="pwa-bar-right">
+                @if (isset($unidades) && $unidades->isNotEmpty())
+                    <select aria-label="Unidade Emitente" onchange="if(this.value) window.location.href = '{{ route('visitas.os', $visita) }}?unidade_id=' + this.value;"
+                        style="background: rgba(255, 255, 255, 0.08); color: #f9fafb; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                        @foreach ($unidades as $unid)
+                            <option value="{{ $unid->id }}" style="color: #0f172a; background: #ffffff;"
+                                {{ ($visita->unidade_id ?? $visita->contrato?->unidade_id ?? ($empresa['unidadeId'] ?? null)) == $unid->id ? 'selected' : '' }}>
+                                {{ $unid->nome }} ({{ $unid->ehMatriz() ? 'Matriz' : 'Filial' }})
+                            </option>
+                        @endforeach
+                    </select>
+                @endif
+
                 <button type="button" class="pwa-btn pwa-btn-share" onclick="compartilharDocumento()">
                     <svg class="pwa-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -452,9 +465,20 @@
             {{-- Header --}}
             <div class="header">
                 <div class="logo-box">
-                    <img src="{{ $logoDataUri }}" alt="Alaris Service" class="header-logo-img">
+                    <img src="{{ $logoDataUri }}" alt="{{ $empresa['nomeFantasia'] }}" class="header-logo-img">
                     <div style="border-left: 1px solid #e5e7eb; padding-left: 14px;">
-                        <p class="brand-sub">Controle Integrado de Pragas & Higienização</p>
+                        <h2 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">{{ $empresa['nomeFantasia'] }}</h2>
+                        <p class="brand-sub">{{ $empresa['slogan'] }}</p>
+                        <div style="font-size: 10px; color: #64748b; margin-top: 2px;">
+                            <span><strong>CNPJ:</strong> {{ $empresa['cnpj'] }}</span>
+                            @if($empresa['telefone']) &bull; <span><strong>Tel:</strong> {{ $empresa['telefone'] }}</span> @endif
+                            @if($empresa['email']) &bull; <span>{{ $empresa['email'] }}</span> @endif
+                            @if(!empty($empresa['website'])) &bull; <span>{{ $empresa['website'] }}</span> @endif
+                        </div>
+                        <div style="font-size: 9.5px; color: #94a3b8; margin-top: 1px;">
+                            <span>{{ $empresa['enderecoCompleto'] }}</span>
+                            @if($empresa['licenca']) &bull; <span>{{ $empresa['licenca'] }}</span> @endif
+                        </div>
                     </div>
                 </div>
                 <div class="os-meta">
@@ -660,12 +684,28 @@
                 <div class="sig-box">
                     <div class="sig-line"></div>
                     <strong>{{ $visita->tecnico?->nome ?? 'Técnico Aplicador' }}</strong>
-                    <div class="sig-title">Alaris Service — Responsável Técnico</div>
+                    <div class="sig-title">{{ $empresa['razaoSocial'] }} • CNPJ: {{ $empresa['cnpj'] }}</div>
                 </div>
                 <div class="sig-box">
                     <div class="sig-line"></div>
                     <strong>{{ $visita->cliente->nome }}</strong>
                     <div class="sig-title">Assinatura do Cliente / Recebedor</div>
+                </div>
+            </div>
+
+            <div class="footer-note" style="margin-top: 18px; padding-top: 8px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 9.5px; color: #64748b; line-height: 1.4;">
+                <div style="font-weight: 700; color: #334155;">
+                    {{ $empresa['razaoSocial'] }} &bull; CNPJ: {{ $empresa['cnpj'] }}
+                    @if($empresa['telefone']) &bull; Tel: {{ $empresa['telefone'] }} @endif
+                    @if($empresa['email']) &bull; {{ $empresa['email'] }} @endif
+                    @if(!empty($empresa['website'])) &bull; {{ $empresa['website'] }} @endif
+                </div>
+                <div>
+                    <span>{{ $empresa['enderecoCompleto'] }}</span>
+                    @if($empresa['licenca']) &bull; <span>{{ $empresa['licenca'] }}</span> @endif
+                </div>
+                <div style="font-size: 9px; color: #94a3b8; margin-top: 2px;">
+                    OS Nº {{ str_pad($visita->id, 5, '0', STR_PAD_LEFT) }} &bull; Documento emitido pelo ERP Alaris em {{ now()->format('d/m/Y H:i') }}
                 </div>
             </div>
 

@@ -39,6 +39,11 @@
                         <span class="badge badge-cyan">
                             {{ $visita->tipoServicoLabel() }}
                         </span>
+                        @if ($visita->unidade)
+                            <span class="badge badge-neutral" title="Unidade Emitente: {{ $visita->unidade->razao_social }} • CNPJ: {{ $visita->unidade->cnpj_formatado }}">
+                                {{ $visita->unidade->nome }} ({{ $visita->unidade->ehMatriz() ? 'Matriz' : 'Filial' }})
+                            </span>
+                        @endif
                         @if ($visita->contrato && $visita->contrato->comodatos->count() > 1 && $visita->comodato)
                             <a href="{{ route('contratos.show', $visita->contrato) }}" class="badge badge-purple hover:underline" title="Ver comodatos do contrato">
                                 Reposição Unificada ({{ $visita->contrato->comodatos->count() }} comodatos)
