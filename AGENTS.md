@@ -199,6 +199,33 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
   - Campo de Data e Assinaturas (Contratante e Contratada) com espaçamento superior harmonizado.
   - Rodapé institucional contendo Razão Social, CNPJ, Contatos, Website da empresa, Endereço completo, Alvará Sanitário e autenticação eletrônica.
 
+### 3.17. Insumos Químicos e Defensivos Planejados em Propostas e Contratos
+- **Modelagem Pivot (`contrato_produto`)**:
+  - Tabela pivot contendo `contrato_id`, `produto_id`, `quantidade` (dose planejada por atendimento) e `custo_proporcional` (custo proporcional calculado por visita).
+  - Relacionamentos Eloquent recíprocos: `$contrato->produtos()` e `$produto->contratos()`.
+- **Formação de Preço e Previsão de Custos Operacionais**:
+  - Cálculo automático por atendimento: $\text{custo} = (\text{dose} / \text{fator\_conversao}) \times \text{preco\_custo\_unitario}$.
+  - Métodos no modelo: `custoInsumosPrevistoPorVisita()` e integração direta em `custoOperacionalPrevisto()`, compondo a margem prevista do contrato juntamente com a diária técnica, deslocamento e gastos adicionais.
+- **Formulários Dinâmicos (Criação & Edição)**:
+  - Seções dinâmicas idênticas às de Ordens de Serviço, com seleção de produto, exibição automática da unidade de aplicação (`mL`, `g`, `Un`), saldo atual em estoque e cálculo em tempo real de custos proporcionais.
+- **Despacho Automático na Emissão de O.S. (`visitas/create`)**:
+  - Ao abrir o formulário de emissão de Ordem de Serviço vinculado a um contrato (`?contrato_id=...` ou selecionando o contrato no dropdown), o sistema **pré-carrega automaticamente** os insumos químicos e doses planejados na tabela de produtos da O.S., otimizando o despacho operacional.
+- **Regra de Ouro de Sigilo no PDF Oficial**:
+  - No PDF da proposta ou contrato (folha única A4), são exibidos **apenas os nomes comerciais/técnicos dos saneantes autorizados no escopo de metodologia técnica**.
+  - Doses aplicadas (mL/g), custos unitários de compra, diárias técnicas e margens internas permanecem **estritamente confidenciais e ocultos do cliente**.
+
+### 3.18. Ciclo de Vida, Lixeira e Soft Deletes em Propostas e Contratos
+- **Arquitetura de Lixeira (Soft Deletes)**:
+  - O modelo `Contrato` adota `SoftDeletes` (`deleted_at`), permitindo descartar propostas recusadas ou contratos descontinuados sem perda imediata de dados.
+  - Rotas dedicadas: `contratos.lixeira` (`GET /contratos/lixeira`), `contratos.restaurar` (`POST /contratos/{id}/restaurar`), `contratos.force-delete` (`DELETE /contratos/{id}/force-delete`) e `contratos.esvaziar-lixeira` (`POST /contratos/esvaziar-lixeira`).
+- **Invariante de Proteção Contábil**:
+  - **Bloqueio de Descarte com Atendimentos Executados**: É expressamente proibido mover para a lixeira ou excluir fisicamente qualquer contrato que possua ordens de serviço executadas ou em andamento (`status` em `concluida` ou `em_andamento`). O sistema orienta o gestor a utilizar as rotas de Encerramento (`encerrar`) ou Cancelamento (`cancelar`), preservando o histórico fiscal e contábil.
+  - Para contratos sem atendimentos executados ou propostas comerciais, o envio à lixeira estorna/cancela visitas agendadas pendentes e preserva integralmente os itens, comodatos e insumos cadastrados para eventual restauração.
+- **Transparência e Acesso aos Registros na Lixeira**:
+  - Rota de detalhes configurada com `withTrashed(['show'])`, permitindo inspecionar o contrato na lixeira exibindo badge `Na Lixeira`, aviso com data de descarte e botões de ação para **Restaurar** ou **Excluir Definitivamente**.
+  - O contador da lixeira é exposto no card/badge de ações da listagem principal (`totais['lixeira']`).
+  - O gerador de numeração `gerarProximoNumero()` consulta `withTrashed()` para impedir colisões ou saltos indevidos de códigos sequenciais.
+
 ---
 
 ## 4. Diretrizes de Codificação e Estilo
@@ -212,6 +239,9 @@ Bem-vindo ao repositório do **ERP Alaris** (anteriormente Biosp / Sistema Alari
 ### 4.2. Frontend (Blade, CSS e JS)
 - **Tema Light/Dark**: Uso exclusivo das variáveis do design system (`var(--color-surface-*)`, `var(--color-primary-*)`, `var(--form-text)`).
 - **Proibição Estrita de `font-mono`**: **Nunca aplicar a classe `font-mono` nos elementos de interface**. Toda a tipografia da aplicação (incluindo inputs numéricos, valores monetários, tabelas, cards de resumo, formulários e relatórios) deve adotar estritamente a tipografia sans-serif padrão do sistema (`Instrument Sans` / `font-sans`), mantendo a estética visual limpa, corporativa e coesa.
+- **Padronização Global de Botões de Exclusão**:
+  - Em todas as tabelas de listagem (Clientes, Produtos, Técnicos, Equipamentos, Comodatos, Visitas, Contratos, Unidades, Perfis, Financeiro), os botões de exclusão/descarte devem utilizar obrigatoriamente a classe `.btn-danger-soft btn-sm` acompanhada do ícone SVG de lixeira (`w-4 h-4`, `stroke-width="2"`) e tooltip explicativo (`title="Excluir"` ou `"Mover para a Lixeira"`).
+  - É proibido utilizar botões vermelhos sólidos (`.btn-danger`) ou botões neutros cinza (`.btn-secondary`) para ações de remoção em linhas de tabelas.
 - **Propostas e Documentos**: Ao formatar a proposta comercial do cliente, oculte explicitamente linhas de insumos e custos internos.
 - **JavaScript Centralizado**: Funções de cálculo em tempo real e injeção dinâmica devem residir em `resources/js/app.js`.
 

@@ -169,6 +169,7 @@ erDiagram
         text observacoes
         text observacoes_comerciais
         date proxima_geracao_ate
+        timestamp deleted_at "Soft Deletes / Lixeira"
         timestamp created_at
         timestamp updated_at
     }
@@ -191,6 +192,16 @@ erDiagram
         int quantidade
         decimal valor_unitario
         decimal valor_total
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    CONTRATO_PRODUTO {
+        bigint id PK
+        bigint contrato_id FK
+        bigint produto_id FK
+        decimal quantidade "Dose planejada por visita (mL/g/Un)"
+        decimal custo_proporcional "Custo unitario estimado da dose"
         timestamp created_at
         timestamp updated_at
     }
@@ -273,6 +284,8 @@ erDiagram
     CLIENTES ||--o{ CONTRATOS : "possui (1:N)"
     MEIOS_PAGAMENTO ||--o{ CONTRATOS : "utilizado_em (1:N)"
     CONTRATOS ||--|{ CONTRATO_ITENS : "compoe (1:N)"
+    CONTRATOS ||--o{ CONTRATO_PRODUTO : "planeja_insumos (1:N)"
+    PRODUTOS ||--o{ CONTRATO_PRODUTO : "fornece_base (1:N)"
     CONTRATOS ||--o{ VISITAS : "origina_visitas (1:N)"
     CONTRATOS ||--o{ EQUIPAMENTOS_COMODATO : "vincula_ativos (1:N)"
     CLIENTES ||--o{ VISITAS : "possui (1:N)"

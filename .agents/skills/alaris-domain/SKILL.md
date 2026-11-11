@@ -21,8 +21,12 @@ This skill documents the core domain logic, data models, and business operations
    - **Rule**: Periodicity is decoupled from Cliente and managed under Contratos. A client can have zero, one, or multiple active contracts. When `data_followup` is set, an automatic reminder is injected into the Unified Agenda.
 
 2. **Contrato (`App\Models\Contrato`) & ContratoItem (`App\Models\ContratoItem`)**:
-   - Fields: `cliente_id`, `numero`, `tipo_vigencia` (`determinado`, `indeterminado`), `data_inicio`, `data_fim`, `permite_renovacao`, `periodicidade` (`atendimento_unico`, `semanal`, `quinzenal`, `mensal`, `bimestral`, `trimestral`, `semestral`, `anual`, `personalizado`), `dia_preferencial`, `dia_semana`, `intervalo_dias`, `status` (`rascunho`, `ativo`, `suspenso`, `encerrado`, `cancelado`, `expirado`), `valor_total`, `desconto`, `modelo_cobranca`, `condicoes_pagamento`, `observacoes`, `observacoes_comerciais`, `proxima_geracao_ate`.
-   - Relationships: `belongsTo(Cliente::class)`, `hasMany(ContratoItem::class)`, `hasMany(Visita::class)`.
+   - Fields: `cliente_id`, `numero`, `tipo_vigencia` (`determinado`, `indeterminado`), `data_inicio`, `data_fim`, `permite_renovacao`, `periodicidade` (`atendimento_unico`, `semanal`, `quinzenal`, `mensal`, `bimestral`, `trimestral`, `semestral`, `anual`, `personalizado`), `dia_preferencial`, `dia_semana`, `intervalo_dias`, `status` (`rascunho`, `proposta`, `ativo`, `suspenso`, `encerrado`, `cancelado`, `expirado`), `valor_total`, `desconto`, `modelo_cobranca`, `exige_nota_fiscal`, `percentual_imposto`, `custo_diaria_padrao`, `custo_deslocamento_padrao`, `condicoes_pagamento`, `observacoes`, `observacoes_comerciais`, `proxima_geracao_ate`, `deleted_at`.
+   - Relationships: `belongsTo(Cliente::class)`, `hasMany(ContratoItem::class)`, `hasMany(Visita::class)`, `belongsToMany(Produto::class, 'contrato_produto')->withPivot('quantidade', 'custo_proporcional')`.
+   - Pivot `contrato_produto`: stores planned chemical inputs and estimated costs per visit.
+   - Methods:
+     - `custoInsumosPrevistoPorVisita(): float` -> sum of proportional chemical costs per service visit.
+     - `custoOperacionalPrevisto(): float` -> total estimated direct operational cost per visit (insumos + diária + deslocamento).
    - ContratoItem fields: `contrato_id`, `tipo_servico`, `descricao_servico`, `quantidade`, `valor_unitario`, `valor_total`.
 
 3. **Tecnico (`App\Models\Tecnico`)**:
@@ -138,6 +142,20 @@ Always use `whereDate()` for date boundaries to avoid string comparison truncati
   - Secrecy rule: shows service scope and final price; strictly hides chemical volumes, internal per diem, and markup.
   - Prints custom additional clauses and full contract scope (`contratos.descricao`).
   - Official footer with company contacts, website, sanitary license, and electronic signature blocks with top spacing.
+
+### 2.11. Contract Planned Chemical Inputs & OS Dispatch Integration
+- Proposals and contracts support defining planned sanitary inputs/products (`contrato_produto`) with custom doses per visit.
+- Proportional cost is calculated via conversion factor: `($dose / $fator) * $preco_custo_unitario`.
+- Integrated directly into contract operational margin and price formation forecasts.
+- When opening the OS issuance screen (`/visitas/create?contrato_id=...`), planned contract products are automatically pre-loaded into the form.
+- The 1-page A4 PDF proposal/contract only lists authorized product names in technical scope, strictly concealing dosages, unit costs, and profit margins.
+
+### 2.12. Contract Trash Bin & Soft Deletes Lifecycle
+- Trashing proposals/contracts sets `deleted_at = now()`.
+- **Accounting Invariant**: Contracts with executed or in-progress visits (`concluida`, `em_andamento`) cannot be moved to the trash or force-deleted. They must be terminated (`encerrar`) or cancelled (`cancelar`) to preserve accounting history.
+- Trashed items preserve all related items, comodatos, and planned products for full restoration.
+- Permanent deletion (`forceDelete`) cascades detaching products and removing dependent items only when no visits were executed.
+- Trash view (`/contratos/lixeira`) provides individual and bulk emptying actions with complete auditability.
 
 ---
 

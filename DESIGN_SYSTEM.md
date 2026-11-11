@@ -137,10 +137,22 @@ Utilizado em Dashboards, Fluxo de Caixa, Agenda e Relatórios:
 | `.btn-primary` | Ação primária (Salvar, Criar, Confirmar) | `<button class="btn btn-primary">Salvar</button>` |
 | `.btn-secondary` | Ação secundária (Cancelar, Voltar, Filtrar) | `<a class="btn btn-secondary">Voltar</a>` |
 | `.btn-success` | Ação de aprovação ou conclusão direta | `<button class="btn btn-success">Concluir OS</button>` |
-| `.btn-danger` | Ação destrutiva definitiva | `<button class="btn btn-danger">Excluir</button>` |
-| `.btn-danger-soft` | Ação destrutiva em tabelas (fundo suave) | `<button class="btn btn-danger-soft btn-sm">Excluir</button>` |
+| `.btn-danger` | Ação destrutiva definitiva em modais ou formulários | `<button class="btn btn-danger">Excluir</button>` |
+| `.btn-danger-soft` | Ação destrutiva e exclusão em tabelas (fundo suave) | `<button class="btn btn-danger-soft btn-sm">Excluir</button>` |
 | `.btn-outline` | Botões neutros em barras de ferramentas | `<button class="btn btn-outline btn-sm">Exportar</button>` |
 | `.btn-sm` | Modificadores de tamanho compacto para tabelas | `<button class="btn btn-primary btn-sm">Editar</button>` |
+
+> [!IMPORTANT]
+> **Padrão Obrigatório de Botões de Exclusão em Tabelas**:
+> - Todas as linhas de listagem tabular (Clientes, Contratos, Produtos, Equipamentos, Comodatos, Visitas, Unidades, Perfis) devem adotar estritamente o formato de **ícone compacto** com `.btn-danger-soft btn-sm`:
+>   ```html
+>   <button type="submit" class="btn btn-danger-soft btn-sm" title="Excluir">
+>       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+>           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+>       </svg>
+>   </button>
+>   ```
+> - **Proibição**: Nunca utilize botões preenchidos sólidos (`.btn-danger`) ou botões neutros cinza (`.btn-secondary`) nas colunas de ações de tabelas, garantindo consistência visual em todo o ERP.
 
 ### 3.4. Badges & Pílulas de Status (`.badge`)
 

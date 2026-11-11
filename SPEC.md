@@ -88,6 +88,18 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 - **Itens do Contrato (`contrato_itens`)**:
   - Composição multiproduto/serviço: `tipo_servico` (`controle_pragas`, `limpeza`), `descricao_servico`, `quantidade`, `valor_unitario` e `valor_total`.
   - O valor total do contrato espelha a soma dos itens deduzida de eventuais descontos.
+- **Insumos Químicos e Defensivos Planejados (`contrato_produto`)**:
+  - Tabela pivot contendo `contrato_id`, `produto_id`, `quantidade` (dose planejada por atendimento) e `custo_proporcional` (custo proporcional calculado por visita).
+  - Cálculo automático por visita com base no `fator_conversao` e custo base do produto: $\text{custo} = (\text{dose} / \text{fator\_conversao}) \times \text{preco\_custo\_unitario}$.
+  - Integração aos métodos do modelo: `custoInsumosPrevistoPorVisita()` e `custoOperacionalPrevisto()`, compondo a margem de contribuição prevista no contrato.
+  - **Despacho Inteligente na O.S. (`visitas.create`)**: Ao emitir uma nova Ordem de Serviço a partir do contrato, os insumos planejados são automaticamente pré-carregados na tela de despacho, otimizando o tempo da operação.
+  - **Sigilo no PDF Oficial**: Em conformidade com a Regra de Ouro, exibe apenas os nomes técnicos/comerciais dos defensivos autorizados no escopo de metodologia técnica, ocultando estritamente doses em mL/g, preços de custo de compra e margens internas.
+- **Lixeira de Propostas e Contratos (`SoftDeletes`)**:
+  - Implementação com coluna `deleted_at` no modelo `Contrato`.
+  - Rotas dedicadas: `contratos.lixeira` (`GET /contratos/lixeira`), `contratos.restaurar` (`POST /contratos/{id}/restaurar`), `contratos.force-delete` (`DELETE /contratos/{id}/force-delete`) e `contratos.esvaziar-lixeira` (`POST /contratos/esvaziar-lixeira`).
+  - **Invariante de Proteção Contábil**: Bloqueio compulsório de envio à lixeira ou exclusão definitiva para contratos que possuam ordens de serviço executadas ou em andamento (`STATUS_CONCLUIDA`, `STATUS_EM_ANDAMENTO`). Para esses casos, o gestor deve utilizar o Encerramento ou Cancelamento para preservar a rastreabilidade contábil.
+  - Registros na lixeira preservam integralmente seus itens, comodatos e pivot de produtos, permitindo restauração fiel.
+  - Rota de detalhes com `withTrashed(['show'])` para auditoria do registro na lixeira com badge `Na Lixeira` e botões de ação direta.
 - **Informações Comerciais**:
   - `valor_total`, `desconto`, `modelo_cobranca` (`por_visita`, `mensal_fixo`, `anual`), `condicoes_pagamento` e `observacoes_comerciais`.
 - **Projeção Dinâmica na Agenda e Emissão de O.S. sob Demanda (Opção A)**:
@@ -410,9 +422,20 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `observacoes` | TEXT | Sim | NULL | Instruções gerais |
 | `observacoes_comerciais` | TEXT | Sim | NULL | Detalhes e termos comerciais |
 | `proxima_geracao_ate` | DATE | Sim | NULL | Limite temporal da última geração de visitas |
+| `deleted_at` | TIMESTAMP | Sim | NULL | Timestamp para exclusão lógica (Lixeira / Soft Deletes) |
 | `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
 
-### 3.9. Tabela `contrato_itens`
+### 3.9. Tabela `contrato_produto` (Pivot de Insumos Planejados)
+| Coluna | Tipo | Nulo | Default | Descrição |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único da pivot |
+| `contrato_id` | BIGINT UNSIGNED | Não | - | FK -> `contratos.id` (cascade) |
+| `produto_id` | BIGINT UNSIGNED | Não | - | FK -> `produtos.id` (cascade) |
+| `quantidade` | DECIMAL(10,2) | Não | `0.00` | Dose planejada de aplicação por atendimento (mL, g ou Un) |
+| `custo_proporcional` | DECIMAL(10,2) | Não | `0.00` | Custo estimado por visita com base no preço de compra e conversão |
+| `created_at` / `updated_at` | TIMESTAMP | Sim | NULL | Timestamps de auditoria |
+
+### 3.10. Tabela `contrato_itens`
 | Coluna | Tipo | Nulo | Default | Descrição |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | BIGINT UNSIGNED | Não | Auto Increment | Identificador único do item |
@@ -560,6 +583,12 @@ Centralizar e automatizar a operação de ponta a ponta da empresa **Alaris Serv
 | `POST`| `/notificacoes/agendamentos/marcar-todas-lidas` | `notificacoes.agendamentos.marcar-todas-lidas` | `NotificacaoAgendamentoController@marcarTodasLidas` | Autenticado |
 | `POST`| `/notificacoes/agendamentos/testar` | `notificacoes.agendamentos.testar` | `NotificacaoAgendamentoController@testar` | Autenticado |
 | `GET` | `/agendamentos` | `agendamentos.index` | `AgendamentoController@index` | Autenticado (Agenda Unificada) |
+| `RESOURCE` | `/contratos` | `contratos.*` | `ContratoController` | Admin (`withTrashed(['show'])`) |
+| `GET` | `/contratos/lixeira` | `contratos.lixeira` | `ContratoController@lixeira` | Admin (`contratos.ver`) |
+| `POST` | `/contratos/{id}/restaurar` | `contratos.restaurar` | `ContratoController@restaurar` | Admin (`contratos.deletar`) |
+| `DELETE` | `/contratos/{id}/force-delete` | `contratos.force-delete` | `ContratoController@forceDelete` | Admin (`contratos.deletar`) |
+| `POST` | `/contratos/esvaziar-lixeira` | `contratos.esvaziar-lixeira` | `ContratoController@esvaziarLixeira` | Admin (`contratos.deletar`) |
+| `GET` | `/contratos/{contrato}/pdf` | `contratos.pdf` | `ContratoController@pdf` | Admin (`withTrashed`) |
 | `RESOURCE` | `/clientes` | `clientes.*` | `ClienteController` | Admin / Técnico (somente leitura de clientes) |
 | `RESOURCE` | `/comodatos` | `comodatos.*` | `ComodatoController` | Admin / Técnico |
 | `RESOURCE` | `/tecnicos` | `tecnicos.*` | `TecnicoController` | Admin |
