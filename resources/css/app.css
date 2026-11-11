@@ -501,6 +501,17 @@ h3,
     color: #ce3656;
 }
 
+html.dark .btn-danger-soft,
+[data-theme="dark"] .btn-danger-soft {
+    border-color: rgba(244, 63, 94, 0.3);
+}
+
+html.dark .btn-danger-soft:hover,
+[data-theme="dark"] .btn-danger-soft:hover {
+    background: rgba(244, 63, 94, 0.22);
+    color: #fda4af;
+}
+
 .btn-success-soft {
     background: var(--color-success-50);
     color: var(--color-success-600);

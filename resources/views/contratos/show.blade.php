@@ -19,9 +19,13 @@
 
                     <div class="flex flex-wrap items-center gap-2">
                         <h1 class="text-xl font-bold text-white">{{ $contrato->numero }}</h1>
-                        <span class="badge {{ $contrato->statusBadge() }}">
-                            {{ $contrato->statusLabel() }}
-                        </span>
+                        @if($contrato->trashed())
+                            <span class="badge badge-danger">Na Lixeira</span>
+                        @else
+                            <span class="badge {{ $contrato->statusBadge() }}">
+                                {{ $contrato->statusLabel() }}
+                            </span>
+                        @endif
                         <span class="badge badge-neutral">
                             {{ $contrato->vigenciaLabel() }}
                         </span>
@@ -42,82 +46,115 @@
 
                 {{-- Barra de Ações Operacionais --}}
                 <div class="flex flex-wrap items-center gap-2">
-                    {{-- Botão de PDF / Imprimir (1 folha) --}}
-                    <a href="{{ route('contratos.pdf', $contrato) }}" class="btn btn-secondary btn-sm"
-                        title="Gerar PDF em 1 folha para envio ao cliente ou impressão">
-                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        <span>{{ $contrato->ehProposta() ? 'Gerar PDF da Proposta' : 'Gerar PDF do Contrato' }}</span>
-                    </a>
-
-                    @if($contrato->podeAtivar())
-                        @permissao('contratos.ativar')
-                        <form action="{{ route('contratos.ativar', $contrato) }}" method="POST" class="inline">
+                    @if($contrato->trashed())
+                        @permissao('contratos.deletar')
+                        <form action="{{ route('contratos.restaurar', $contrato->id) }}" method="POST" class="inline">
                             @csrf
-                            <button type="submit" class="btn btn-success btn-sm font-bold"
-                                onclick="return confirm('{{ $contrato->ehProposta() ? 'Deseja aprovar esta proposta comercial e transformar em Contrato Ativo? Os atendimentos previstos passarão a constar na Agenda Geral.' : 'Deseja ativar este contrato?' }}');">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                {{ $contrato->ehProposta() ? 'Aprovar e Ativar Contrato' : 'Ativar Contrato' }}
+                            <button type="submit" class="btn btn-success btn-sm font-bold shadow-xs">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                Restaurar da Lixeira
+                            </button>
+                        </form>
+                        <form action="{{ route('contratos.force-delete', $contrato->id) }}" method="POST" class="inline"
+                            onsubmit="return confirm('ATENÇÃO: Deseja realmente excluir permanentemente este registro? Esta ação é irreversível.');">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn btn-danger-soft btn-sm" title="Excluir permanentemente">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                <span>Excluir Permanentemente</span>
                             </button>
                         </form>
                         @endpermissao
-                    @endif
-
-                    @if($contrato->podeSuspender())
-                        @permissao('contratos.suspender')
-                        <form action="{{ route('contratos.suspender', $contrato) }}" method="POST" class="inline"
-                            onsubmit="return confirm('Deseja realmente suspender este contrato? As visitas futuras ainda não executadas serão pausadas.');">
-                            @csrf
-                            <button type="submit" class="btn btn-secondary btn-sm text-amber-400">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                Suspender
-                            </button>
-                        </form>
-                        @endpermissao
-                    @endif
-
-                    @if($contrato->estaAtivo())
-                        <a href="{{ route('agendamentos.index') }}" class="btn btn-outline btn-sm text-xs" title="Visualizar a escala e atendimentos previstos na Agenda">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                            Ver na Agenda
+                    @else
+                        {{-- Botão de PDF / Imprimir (1 folha) --}}
+                        <a href="{{ route('contratos.pdf', $contrato) }}" class="btn btn-secondary btn-sm"
+                            title="Gerar PDF em 1 folha para envio ao cliente ou impressão">
+                            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <span>{{ $contrato->ehProposta() ? 'Gerar PDF da Proposta' : 'Gerar PDF do Contrato' }}</span>
                         </a>
 
-                        @permissao('visitas.criar')
-                        <a href="{{ route('visitas.create', ['cliente_id' => $contrato->cliente_id, 'contrato_id' => $contrato->id]) }}"
-                            class="btn btn-primary btn-sm">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                            Emitir Ordem de Serviço
-                        </a>
-                        @endpermissao
-                    @endif
+                        @if($contrato->podeAtivar())
+                            @permissao('contratos.ativar')
+                            <form action="{{ route('contratos.ativar', $contrato) }}" method="POST" class="inline">
+                                @csrf
+                                <button type="submit" class="btn btn-success btn-sm font-bold"
+                                    onclick="return confirm('{{ $contrato->ehProposta() ? 'Deseja aprovar esta proposta comercial e transformar em Contrato Ativo? Os atendimentos previstos passarão a constar na Agenda Geral.' : 'Deseja ativar este contrato?' }}');">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                    {{ $contrato->ehProposta() ? 'Aprovar e Ativar Contrato' : 'Ativar Contrato' }}
+                                </button>
+                            </form>
+                            @endpermissao
+                        @endif
 
-                    @if($contrato->podeEditar())
-                        @permissao('contratos.editar')
-                        <a href="{{ route('contratos.edit', $contrato) }}" class="btn btn-secondary btn-sm">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                            Editar
-                        </a>
-                        @endpermissao
-                    @endif
+                        @if($contrato->podeSuspender())
+                            @permissao('contratos.suspender')
+                            <form action="{{ route('contratos.suspender', $contrato) }}" method="POST" class="inline"
+                                onsubmit="return confirm('Deseja realmente suspender este contrato? As visitas futuras ainda não executadas serão pausadas.');">
+                                @csrf
+                                <button type="submit" class="btn btn-secondary btn-sm text-amber-400">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    Suspender
+                                </button>
+                            </form>
+                            @endpermissao
+                        @endif
 
-                    @if($contrato->podeEncerrar())
-                        @permissao('contratos.suspender')
-                        <form action="{{ route('contratos.encerrar', $contrato) }}" method="POST" class="inline"
-                            onsubmit="return confirm('Deseja realmente encerrar este contrato? Nenhuma nova visita será gerada e as futuras pendentes serão canceladas.');">
+                        @if($contrato->estaAtivo())
+                            <a href="{{ route('agendamentos.index') }}" class="btn btn-outline btn-sm text-xs" title="Visualizar a escala e atendimentos previstos na Agenda">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                Ver na Agenda
+                            </a>
+
+                            @permissao('visitas.criar')
+                            <a href="{{ route('visitas.create', ['cliente_id' => $contrato->cliente_id, 'contrato_id' => $contrato->id]) }}"
+                                class="btn btn-primary btn-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                Emitir Ordem de Serviço
+                            </a>
+                            @endpermissao
+                        @endif
+
+                        @if($contrato->podeEditar())
+                            @permissao('contratos.editar')
+                            <a href="{{ route('contratos.edit', $contrato) }}" class="btn btn-secondary btn-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                Editar
+                            </a>
+                            @endpermissao
+                        @endif
+
+                        @if($contrato->podeEncerrar())
+                            @permissao('contratos.suspender')
+                            <form action="{{ route('contratos.encerrar', $contrato) }}" method="POST" class="inline"
+                                onsubmit="return confirm('Deseja realmente encerrar este contrato? Nenhuma nova visita será gerada e as futuras pendentes serão canceladas.');">
+                                @csrf
+                                <button type="submit" class="btn btn-outline btn-sm text-xs">
+                                    Encerrar
+                                </button>
+                            </form>
+                            @endpermissao
+                        @endif
+
+                        @if($contrato->podeCancelar())
+                            @permissao('contratos.cancelar')
+                            <form action="{{ route('contratos.cancelar', $contrato) }}" method="POST" class="inline"
+                                onsubmit="return confirm('ATENÇÃO: Deseja cancelar definitivamente este contrato? Visitas futuras pendentes serão canceladas.');">
+                                @csrf
+                                <button type="submit" class="btn btn-danger-soft btn-sm text-xs">
+                                    Cancelar
+                                </button>
+                            </form>
+                            @endpermissao
+                        @endif
+
+                        @permissao('contratos.deletar')
+                        <form action="{{ route('contratos.destroy', $contrato) }}" method="POST" class="inline"
+                            onsubmit="return confirm('Deseja mover {{ $contrato->ehProposta() ? 'esta proposta comercial' : 'este contrato' }} para a lixeira?');">
                             @csrf
-                            <button type="submit" class="btn btn-outline btn-sm text-xs">
-                                Encerrar
-                            </button>
-                        </form>
-                        @endpermissao
-                    @endif
-
-                    @if($contrato->podeCancelar())
-                        @permissao('contratos.cancelar')
-                        <form action="{{ route('contratos.cancelar', $contrato) }}" method="POST" class="inline"
-                            onsubmit="return confirm('ATENÇÃO: Deseja cancelar definitivamente este contrato? Visitas futuras pendentes serão canceladas.');">
-                            @csrf
-                            <button type="submit" class="btn btn-danger-soft btn-sm text-xs">
-                                Cancelar
+                            @method('DELETE')
+                            <button type="submit" class="btn btn-danger-soft btn-sm" title="Mover para a Lixeira">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                <span>Mover para Lixeira</span>
                             </button>
                         </form>
                         @endpermissao
@@ -126,7 +163,44 @@
             </div>
         </div>
 
-        @if($contrato->ehProposta())
+        @if($contrato->trashed())
+            {{-- Banner Destacado para Item na Lixeira --}}
+            <div class="p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm bg-rose-950/40 border border-rose-500/30 text-rose-300 shadow-xs">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 rounded-lg bg-rose-500/20 text-rose-400 shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </div>
+                    <div>
+                        <strong class="text-rose-200 block text-sm font-bold">Este registro está atualmente na Lixeira</strong>
+                        <p class="text-xs text-rose-300/90 mt-0.5">
+                            Movido para a lixeira em {{ $contrato->deleted_at->format('d/m/Y \à\s H:i') }}. Seus atendimentos não são projetados na agenda e não compõem relatórios operacionais ativos.
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    @permissao('contratos.deletar')
+                    <form action="{{ route('contratos.restaurar', $contrato->id) }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" class="btn btn-success btn-sm text-xs font-bold shadow-xs">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            Restaurar
+                        </button>
+                    </form>
+                    <form action="{{ route('contratos.force-delete', $contrato->id) }}" method="POST" class="inline"
+                        onsubmit="return confirm('ATENÇÃO: Deseja realmente excluir permanentemente este registro? Esta ação é irreversível.');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-danger-soft btn-sm text-xs">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            Excluir Definitivamente
+                        </button>
+                    </form>
+                    @endpermissao
+                </div>
+            </div>
+        @elseif($contrato->ehProposta())
             {{-- Banner Destacado para Proposta Comercial --}}
             <div class="p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 shadow-xs">
                 <div class="flex items-center gap-3">
@@ -339,7 +413,9 @@
                                 <span class=" text-rose-400 font-semibold">
                                     R$ {{ number_format($contrato->custoOperacionalPrevisto(), 2, ',', '.') }}
                                 </span>
-                                <span class="text-[10px] text-slate-400 block">({{ $contrato->visitasPrevistasPorCiclo() }}x atendimento/ciclo)</span>
+                                <span class="text-[10px] text-slate-400 block">
+                                    {{ $contrato->visitasPrevistasPorCiclo() }}x visita(s) (Diária: R$ {{ number_format((float) ($contrato->custo_diaria_padrao ?? 0), 2, ',', '.') }} + Desloc.: R$ {{ number_format((float) ($contrato->custo_deslocamento_padrao ?? 0), 2, ',', '.') }}@if($contrato->custoInsumosPrevistoPorVisita() > 0) + Insumos: R$ {{ number_format($contrato->custoInsumosPrevistoPorVisita(), 2, ',', '.') }}@endif)
+                                </span>
                             </div>
                             <div>
                                 <span class="text-[11px] text-slate-400 block">Lucro Líquido Previsto</span>
@@ -417,6 +493,87 @@
                             </tfoot>
                         </table>
                     </div>
+                </div>
+
+                {{-- Insumos Químicos & Defensivos Previstos --}}
+                <div class="card p-6 space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                                <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                                </svg>
+                                Insumos Químicos & Defensivos Previstos ({{ $contrato->produtos->count() }})
+                            </h3>
+                            <p class="text-xs mt-0.5" style="color: var(--color-surface-400);">
+                                Defensivos e doses estimadas pré-carregadas nas Ordens de Serviço deste contrato
+                            </p>
+                        </div>
+                        @if($contrato->podeEditar())
+                        @permissao('contratos.editar')
+                        <a href="{{ route('contratos.edit', $contrato) }}"
+                            class="btn btn-outline btn-sm text-xs text-sky-400 flex items-center gap-1.5 self-start sm:self-auto">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            <span>Gerenciar Insumos</span>
+                        </a>
+                        @endpermissao
+                        @endif
+                    </div>
+
+                    @if($contrato->produtos->isEmpty())
+                        <div class="empty-state py-5">
+                            <div class="empty-state-icon text-sky-400" style="background: rgba(35, 180, 235, 0.1);">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                            </div>
+                            <h4 class="empty-state-title text-sm">Nenhum insumo químico previsto cadastrado</h4>
+                            <p class="empty-state-desc max-w-md mx-auto text-xs">
+                                Defina previamente os defensivos e doses estimadas para que o sistema sugira automaticamente as cargas de produtos na abertura das Ordens de Serviço.
+                            </p>
+                        </div>
+                    @else
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Insumo / Defensivo</th>
+                                        <th class="text-center">Dose Prevista / Visita</th>
+                                        <th class="text-right">Custo Estimado / Visita</th>
+                                        <th class="text-center">Saldo Atual em Estoque</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($contrato->produtos as $prod)
+                                        <tr>
+                                            <td class="font-medium text-white">
+                                                {{ $prod->nome }}
+                                                @if($prod->descricao)
+                                                    <span class="block text-[11px] text-slate-400">{{ $prod->descricao }}</span>
+                                                @endif
+                                            </td>
+                                            <td class="text-center font-semibold text-white">
+                                                {{ number_format((float) $prod->pivot->quantidade, 2, ',', '.') }} {{ $prod->unidade_aplicacao ?? 'mL' }}
+                                            </td>
+                                            <td class="text-right font-medium text-emerald-400">
+                                                R$ {{ number_format((float) $prod->pivot->custo_proporcional, 2, ',', '.') }}
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge {{ $prod->quantidade_estoque <= $prod->estoque_minimo ? 'badge-danger' : 'badge-neutral' }} text-xs">
+                                                    {{ $prod->quantidade_estoque_formatada }} {{ $prod->unidade_armazenamento ?? $prod->unidade }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="2" class="text-right font-bold text-white uppercase text-xs">Total Insumos por Visita:</td>
+                                        <td class="text-right font-bold text-emerald-400 text-sm">R$ {{ number_format($contrato->custoInsumosPrevistoPorVisita(), 2, ',', '.') }}</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    @endif
                 </div>
 
                 {{-- Equipamentos em Comodato Vinculados --}}

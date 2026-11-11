@@ -7,10 +7,14 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Contrato extends Model
 {
+    use SoftDeletes;
+
     // Status
     public const STATUS_PROPOSTA = 'proposta';
 
@@ -194,6 +198,13 @@ class Contrato extends Model
         return $this->hasMany(EquipamentoComodato::class);
     }
 
+    public function produtos(): BelongsToMany
+    {
+        return $this->belongsToMany(Produto::class, 'contrato_produto')
+            ->withPivot(['quantidade', 'custo_proporcional'])
+            ->withTimestamps();
+    }
+
     public function scopeAtivos(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_ATIVO);
@@ -347,13 +358,23 @@ class Contrato extends Model
         };
     }
 
+    public function custoInsumosPrevistoPorVisita(): float
+    {
+        if ($this->relationLoaded('produtos')) {
+            return (float) $this->produtos->sum(fn ($p) => (float) ($p->pivot->custo_proporcional ?? 0));
+        }
+
+        return (float) $this->produtos()->sum('custo_proporcional');
+    }
+
     public function custoOperacionalPrevisto(): float
     {
         $visitas = $this->visitasPrevistasPorCiclo();
         $diaria = (float) ($this->custo_diaria_padrao ?? 0.0);
         $deslocamento = (float) ($this->custo_deslocamento_padrao ?? 0.0);
+        $insumos = $this->custoInsumosPrevistoPorVisita();
 
-        return round(($diaria + $deslocamento) * $visitas, 2);
+        return round(($diaria + $deslocamento + $insumos) * $visitas, 2);
     }
 
     public function lucroLiquidoPrevisto(): float
@@ -476,7 +497,7 @@ class Contrato extends Model
     public static function gerarProximoNumero(): string
     {
         $ano = now()->year;
-        $ultimo = self::where('numero', 'like', "CTR-{$ano}-%")->orderByDesc('id')->first();
+        $ultimo = self::withTrashed()->where('numero', 'like', "CTR-{$ano}-%")->orderByDesc('id')->first();
 
         if ($ultimo && preg_match('/CTR-\d{4}-(\d+)/', $ultimo->numero, $matches)) {
             $seq = (int) $matches[1] + 1;

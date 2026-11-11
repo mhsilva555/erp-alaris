@@ -51,22 +51,42 @@
                     $produtosIniciais = [];
                     if (old('produtos')) {
                         $produtosIniciais = old('produtos');
-                    } elseif ($contratoVinculado && $contratoVinculado->comodatos && $contratoVinculado->comodatos->isNotEmpty()) {
-                        $comodatosComProduto = $contratoVinculado->comodatos->whereNotNull('produto_id');
-                        foreach ($comodatosComProduto->groupBy('produto_id') as $prodId => $grupoCmds) {
-                            $prodObj = $produtos->firstWhere('id', $prodId) ?? $grupoCmds->first()->produto;
-                            $qtdSugerida = $grupoCmds->sum('quantidade');
-                            $fator = (float) ($prodObj->fator_conversao ?? 1);
-                            $saldo = (float) ($prodObj->quantidade_estoque ?? 0);
-                            $fracaoNec = $fator > 0 ? ($qtdSugerida / $fator) : $qtdSugerida;
-                            $resumoEquips = $grupoCmds->map(fn ($c) => $c->nome_equipamento.' ('.$c->quantidade.' un)')->implode(', ');
+                    } elseif ($contratoVinculado) {
+                        if ($contratoVinculado->produtos && $contratoVinculado->produtos->isNotEmpty()) {
+                            foreach ($contratoVinculado->produtos as $pCtr) {
+                                $prodObj = $produtos->firstWhere('id', $pCtr->id) ?? $pCtr;
+                                $qtdSugerida = (float) $pCtr->pivot->quantidade;
+                                $fator = (float) ($prodObj->fator_conversao ?? 1);
+                                $saldo = (float) ($prodObj->quantidade_estoque ?? 0);
+                                $fracaoNec = $fator > 0 ? ($qtdSugerida / $fator) : $qtdSugerida;
+                                $produtosIniciais[] = [
+                                    'id' => $pCtr->id,
+                                    'quantidade' => ($saldo > 0 && $fracaoNec <= $saldo) ? $qtdSugerida : '',
+                                    'origem_comodato' => 'Insumo previsto no Contrato ' . $contratoVinculado->numero,
+                                    'auto_comodato' => true,
+                                ];
+                            }
+                        }
+                        if ($contratoVinculado->comodatos && $contratoVinculado->comodatos->isNotEmpty()) {
+                            $comodatosComProduto = $contratoVinculado->comodatos->whereNotNull('produto_id');
+                            foreach ($comodatosComProduto->groupBy('produto_id') as $prodId => $grupoCmds) {
+                                if (collect($produtosIniciais)->contains('id', $prodId)) {
+                                    continue;
+                                }
+                                $prodObj = $produtos->firstWhere('id', $prodId) ?? $grupoCmds->first()->produto;
+                                $qtdSugerida = $grupoCmds->sum('quantidade');
+                                $fator = (float) ($prodObj->fator_conversao ?? 1);
+                                $saldo = (float) ($prodObj->quantidade_estoque ?? 0);
+                                $fracaoNec = $fator > 0 ? ($qtdSugerida / $fator) : $qtdSugerida;
+                                $resumoEquips = $grupoCmds->map(fn ($c) => $c->nome_equipamento.' ('.$c->quantidade.' un)')->implode(', ');
 
-                            $produtosIniciais[] = [
-                                'id' => $prodId,
-                                'quantidade' => ($saldo > 0 && $fracaoNec <= $saldo) ? $qtdSugerida : '',
-                                'origem_comodato' => $resumoEquips,
-                                'auto_comodato' => true,
-                            ];
+                                $produtosIniciais[] = [
+                                    'id' => $prodId,
+                                    'quantidade' => ($saldo > 0 && $fracaoNec <= $saldo) ? $qtdSugerida : '',
+                                    'origem_comodato' => $resumoEquips,
+                                    'auto_comodato' => true,
+                                ];
+                            }
                         }
                     } elseif (isset($comodato) && $comodato && $comodato->produto_id) {
                         $prodObj = $produtos->firstWhere('id', $comodato->produto_id) ?? $comodato->produto;
@@ -87,8 +107,25 @@
                     if (isset($contratos)) {
                         foreach ($contratos as $ctrItem) {
                             $insumosCtr = [];
+                            if ($ctrItem->produtos && $ctrItem->produtos->isNotEmpty()) {
+                                foreach ($ctrItem->produtos as $pCtr) {
+                                    $pObj = $produtos->firstWhere('id', $pCtr->id) ?? $pCtr;
+                                    $qtdSug = (float) $pCtr->pivot->quantidade;
+                                    $fat = (float) ($pObj->fator_conversao ?? 1);
+                                    $sld = (float) ($pObj->quantidade_estoque ?? 0);
+                                    $frac = $fat > 0 ? ($qtdSug / $fat) : $qtdSug;
+                                    $insumosCtr[] = [
+                                        'id' => $pCtr->id,
+                                        'quantidade' => ($sld > 0 && $frac <= $sld) ? $qtdSug : '',
+                                        'origem_comodato' => 'Insumo previsto no Contrato ' . $ctrItem->numero,
+                                    ];
+                                }
+                            }
                             if ($ctrItem->comodatos && $ctrItem->comodatos->isNotEmpty()) {
                                 foreach ($ctrItem->comodatos->whereNotNull('produto_id')->groupBy('produto_id') as $pId => $gCmds) {
+                                    if (collect($insumosCtr)->contains('id', $pId)) {
+                                        continue;
+                                    }
                                     $pObj = $produtos->firstWhere('id', $pId) ?? $gCmds->first()->produto;
                                     $qtdSug = $gCmds->sum('quantidade');
                                     $fat = (float) ($pObj->fator_conversao ?? 1);

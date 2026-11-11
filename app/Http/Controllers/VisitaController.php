@@ -65,8 +65,8 @@ class VisitaController extends Controller
         $aliquotaPadrao = (float) Configuracao::get('aliquota_imposto_padrao', '14.0');
         $diariaPadrao = (float) Configuracao::get('diaria_tecnico_padrao', '50.00');
         $comodato = $request->filled('comodato_id') ? EquipamentoComodato::with(['cliente', 'produto', 'equipamento'])->find($request->comodato_id) : null;
-        $contrato = $request->filled('contrato_id') ? Contrato::with(['cliente', 'unidade', 'itens', 'comodatos.produto', 'comodatos.equipamento'])->find($request->contrato_id) : null;
-        $contratos = Contrato::with(['comodatos.produto', 'comodatos.equipamento'])->where('status', Contrato::STATUS_ATIVO)->orderBy('numero')->get();
+        $contrato = $request->filled('contrato_id') ? Contrato::with(['cliente', 'unidade', 'itens', 'produtos', 'comodatos.produto', 'comodatos.equipamento'])->find($request->contrato_id) : null;
+        $contratos = Contrato::with(['produtos', 'comodatos.produto', 'comodatos.equipamento'])->where('status', Contrato::STATUS_ATIVO)->orderBy('numero')->get();
         $unidades = UnidadeEmpresa::ativas()
             ->orderByDesc('padrao')
             ->orderByRaw("CASE WHEN tipo = 'matriz' THEN 0 ELSE 1 END ASC")

@@ -68,6 +68,13 @@ class Produto extends Model
             ->withPivot('quantidade', 'custo_proporcional', 'fracao_baixada');
     }
 
+    public function contratos(): BelongsToMany
+    {
+        return $this->belongsToMany(Contrato::class, 'contrato_produto')
+            ->withPivot('quantidade', 'custo_proporcional')
+            ->withTimestamps();
+    }
+
     public function comodatos(): HasMany
     {
         return $this->hasMany(EquipamentoComodato::class);

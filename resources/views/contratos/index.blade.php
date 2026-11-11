@@ -140,6 +140,15 @@
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </a>
                     @endif
+                    @permissao('contratos.deletar')
+                    <a href="{{ route('contratos.lixeira') }}" class="btn btn-outline btn-sm py-2 px-2.5 text-xs shrink-0 flex items-center gap-1.5 {{ ($totais['lixeira'] ?? 0) > 0 ? 'text-rose-400 border-rose-500/40 hover:bg-rose-500/10' : '' }}" title="Ver Lixeira de Propostas e Contratos">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        <span>Lixeira</span>
+                        @if(($totais['lixeira'] ?? 0) > 0)
+                            <span class="badge badge-danger text-[10px] !px-1.5 !py-0.2">{{ $totais['lixeira'] }}</span>
+                        @endif
+                    </a>
+                    @endpermissao
                     @permissao('contratos.criar')
                     <a href="{{ route('contratos.create', ['tipo' => 'proposta']) }}" class="btn btn-secondary btn-sm text-amber-400 text-xs shrink-0" title="Criar Nova Proposta Comercial">
                         + Proposta
@@ -245,6 +254,18 @@
                                         </a>
                                         @endpermissao
                                     @endif
+                                    @permissao('contratos.deletar')
+                                    <form action="{{ route('contratos.destroy', $contrato) }}" method="POST" class="inline"
+                                        onsubmit="return confirm('Deseja mover {{ $contrato->ehProposta() ? 'a proposta comercial' : 'o contrato' }} {{ $contrato->numero }} para a lixeira?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-danger-soft btn-sm" title="Mover para a Lixeira">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </form>
+                                    @endpermissao
                                 </div>
                             </td>
                         </tr>

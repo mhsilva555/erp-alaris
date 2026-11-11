@@ -298,13 +298,49 @@
                 </div>
             </div>
 
-            {{-- 4. Equipamentos em Comodato Inclusos (Opcional) --}}
+            {{-- 4. Insumos Químicos & Defensivos Previstos (Opcional) --}}
+            <div class="card p-6 space-y-4">
+                <input type="hidden" name="produtos_presente" value="1">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5" style="color: var(--color-primary-400);">
+                            4. Insumos Químicos & Defensivos Previstos (Opcional)
+                        </h3>
+                        <p class="text-xs" style="color: var(--color-surface-400);">
+                            Adicione os defensivos e informe as doses estimadas por atendimento (em mL, gramas ou unidades). O sistema calcula a previsão de custo por visita e carrega estes insumos automaticamente ao emitir as Ordens de Serviço deste contrato.
+                        </p>
+                    </div>
+                    <button type="button" onclick="adicionarLinhaProdutoContrato()" class="btn btn-secondary btn-sm shrink-0 self-start sm:self-auto">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        + Adicionar Insumo Previsto
+                    </button>
+                </div>
+
+                @error('produtos')
+                    <div class="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2 animate-fadeIn">
+                        <svg class="w-4 h-4 shrink-0 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        <span class="font-medium">{{ $message }}</span>
+                    </div>
+                @enderror
+
+                <div id="contrato-produtos-container" class="space-y-3">
+                    {{-- Linhas dinâmicas de insumos --}}
+                </div>
+
+                <div id="empty-contrato-produtos" class="text-center py-4 rounded-lg border border-dashed" style="border-color: var(--color-surface-800); color: var(--color-surface-400);">
+                    <span class="text-xs">Nenhum insumo químico previsto cadastrado. Clique em <strong>"+ Adicionar Insumo Previsto"</strong> caso deseje definir previamente os defensivos e doses estimadas para cada visita deste contrato.</span>
+                </div>
+            </div>
+
+            {{-- 5. Equipamentos em Comodato Inclusos (Opcional) --}}
             <div class="card p-6 space-y-4">
                 <input type="hidden" name="comodatos_presente" value="1">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
                         <h3 class="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5" style="color: var(--color-primary-400);">
-                            4. Equipamentos em Comodato Inclusos (Opcional)
+                            5. Equipamentos em Comodato Inclusos (Opcional)
                         </h3>
                         <p class="text-xs" style="color: var(--color-surface-400);">
                             Gerencie os porta-iscas e armadilhas vinculados a este contrato. A data de instalação e o ciclo de reposição acompanham automaticamente a <strong>vigência e periodicidade do contrato</strong>.
@@ -337,10 +373,10 @@
                 </div>
             </div>
 
-            {{-- 5. Condições Comerciais & Faturamento --}}
+            {{-- 6. Condições Comerciais & Faturamento --}}
             <div class="card p-6 space-y-4">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-white" style="color: var(--color-primary-400);">
-                    5. Condições Comerciais & Fechamento
+                    6. Condições Comerciais & Fechamento
                 </h3>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -398,7 +434,10 @@
 
                     {{-- Previsão de Custos por Atendimento (Linha de Base Operacional) --}}
                     <div class="sm:col-span-2 lg:col-span-2 p-4 rounded-xl space-y-3" style="background: var(--color-surface-950); border: 1px solid var(--color-surface-800);">
-                        <span class="text-xs font-bold uppercase tracking-wider text-white block">Previsão de Custos por Visita</span>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold uppercase tracking-wider text-white block">Previsão de Custos por Visita</span>
+                            <span id="badge-custo-insumos" class="text-[11px] text-emerald-400 font-medium">Insumos: R$ 0,00</span>
+                        </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label class="form-label text-[11px] mb-0" for="custo_diaria_padrao">Diária Técnico (R$)</label>
@@ -603,6 +642,129 @@
             'label' => $p->nome,
         ])->values());
 
+        window.__produtosMetadata = {
+            @foreach ($produtos as $p)
+                {{ $p->id }}: {
+                    unidade_aplicacao: '{{ $p->unidade_aplicacao ?? 'mL' }}',
+                    unidade_armazenamento: '{{ $p->unidade_armazenamento ?? $p->unidade }}',
+                    fator: {{ (float) $p->fator_conversao }},
+                    preco: {{ (float) $p->preco_custo_unitario }},
+                    saldo: {{ (float) $p->quantidade_estoque }}
+                },
+            @endforeach
+        };
+
+        window.__produtosOptions =
+            `@foreach ($produtos as $p)<option value="{{ $p->id }}" class="{{ $p->quantidade_estoque <= 0 ? 'text-rose-500 font-semibold' : '' }}">{{ $p->nome }} ({{ $p->quantidade_estoque <= 0 ? 'SEM ESTOQUE' : 'Saldo: ' . $p->quantidade_estoque_formatada . ' ' . ($p->unidade_armazenamento ?? $p->unidade) }} &bull; Uso em: {{ $p->unidade_aplicacao ?? 'mL' }})</option>@endforeach`;
+
+        function atualizarVisibilidadeContratoProdutos() {
+            const rows = document.querySelectorAll('#contrato-produtos-container .contrato-produto-row');
+            const emptyState = document.getElementById('empty-contrato-produtos');
+            if (emptyState) {
+                emptyState.style.display = rows.length > 0 ? 'none' : '';
+            }
+        }
+
+        function adicionarLinhaProdutoContrato(dados = null) {
+            const container = document.getElementById('contrato-produtos-container');
+            if (!container) return;
+
+            const idx = Date.now() + Math.floor(Math.random() * 1000) + container.children.length;
+            const row = document.createElement('div');
+            row.className = 'contrato-produto-row p-3 rounded-lg border space-y-2 animate-fadeIn';
+            row.style.borderColor = 'var(--color-border)';
+            row.style.backgroundColor = 'var(--color-surface-subtle)';
+
+            row.innerHTML = `
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div class="flex-1 min-w-0">
+                        <select name="produtos[${idx}][id]" class="form-select contrato-produto-select w-full text-xs" required onchange="atualizarContratoProdutoRow(this); recalcularTotais();">
+                            <option value="">Selecione o insumo / defensivo...</option>
+                            ${window.__produtosOptions}
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <div class="relative flex items-center">
+                            <input type="number" name="produtos[${idx}][quantidade]" step="any" min="0.0001"
+                                   placeholder="Dose prevista" class="form-input contrato-produto-qtd text-left sm:text-right !pr-10 text-xs" style="width: 10.5rem;" required
+                                   oninput="atualizarContratoProdutoRow(this); recalcularTotais();" />
+                            <span class="contrato-produto-unidade-badge absolute right-2.5 text-xs font-semibold pointer-events-none text-slate-500">
+                                mL
+                            </span>
+                        </div>
+                        <button type="button" onclick="this.closest('.contrato-produto-row').remove(); atualizarVisibilidadeContratoProdutos(); recalcularTotais();"
+                                class="btn btn-danger-soft btn-sm p-2 shrink-0" title="Remover insumo">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="contrato-produto-feedback text-[11px] flex items-center justify-between px-1" style="color: var(--color-slate-500);">
+                    <span class="contrato-produto-baixa-preview">Dose estimada por atendimento deste contrato.</span>
+                    <span class="contrato-produto-custo-preview font-medium" style="color: var(--color-ink-900);"></span>
+                </div>
+            `;
+
+            container.appendChild(row);
+
+            if (dados) {
+                const sel = row.querySelector('.contrato-produto-select');
+                const qtdInput = row.querySelector('.contrato-produto-qtd');
+                if (sel && dados.id) sel.value = String(dados.id);
+                if (qtdInput && (dados.quantidade !== undefined && dados.quantidade !== null && dados.quantidade !== '')) {
+                    qtdInput.value = dados.quantidade;
+                }
+                if (sel) atualizarContratoProdutoRow(sel);
+            }
+
+            atualizarVisibilidadeContratoProdutos();
+            recalcularTotais();
+        }
+
+        function atualizarContratoProdutoRow(element) {
+            const row = element.closest('.contrato-produto-row');
+            if (!row) return;
+
+            const sel = row.querySelector('.contrato-produto-select');
+            const qtdInput = row.querySelector('.contrato-produto-qtd');
+            const badge = row.querySelector('.contrato-produto-unidade-badge');
+            const baixaPreview = row.querySelector('.contrato-produto-baixa-preview');
+            const custoPreview = row.querySelector('.contrato-produto-custo-preview');
+
+            if (!sel || !sel.value) {
+                if (badge) badge.textContent = '';
+                if (baixaPreview) baixaPreview.textContent = 'Selecione um insumo para ver o cálculo proporcional.';
+                if (custoPreview) custoPreview.textContent = '';
+                return;
+            }
+
+            const meta = (window.__produtosMetadata && window.__produtosMetadata[sel.value]) || {};
+            const unApl = meta.unidade_aplicacao || 'mL';
+            const unArm = meta.unidade_armazenamento || 'L';
+            const fator = meta.fator || 1;
+            const preco = meta.preco || 0;
+
+            if (badge) badge.textContent = unApl;
+
+            const qtd = parseFloat(qtdInput ? qtdInput.value : 0) || 0;
+            if (qtd > 0) {
+                const fracao = fator > 0 ? (qtd / fator) : qtd;
+                const custo = fracao * preco;
+                let fracaoStr = fracao.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+                let custoStr = custo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                if (baixaPreview) {
+                    baixaPreview.innerHTML = `📉 <strong>Consumo estimado por visita:</strong> ${fracaoStr} ${unArm} (${qtd} ${unApl})`;
+                }
+                if (custoPreview) {
+                    custoPreview.innerHTML = `Custo estimado por visita: <strong class="text-emerald-400">R$ ${custoStr}</strong>`;
+                }
+                row.dataset.custoUnitario = custo;
+            } else {
+                if (baixaPreview) baixaPreview.textContent = `Unidade de uso: ${unApl} &bull; Unidade de estoque: ${unArm}`;
+                if (custoPreview) custoPreview.textContent = '';
+                row.dataset.custoUnitario = 0;
+            }
+        }
+
         let comodatoIndex = 0;
 
         function atualizarVisibilidadeTabelaComodatos() {
@@ -735,7 +897,30 @@
 
             const diaria = parseMoeda(document.getElementById('custo_diaria_padrao')?.value);
             const deslocamento = parseMoeda(document.getElementById('custo_deslocamento_padrao')?.value);
-            const custoPorVisita = diaria + deslocamento;
+
+            // Insumos previstos por visita
+            let custoInsumosPorVisita = 0;
+            document.querySelectorAll('#contrato-produtos-container .contrato-produto-row').forEach(row => {
+                const sel = row.querySelector('.contrato-produto-select');
+                const qtdInput = row.querySelector('.contrato-produto-qtd');
+                if (sel && sel.value && qtdInput) {
+                    const meta = (window.__produtosMetadata && window.__produtosMetadata[sel.value]) || {};
+                    const fator = meta.fator || 1;
+                    const preco = meta.preco || 0;
+                    const qtd = parseFloat(qtdInput.value) || 0;
+                    if (qtd > 0) {
+                        const fracao = fator > 0 ? (qtd / fator) : qtd;
+                        custoInsumosPorVisita += (fracao * preco);
+                    }
+                }
+            });
+
+            const badgeCustoInsumos = document.getElementById('badge-custo-insumos');
+            if (badgeCustoInsumos) {
+                badgeCustoInsumos.innerText = 'Insumos: R$ ' + formatarMoeda(custoInsumosPorVisita);
+            }
+
+            const custoPorVisita = diaria + deslocamento + custoInsumosPorVisita;
             const custoOperacionalTotal = round2(custoPorVisita * visitasCiclo);
 
             // Lucro Líquido Previsto: Total - Imposto - Custos Operacionais
@@ -753,7 +938,12 @@
                 document.getElementById('display-custos-previstos').innerText = 'R$ ' + formatarMoeda(custoOperacionalTotal);
             }
             if (document.getElementById('display-custos-hint')) {
-                document.getElementById('display-custos-hint').innerText = `${visitasCiclo}x visita(s) (Diária: R$ ${formatarMoeda(diaria)} + Desloc.: R$ ${formatarMoeda(deslocamento)})`;
+                let hintCustos = `${visitasCiclo}x visita(s) (Diária: R$ ${formatarMoeda(diaria)} + Desloc.: R$ ${formatarMoeda(deslocamento)}`;
+                if (custoInsumosPorVisita > 0) {
+                    hintCustos += ` + Insumos: R$ ${formatarMoeda(custoInsumosPorVisita)}`;
+                }
+                hintCustos += `)`;
+                document.getElementById('display-custos-hint').innerText = hintCustos;
             }
             if (document.getElementById('display-lucro-liquido')) {
                 document.getElementById('display-lucro-liquido').innerText = 'R$ ' + formatarMoeda(lucroLiquido);
@@ -774,6 +964,13 @@
         }
 
         @php
+            $produtosIniciais = old('produtos')
+                ? array_values(old('produtos'))
+                : $contrato->produtos->map(fn($p) => [
+                    'id' => $p->id,
+                    'quantidade' => (float) $p->pivot->quantidade,
+                ])->values()->toArray();
+
             $comodatosIniciais = old('comodatos')
                 ? array_values(old('comodatos'))
                 : $contrato->comodatos->map(fn($c) => [
@@ -786,16 +983,22 @@
                     'observacoes' => $c->observacoes,
                 ])->values()->toArray();
         @endphp
+        const produtosIniciais = @json($produtosIniciais);
         const comodatosIniciais = @json($comodatosIniciais);
 
         document.addEventListener('DOMContentLoaded', () => {
             toggleVigencia();
             togglePeriodicidadeConfig();
             toggleNotaFiscal();
-            recalcularTotais();
+            if (Array.isArray(produtosIniciais) && produtosIniciais.length > 0) {
+                produtosIniciais.forEach(p => adicionarLinhaProdutoContrato(p));
+            } else {
+                atualizarVisibilidadeContratoProdutos();
+            }
             if (Array.isArray(comodatosIniciais) && comodatosIniciais.length > 0) {
                 comodatosIniciais.forEach(c => adicionarLinhaComodato(c));
             }
+            recalcularTotais();
         });
     </script>
 @endsection

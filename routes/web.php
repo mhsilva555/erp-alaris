@@ -51,9 +51,15 @@ Route::middleware('auth')->group(function () {
     // Clientes
     Route::resource('clientes', ClienteController::class);
 
+    // Lixeira de Propostas e Contratos
+    Route::get('/contratos/lixeira', [ContratoController::class, 'lixeira'])->name('contratos.lixeira');
+    Route::post('/contratos/esvaziar-lixeira', [ContratoController::class, 'esvaziarLixeira'])->name('contratos.esvaziar-lixeira');
+    Route::post('/contratos/{id}/restaurar', [ContratoController::class, 'restaurar'])->name('contratos.restaurar');
+    Route::delete('/contratos/{id}/force-delete', [ContratoController::class, 'forceDelete'])->name('contratos.force-delete');
+
     // Contratos de Prestação de Serviços
-    Route::resource('contratos', ContratoController::class);
-    Route::get('/contratos/{contrato}/pdf', [ContratoController::class, 'pdf'])->name('contratos.pdf');
+    Route::resource('contratos', ContratoController::class)->withTrashed(['show']);
+    Route::get('/contratos/{contrato}/pdf', [ContratoController::class, 'pdf'])->name('contratos.pdf')->withTrashed();
     Route::post('/contratos/{contrato}/ativar', [ContratoController::class, 'ativar'])->name('contratos.ativar');
     Route::post('/contratos/{contrato}/suspender', [ContratoController::class, 'suspender'])->name('contratos.suspender');
     Route::post('/contratos/{contrato}/cancelar', [ContratoController::class, 'cancelar'])->name('contratos.cancelar');

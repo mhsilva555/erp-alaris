@@ -58,6 +58,7 @@ class ContratoController extends Controller
             'propostas' => Contrato::where('status', Contrato::STATUS_PROPOSTA)->count(),
             'rascunhos' => Contrato::where('status', Contrato::STATUS_RASCUNHO)->count(),
             'suspensos' => Contrato::where('status', Contrato::STATUS_SUSPENSO)->count(),
+            'lixeira' => Contrato::onlyTrashed()->count(),
             'faturamento_mensal' => Contrato::where('status', Contrato::STATUS_ATIVO)->sum('valor_total'),
         ];
 
@@ -135,6 +136,9 @@ class ContratoController extends Controller
             'itens.*.descricao' => 'required|string|max:255',
             'itens.*.quantidade' => 'required|numeric|min:0.01',
             'itens.*.valor_unitario' => 'required|numeric|min:0',
+            'produtos' => 'nullable|array',
+            'produtos.*.id' => 'required|exists:produtos,id',
+            'produtos.*.quantidade' => 'required|numeric|min:0.0001',
             'comodatos' => 'nullable|array',
             'comodatos.*.equipamento_id' => 'nullable|exists:equipamentos,id',
             'comodatos.*.nome_equipamento' => 'nullable|string|max:255',
@@ -145,7 +149,7 @@ class ContratoController extends Controller
         ]);
 
         $contrato = DB::transaction(function () use ($validated, $request) {
-            $dataContrato = collect($validated)->except(['itens', 'comodatos'])->toArray();
+            $dataContrato = collect($validated)->except(['itens', 'comodatos', 'produtos'])->toArray();
             if (empty($dataContrato['unidade_id'])) {
                 $dataContrato['unidade_id'] = UnidadeEmpresa::padraoAtiva()?->id;
             }
@@ -181,6 +185,26 @@ class ContratoController extends Controller
             $valorFinal = max(0, $subtotalItens - $dataContrato['desconto']);
             $contrato->update(['valor_total' => $valorFinal]);
 
+            // Sincroniza produtos / insumos previstos
+            $produtosSync = [];
+            if (! empty($validated['produtos'])) {
+                foreach ($validated['produtos'] as $itemProd) {
+                    $prodId = (int) $itemProd['id'];
+                    $qtd = (float) $itemProd['quantidade'];
+                    $prodModel = Produto::find($prodId);
+                    if ($prodModel) {
+                        $fator = (float) ($prodModel->fator_conversao ?? 1);
+                        $fracao = $fator > 0 ? ($qtd / $fator) : $qtd;
+                        $custo = round($fracao * (float) $prodModel->preco_custo_unitario, 2);
+                        $produtosSync[$prodId] = [
+                            'quantidade' => $qtd,
+                            'custo_proporcional' => $custo,
+                        ];
+                    }
+                }
+            }
+            $contrato->produtos()->sync($produtosSync);
+
             $this->sincronizarComodatosEmbutidos(
                 $contrato,
                 $validated['comodatos'] ?? [],
@@ -211,6 +235,9 @@ class ContratoController extends Controller
             'unidade',
             'meioPagamento',
             'itens',
+            'produtos' => function ($q) {
+                $q->withPivot(['quantidade', 'custo_proporcional']);
+            },
             'comodatos' => function ($q) {
                 $q->with(['equipamento', 'produto'])->orderBy('data_proxima_reposicao');
             },
@@ -257,7 +284,7 @@ class ContratoController extends Controller
             ->get();
         $aliquotaPadrao = (float) Configuracao::get('aliquota_imposto_padrao', '14.0');
         $diariaPadrao = (float) Configuracao::get('diaria_tecnico_padrao', '50.00');
-        $contrato->load(['itens', 'unidade', 'meioPagamento', 'comodatos.equipamento', 'comodatos.produto']);
+        $contrato->load(['itens', 'unidade', 'meioPagamento', 'produtos', 'comodatos.equipamento', 'comodatos.produto']);
 
         return view('contratos.edit', compact('contrato', 'clientes', 'meiosPagamento', 'equipamentos', 'produtos', 'unidades', 'aliquotaPadrao', 'diariaPadrao'));
     }
@@ -303,6 +330,9 @@ class ContratoController extends Controller
             'itens.*.descricao' => 'required|string|max:255',
             'itens.*.quantidade' => 'required|numeric|min:0.01',
             'itens.*.valor_unitario' => 'required|numeric|min:0',
+            'produtos' => 'nullable|array',
+            'produtos.*.id' => 'required|exists:produtos,id',
+            'produtos.*.quantidade' => 'required|numeric|min:0.0001',
             'comodatos' => 'nullable|array',
             'comodatos.*.id' => 'nullable|integer',
             'comodatos.*.equipamento_id' => 'nullable|exists:equipamentos,id',
@@ -323,7 +353,7 @@ class ContratoController extends Controller
             || (string) $contrato->dia_semana !== (string) ($validated['dia_semana'] ?? '');
 
         DB::transaction(function () use ($contrato, $validated, $request, $service, $periodicidadeMudou, $eraAtivoAntes, $dataInicioMudou) {
-            $dataContrato = collect($validated)->except(['itens', 'comodatos'])->toArray();
+            $dataContrato = collect($validated)->except(['itens', 'comodatos', 'produtos'])->toArray();
             $dataContrato['permite_renovacao'] = $request->has('permite_renovacao');
             $dataContrato['exige_nota_fiscal'] = $request->has('exige_nota_fiscal');
             $dataContrato['percentual_imposto'] = $dataContrato['exige_nota_fiscal']
@@ -357,6 +387,27 @@ class ContratoController extends Controller
 
             $valorFinal = max(0, $subtotalItens - $dataContrato['desconto']);
             $contrato->update(['valor_total' => $valorFinal]);
+
+            if ($request->has('produtos_presente')) {
+                $produtosSync = [];
+                if (! empty($validated['produtos'])) {
+                    foreach ($validated['produtos'] as $itemProd) {
+                        $prodId = (int) $itemProd['id'];
+                        $qtd = (float) $itemProd['quantidade'];
+                        $prodModel = Produto::find($prodId);
+                        if ($prodModel) {
+                            $fator = (float) ($prodModel->fator_conversao ?? 1);
+                            $fracao = $fator > 0 ? ($qtd / $fator) : $qtd;
+                            $custo = round($fracao * (float) $prodModel->preco_custo_unitario, 2);
+                            $produtosSync[$prodId] = [
+                                'quantidade' => $qtd,
+                                'custo_proporcional' => $custo,
+                            ];
+                        }
+                    }
+                }
+                $contrato->produtos()->sync($produtosSync);
+            }
 
             if ($request->has('comodatos_presente')) {
                 $this->sincronizarComodatosEmbutidos(
@@ -506,11 +557,85 @@ class ContratoController extends Controller
     {
         $this->autorizar('contratos.deletar');
 
-        // Se possui visitas concluídas ou em andamento, não permite exclusão física direta
+        // Se possui visitas concluídas ou em andamento, não permite mover para a lixeira
         $temVisitasExecutadas = $contrato->visitas()->whereIn('status', [Visita::STATUS_CONCLUIDA, Visita::STATUS_EM_ANDAMENTO])->exists();
         if ($temVisitasExecutadas) {
             return redirect()->route('contratos.show', $contrato)
-                ->with('erro', 'Não é possível excluir um contrato que já possui ordens de serviço executadas ou em andamento. Utilize a opção de Cancelamento ou Encerramento.');
+                ->with('erro', 'Não é possível mover para a lixeira um contrato que já possui ordens de serviço executadas ou em andamento. Utilize a opção de Cancelamento ou Encerramento para preservar o histórico contábil.');
+        }
+
+        DB::transaction(function () use ($contrato) {
+            // Estorna produtos e cancela visitas agendadas pendentes
+            foreach ($contrato->visitas()->where('status', Visita::STATUS_AGENDADA)->get() as $v) {
+                $v->estornarEstoqueProdutos();
+                $v->update(['status' => Visita::STATUS_CANCELADA]);
+            }
+
+            // Executa soft delete (envia para a lixeira)
+            $contrato->delete();
+        });
+
+        $tipo = $contrato->ehProposta() ? 'Proposta comercial' : 'Contrato';
+
+        return redirect()->route('contratos.index')
+            ->with('sucesso', "{$tipo} {$contrato->numero} movido(a) para a lixeira com sucesso. Você pode restaurá-lo a qualquer momento acessando a Lixeira.");
+    }
+
+    public function lixeira(Request $request)
+    {
+        $this->autorizar('contratos.ver');
+
+        $query = Contrato::onlyTrashed()->with(['cliente', 'unidade', 'itens'])->withCount([
+            'visitas',
+            'visitas as visitas_concluidas_count' => fn ($q) => $q->where('status', Visita::STATUS_CONCLUIDA),
+        ])->orderByDesc('deleted_at');
+
+        if ($request->filled('busca')) {
+            $busca = trim($request->busca);
+            $query->where(function ($q) use ($busca) {
+                $q->where('numero', 'like', "%{$busca}%")
+                    ->orWhere('titulo', 'like', "%{$busca}%")
+                    ->orWhereHas('cliente', fn ($cq) => $cq->where('nome', 'like', "%{$busca}%"));
+            });
+        }
+
+        if ($request->filled('tipo')) {
+            if ($request->tipo === 'proposta') {
+                $query->where('status', Contrato::STATUS_PROPOSTA);
+            } elseif ($request->tipo === 'contrato') {
+                $query->where('status', '!=', Contrato::STATUS_PROPOSTA);
+            }
+        }
+
+        $contratos = $query->paginate(15)->withQueryString();
+        $totalLixeira = Contrato::onlyTrashed()->count();
+
+        return view('contratos.lixeira', compact('contratos', 'totalLixeira'));
+    }
+
+    public function restaurar($id)
+    {
+        $this->autorizar('contratos.deletar');
+
+        $contrato = Contrato::onlyTrashed()->findOrFail($id);
+        $contrato->restore();
+
+        $tipo = $contrato->ehProposta() ? 'Proposta comercial' : 'Contrato';
+
+        return redirect()->route('contratos.show', $contrato)
+            ->with('sucesso', "{$tipo} {$contrato->numero} restaurado(a) com sucesso da lixeira.");
+    }
+
+    public function forceDelete($id)
+    {
+        $this->autorizar('contratos.deletar');
+
+        $contrato = Contrato::onlyTrashed()->findOrFail($id);
+
+        $temVisitasExecutadas = $contrato->visitas()->whereIn('status', [Visita::STATUS_CONCLUIDA, Visita::STATUS_EM_ANDAMENTO])->exists();
+        if ($temVisitasExecutadas) {
+            return redirect()->route('contratos.lixeira')
+                ->with('erro', 'Não é possível excluir definitivamente um contrato que possui ordens de serviço executadas ou em andamento.');
         }
 
         DB::transaction(function () use ($contrato) {
@@ -529,13 +654,68 @@ class ContratoController extends Controller
                 $comodato->delete();
             }
 
+            $contrato->produtos()->detach();
             $contrato->movimentacoes()->delete();
             $contrato->itens()->delete();
-            $contrato->delete();
+            $contrato->forceDelete();
         });
 
-        return redirect()->route('contratos.index')
-            ->with('sucesso', 'Contrato removido com sucesso.');
+        $tipo = $contrato->ehProposta() ? 'Proposta comercial' : 'Contrato';
+
+        return redirect()->route('contratos.lixeira')
+            ->with('sucesso', "{$tipo} {$contrato->numero} excluído(a) definitivamente do sistema.");
+    }
+
+    public function esvaziarLixeira()
+    {
+        $this->autorizar('contratos.deletar');
+
+        $trashed = Contrato::onlyTrashed()->get();
+        if ($trashed->isEmpty()) {
+            return redirect()->route('contratos.lixeira')
+                ->with('alerta', 'A lixeira já está vazia.');
+        }
+
+        $totalExcluidos = 0;
+        $totalIgnorados = 0;
+
+        DB::transaction(function () use ($trashed, &$totalExcluidos, &$totalIgnorados) {
+            foreach ($trashed as $contrato) {
+                $temVisitas = $contrato->visitas()->whereIn('status', [Visita::STATUS_CONCLUIDA, Visita::STATUS_EM_ANDAMENTO])->exists();
+                if ($temVisitas) {
+                    $totalIgnorados++;
+
+                    continue;
+                }
+
+                foreach ($contrato->visitas as $v) {
+                    $v->estornarEstoqueProdutos();
+                    $v->delete();
+                }
+
+                $deveRestaurarEstoque = ! in_array($contrato->status, [Contrato::STATUS_PROPOSTA, Contrato::STATUS_RASCUNHO], true);
+                foreach ($contrato->comodatos as $comodato) {
+                    if ($deveRestaurarEstoque && $comodato->equipamento_id) {
+                        $comodato->equipamento?->increment('quantidade_disponivel', $comodato->quantidade);
+                    }
+                    $comodato->delete();
+                }
+
+                $contrato->produtos()->detach();
+                $contrato->movimentacoes()->delete();
+                $contrato->itens()->delete();
+                $contrato->forceDelete();
+                $totalExcluidos++;
+            }
+        });
+
+        if ($totalIgnorados > 0) {
+            return redirect()->route('contratos.lixeira')
+                ->with('alerta', "{$totalExcluidos} registro(s) excluído(s) permanentemente. {$totalIgnorados} contrato(s) preservado(s) por possuir(em) histórico de atendimentos executados.");
+        }
+
+        return redirect()->route('contratos.lixeira')
+            ->with('sucesso', "Lixeira esvaziada com sucesso ({$totalExcluidos} item(ns) excluído(s) permanentemente).");
     }
 
     public function recolherComodatos(Contrato $contrato)
@@ -604,6 +784,23 @@ class ContratoController extends Controller
                 }
             }
             $substituicoes['itens'] = $itens;
+        }
+
+        if ($request->has('produtos') && is_array($request->input('produtos'))) {
+            $prods = $request->input('produtos');
+            foreach ($prods as $idx => $prod) {
+                if (isset($prod['produto_id']) && ! isset($prod['id'])) {
+                    $prods[$idx]['id'] = $prod['produto_id'];
+                }
+                if (isset($prod['quantidade']) && is_string($prod['quantidade'])) {
+                    $qtd = trim($prod['quantidade']);
+                    if (str_contains($qtd, ',')) {
+                        $qtd = str_replace(',', '.', str_replace('.', '', $qtd));
+                    }
+                    $prods[$idx]['quantidade'] = $qtd;
+                }
+            }
+            $substituicoes['produtos'] = $prods;
         }
 
         if (! empty($substituicoes)) {

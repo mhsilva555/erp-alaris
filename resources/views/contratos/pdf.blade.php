@@ -1073,6 +1073,11 @@
                         <li>Equipe técnica treinada e equipada com Equipamentos de Proteção Individual (EPIs) adequados.</li>
                         <li>Emissão de Certificado Técnico de Execução e Garantia com validade perante órgãos fiscalizadores.</li>
                     </ul>
+                    @if ($contrato->produtos->isNotEmpty())
+                        <p style="margin: 3px 0 1px 0; font-size: 10px; color: #475569;">
+                            <strong>Insumos e Saneantes Autorizados no Escopo:</strong> {{ $contrato->produtos->pluck('nome')->implode(', ') }}
+                        </p>
+                    @endif
                 </div>
 
                 @if ($contrato->comodatos->isNotEmpty())
