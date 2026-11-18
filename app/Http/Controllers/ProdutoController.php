@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Produto;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
 class ProdutoController extends Controller
@@ -97,7 +98,23 @@ class ProdutoController extends Controller
 
     public function destroy(Produto $produto)
     {
-        $produto->delete();
+        if ($produto->visitas()->exists()) {
+            return back()->with('erro', "O produto '{$produto->nome}' não pode ser excluído porque já foi utilizado em ordem(ns) de serviço.");
+        }
+
+        if ($produto->contratos()->withTrashed()->exists()) {
+            return back()->with('erro', "O produto '{$produto->nome}' não pode ser excluído porque está vinculado a contrato(s) ou proposta(s).");
+        }
+
+        if ($produto->comodatos()->exists()) {
+            return back()->with('erro', "O produto '{$produto->nome}' não pode ser excluído porque está vinculado a equipamento(s) em comodato.");
+        }
+
+        try {
+            $produto->delete();
+        } catch (QueryException $e) {
+            return back()->with('erro', "O produto '{$produto->nome}' não pode ser excluído porque possui registros vinculados.");
+        }
 
         return redirect()->route('produtos.index')
             ->with('sucesso', 'Produto removido com sucesso.');

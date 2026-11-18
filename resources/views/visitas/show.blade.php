@@ -315,7 +315,9 @@
                             <span class="stat-label">Lucro Bruto (Margem)</span>
                             @if ($visita->contrato && (float) $visita->valor_cobrado == 0)
                                 <span class="text-sm font-bold block mt-1.5" style="color: var(--color-primary-600);">Faturamento Contratual</span>
-                                <span class="text-[11px] block mt-0.5" style="color: var(--color-surface-400);">Rentabilidade apurada na mensalidade do contrato</span>
+                                <span class="text-[11px] block mt-0.5" style="color: var(--color-surface-400);">
+                                    {{ $visita->contrato->ehAtendimentoUnico() ? 'Rentabilidade apurada no contrato pontual' : 'Rentabilidade apurada na mensalidade do contrato' }}
+                                </span>
                             @else
                                 <div class="flex items-baseline gap-2 mt-1">
                                     <span class="text-lg font-bold text-white whitespace-nowrap">R$

@@ -70,13 +70,40 @@ class NotificacaoAgendamento extends Model
         return $query->where('lida', false)->orderBy('created_at', 'desc');
     }
 
+    public static function permissaoNecessariaPorTipo(string $tipoEvento): ?string
+    {
+        return match ($tipoEvento) {
+            'visita' => 'visitas.ver',
+            'comodato' => 'comodatos.ver',
+            'followup' => 'clientes.ver',
+            default => null,
+        };
+    }
+
     /**
-     * Filtra notificações pertinentes estritamente ao perfil do usuário conectado.
-     * Técnicos de campo recebem apenas notificações atribuídas a eles ou eventos de suas visitas.
+     * @return array<int, string>
+     */
+    public static function tiposPermitidosParaUsuario(User $user): array
+    {
+        $tipos = [];
+
+        foreach (['visita', 'comodato', 'followup'] as $tipo) {
+            $permissao = self::permissaoNecessariaPorTipo($tipo);
+            if ($permissao === null || $user->temPermissao($permissao)) {
+                $tipos[] = $tipo;
+            }
+        }
+
+        return $tipos;
+    }
+
+    /**
+     * Filtra notificações pertinentes estritamente ao perfil e às permissões do usuário conectado.
+     * Somente administradores recebem todas as notificações; demais perfis recebem conforme suas permissões.
      */
     public function scopeParaUsuario(Builder $query, ?User $user): Builder
     {
-        if (! $user) {
+        if (! $user || ! $user->temPermissao('notificacoes.ver')) {
             return $query->whereRaw('1 = 0');
         }
 
@@ -84,13 +111,22 @@ class NotificacaoAgendamento extends Model
             return $query;
         }
 
+        $tiposPermitidos = self::tiposPermitidosParaUsuario($user);
+
         if ($user->isTecnico()) {
-            return $query->where(function (Builder $q) use ($user) {
-                // Notificação explicitamente direcionada ao user do técnico
-                $q->where('user_id', $user->id);
+            return $query->where(function (Builder $q) use ($user, $tiposPermitidos) {
+                // Notificação explicitamente direcionada ao user do técnico (respeitando permissões)
+                $q->where(function (Builder $direta) use ($user, $tiposPermitidos) {
+                    $direta->where('user_id', $user->id);
+                    if (! empty($tiposPermitidos)) {
+                        $direta->whereIn('tipo_evento', $tiposPermitidos);
+                    } else {
+                        $direta->whereRaw('1 = 0');
+                    }
+                });
 
                 // Ou notificação de visita atribuída a este técnico (caso user_id seja nulo)
-                if ($user->tecnico_id) {
+                if ($user->tecnico_id && in_array('visita', $tiposPermitidos, true)) {
                     $q->orWhere(function (Builder $sub) use ($user) {
                         $sub->whereNull('user_id')
                             ->where('tipo_evento', 'visita')
@@ -102,31 +138,49 @@ class NotificacaoAgendamento extends Model
             });
         }
 
-        return $query->where(function (Builder $q) use ($user) {
-            $q->where('user_id', $user->id)->orWhereNull('user_id');
-        });
+        if (empty($tiposPermitidos)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereIn('tipo_evento', $tiposPermitidos)
+            ->where(function (Builder $q) use ($user) {
+                $q->where('user_id', $user->id)->orWhereNull('user_id');
+            });
     }
 
     /**
-     * Verifica se a notificação individual pertence ao usuário informado.
+     * Verifica se a notificação individual pertence ao usuário informado e às suas permissões.
      */
     public function pertenceAoUsuario(User $user): bool
     {
+        if (! $user->temPermissao('notificacoes.ver')) {
+            return false;
+        }
+
         if ($user->isAdmin()) {
             return true;
         }
 
-        if ($this->user_id && (int) $this->user_id === (int) $user->id) {
-            return true;
+        $permissaoTipo = self::permissaoNecessariaPorTipo((string) $this->tipo_evento);
+        if ($permissaoTipo !== null && ! $user->temPermissao($permissaoTipo)) {
+            return false;
         }
 
-        if ($user->isTecnico() && $user->tecnico_id && $this->tipo_evento === 'visita') {
-            return Visita::where('id', $this->evento_id)
-                ->where('tecnico_id', $user->tecnico_id)
-                ->exists();
+        if ($this->user_id) {
+            return (int) $this->user_id === (int) $user->id;
         }
 
-        return false;
+        if ($user->isTecnico()) {
+            if ($user->tecnico_id && $this->tipo_evento === 'visita') {
+                return Visita::where('id', $this->evento_id)
+                    ->where('tecnico_id', $user->tecnico_id)
+                    ->exists();
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     public function marcarComoEnviada(): void

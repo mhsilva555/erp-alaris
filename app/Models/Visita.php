@@ -168,11 +168,7 @@ class Visita extends Model
 
     public function ehMensalidadeFixa(): bool
     {
-        return $this->contrato_id !== null && $this->contrato && in_array($this->contrato->modelo_cobranca, [
-            Contrato::MODELO_MENSAL,
-            Contrato::MODELO_FIXO_ANUAL,
-            Contrato::MODELO_FECHAMENTO_PERIODO,
-        ], true);
+        return $this->contrato_id !== null && $this->contrato && $this->contrato->cobrancaCentralizada();
     }
 
     public function statusRecebimento(): string

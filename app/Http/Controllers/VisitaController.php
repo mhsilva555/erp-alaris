@@ -12,6 +12,7 @@ use App\Models\Produto;
 use App\Models\Tecnico;
 use App\Models\UnidadeEmpresa;
 use App\Models\Visita;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -108,11 +109,7 @@ class VisitaController extends Controller
         ]);
 
         $contrato = ! empty($validated['contrato_id']) ? Contrato::find($validated['contrato_id']) : null;
-        $ehMensalidadeContrato = $contrato && in_array($contrato->modelo_cobranca, [
-            Contrato::MODELO_MENSAL,
-            Contrato::MODELO_FIXO_ANUAL,
-            Contrato::MODELO_FECHAMENTO_PERIODO,
-        ]);
+        $ehMensalidadeContrato = $contrato && $contrato->cobrancaCentralizada();
 
         if ($ehMensalidadeContrato) {
             $valorCobrado = 0.00;
@@ -324,11 +321,7 @@ class VisitaController extends Controller
         $statusAnterior = $visita->status;
         $tecnicoAnteriorId = $visita->tecnico_id;
         $contrato = ! empty($validated['contrato_id']) ? Contrato::find($validated['contrato_id']) : null;
-        $ehMensalidadeContrato = $contrato && in_array($contrato->modelo_cobranca, [
-            Contrato::MODELO_MENSAL,
-            Contrato::MODELO_FIXO_ANUAL,
-            Contrato::MODELO_FECHAMENTO_PERIODO,
-        ]);
+        $ehMensalidadeContrato = $contrato && $contrato->cobrancaCentralizada();
 
         if ($ehMensalidadeContrato) {
             $valorCobrado = 0.00;
@@ -570,11 +563,14 @@ class VisitaController extends Controller
                 + $gastosAdicionais;
 
             $visita->loadMissing('contrato');
-            $ehContratoMensal = $visita->contrato && in_array($visita->contrato->modelo_cobranca, [
-                Contrato::MODELO_MENSAL,
-                Contrato::MODELO_FIXO_ANUAL,
-                Contrato::MODELO_FECHAMENTO_PERIODO,
-            ]);
+            $ehContratoMensal = $visita->contrato && $visita->contrato->cobrancaCentralizada();
+
+            if ($ehContratoMensal) {
+                $visita->valor_cobrado = 0.00;
+                $visita->exige_nota_fiscal = false;
+                $visita->percentual_imposto = 0.00;
+                $visita->valor_imposto = 0.00;
+            }
 
             $visita->lucro_bruto = $ehContratoMensal ? 0.00 : ((float) $visita->valor_cobrado - ($custoOperacional + (float) $visita->valor_imposto));
             $visita->save();
@@ -637,12 +633,16 @@ class VisitaController extends Controller
     {
         $this->autorizarAcessoVisita($visita);
 
-        DB::transaction(function () use ($visita) {
-            $visita->estornarEstoqueProdutos();
-            $visita->movimentacoes()->delete();
-            $visita->produtos()->detach();
-            $visita->delete();
-        });
+        try {
+            DB::transaction(function () use ($visita) {
+                $visita->estornarEstoqueProdutos();
+                $visita->movimentacoes()->delete();
+                $visita->produtos()->detach();
+                $visita->delete();
+            });
+        } catch (QueryException $e) {
+            return back()->with('erro', "A Ordem de Serviço #{$visita->id} não pode ser excluída porque possui registros vinculados a ela.");
+        }
 
         return redirect()->route('visitas.index')
             ->with('sucesso', 'Visita removida com sucesso. O saldo de insumos foi estornado ao estoque.');
@@ -724,7 +724,7 @@ class VisitaController extends Controller
      */
     private function sincronizarMovimentacoesFinanceiras(Visita $visita): void
     {
-        $visita->loadMissing(['cliente', 'tecnico']);
+        $visita->loadMissing(['cliente', 'tecnico', 'contrato']);
 
         if ($visita->status === Visita::STATUS_CANCELADA) {
             // Se a OS foi cancelada, remove lançamentos pendentes para não poluir previsões do fluxo
@@ -738,7 +738,7 @@ class VisitaController extends Controller
         }
 
         $dataCompetencia = $visita->data_hora ? $visita->data_hora->toDateString() : now()->toDateString();
-        $valorCobrado = (float) $visita->valor_cobrado;
+        $valorCobrado = $visita->ehMensalidadeFixa() ? 0.00 : (float) $visita->valor_cobrado;
         $custoMaoDeObra = (float) $visita->custo_mao_de_obra;
         $gastosAdicionais = (float) $visita->gastos_adicionais;
 

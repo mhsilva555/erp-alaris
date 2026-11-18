@@ -66,7 +66,7 @@ class ContratoAgendamentoService
                         'status' => Visita::STATUS_AGENDADA,
                         'tipo_visita' => Visita::TIPO_VISITA_EXECUCAO,
                         'tipo_servico' => $contrato->tipo_servico ?? Visita::TIPO_SERVICO_CONTROLE_PRAGAS,
-                        'valor_cobrado' => $contrato->modelo_cobranca === Contrato::MODELO_POR_VISITA ? $contrato->valor_total : 0.00,
+                        'valor_cobrado' => (! $contrato->cobrancaCentralizada() && $contrato->modelo_cobranca === Contrato::MODELO_POR_VISITA) ? ($contrato->valor_total ?? 0.00) : 0.00,
                         'observacoes' => "Visita agendada gerada pelo Contrato {$contrato->numero}.",
                     ]);
 

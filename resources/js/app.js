@@ -152,6 +152,9 @@ async function inscreverWebPush() {
                 },
                 body: JSON.stringify({ ...sub.toJSON(), contentEncoding })
             });
+            document.querySelectorAll('.js-logout-push-endpoint').forEach(el => {
+                el.value = sub.endpoint || '';
+            });
             return resp.ok;
         } catch (e) {
             console.warn('Falha ao inscrever Web Push:', e);
@@ -409,8 +412,11 @@ function recarregarPaginaVisitas() {
     }, 800);
 }
 
+let __pausarPolling = false;
+
 // ── Polling de notificações de Agendamento para o Sistema Operacional ──
 async function verificarNotificacoesSO() {
+    if (__pausarPolling) return;
     try {
         const r = await fetch('/notificacoes/agendamentos/pendentes', {
             headers: {
@@ -508,6 +514,7 @@ let ultimosNotifIdsConhecidos = null;
 
 // ── Polling de notificações no Header ──
 function pollNotificacoes() {
+    if (__pausarPolling) return;
     const badge = document.getElementById('notif-badge');
     const dropdown = document.getElementById('notif-dropdown-content');
     const unreadCountBadge = document.getElementById('notif-unread-count');
@@ -1013,10 +1020,23 @@ window.recalcularFinanceiroVisita = function () {
 
 // ── Confirmação de exclusão ──
 window.confirmDelete = function (formId) {
+    __pausarPolling = true;
     if (confirm('Tem certeza que deseja excluir? Esta ação não pode ser desfeita.')) {
         document.getElementById(formId).submit();
+        return;
     }
+    setTimeout(() => { __pausarPolling = false; }, 300);
 };
+
+document.addEventListener('submit', (e) => {
+    __pausarPolling = true;
+    const form = e.target;
+    if (form && form.classList && form.classList.contains('js-logout-form')) {
+        obterServiceWorkerRegistration().then(reg => reg?.pushManager?.getSubscription())
+            .then(sub => sub?.unsubscribe())
+            .catch(() => { });
+    }
+});
 
 // ── Toggle sidebar mobile ──
 document.addEventListener('DOMContentLoaded', () => {

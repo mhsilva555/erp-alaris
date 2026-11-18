@@ -430,7 +430,7 @@
                     <td class="text-center">
                         @php $st = $v->statusRecebimento(); @endphp
                         @if ($st === 'contrato')
-                            <span class="badge badge-info">Mensalidade</span>
+                            <span class="badge badge-info">{{ $v->contrato?->ehAtendimentoUnico() ? 'Pontual CTR' : 'Mensalidade' }}</span>
                         @elseif ($st === 'pago')
                             <span class="badge badge-success">Recebido</span>
                         @elseif ($st === 'pendente')

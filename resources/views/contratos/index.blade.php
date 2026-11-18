@@ -88,21 +88,21 @@
         </div>
 
         {{-- Filtros e Ações --}}
-        <div class="card p-4">
+        <div class="card p-4 space-y-3">
             <form method="GET" action="{{ route('contratos.index') }}"
                 class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
-                <div class="relative sm:col-span-2 lg:col-span-5 xl:col-span-3">
-                    <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style="color: var(--color-surface-400);"
+                <div class="relative sm:col-span-2 lg:col-span-4 min-w-0">
+                    <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style="color: var(--color-surface-400);"
                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                     <input type="text" name="busca" value="{{ request('busca') }}"
-                        placeholder="Buscar por número, título ou cliente..." class="form-input !pl-10">
+                        placeholder="Buscar por número, título ou cliente..." class="form-input w-full !pl-10">
                 </div>
 
-                <div class="lg:col-span-3 xl:col-span-2">
-                    <select name="status" class="form-select" onchange="this.form.submit()">
+                <div class="lg:col-span-2 min-w-0">
+                    <select name="status" class="form-select w-full" onchange="this.form.submit()">
                         <option value="">Todos os status...</option>
                         @foreach (\App\Models\Contrato::STATUSES as $key => $label)
                             <option value="{{ $key }}" {{ request('status') === $key ? 'selected' : '' }}>
@@ -112,8 +112,8 @@
                     </select>
                 </div>
 
-                <div class="lg:col-span-4 xl:col-span-2">
-                    <select name="tipo_vigencia" class="form-select" onchange="this.form.submit()">
+                <div class="lg:col-span-3 min-w-0">
+                    <select name="tipo_vigencia" class="form-select w-full" onchange="this.form.submit()">
                         <option value="">Todas as vigências...</option>
                         @foreach (\App\Models\Contrato::VIGENCIAS as $key => $label)
                             <option value="{{ $key }}" {{ request('tipo_vigencia') === $key ? 'selected' : '' }}>
@@ -123,8 +123,8 @@
                     </select>
                 </div>
 
-                <div class="lg:col-span-6 xl:col-span-2">
-                    <select name="cliente_id" class="form-select" onchange="this.form.submit()">
+                <div class="lg:col-span-3 min-w-0">
+                    <select name="cliente_id" class="form-select w-full" onchange="this.form.submit()">
                         <option value="">Todos os clientes...</option>
                         @foreach ($clientes as $cli)
                             <option value="{{ $cli->id }}" {{ request('cliente_id') == $cli->id ? 'selected' : '' }}>
@@ -133,32 +133,33 @@
                         @endforeach
                     </select>
                 </div>
-
-                <div class="sm:col-span-2 lg:col-span-6 xl:col-span-3 flex items-center justify-end gap-1.5">
-                    @if (request()->hasAny(['busca', 'status', 'tipo_vigencia', 'cliente_id']))
-                        <a href="{{ route('contratos.index') }}" class="btn btn-outline btn-sm py-2 px-2.5 text-xs shrink-0" title="Limpar filtros">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                        </a>
-                    @endif
-                    @permissao('contratos.deletar')
-                    <a href="{{ route('contratos.lixeira') }}" class="btn btn-outline btn-sm py-2 px-2.5 text-xs shrink-0 flex items-center gap-1.5 {{ ($totais['lixeira'] ?? 0) > 0 ? 'text-rose-400 border-rose-500/40 hover:bg-rose-500/10' : '' }}" title="Ver Lixeira de Propostas e Contratos">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                        <span>Lixeira</span>
-                        @if(($totais['lixeira'] ?? 0) > 0)
-                            <span class="badge badge-danger text-[10px] !px-1.5 !py-0.2">{{ $totais['lixeira'] }}</span>
-                        @endif
-                    </a>
-                    @endpermissao
-                    @permissao('contratos.criar')
-                    <a href="{{ route('contratos.create', ['tipo' => 'proposta']) }}" class="btn btn-secondary btn-sm text-amber-400 text-xs shrink-0" title="Criar Nova Proposta Comercial">
-                        + Proposta
-                    </a>
-                    <a href="{{ route('contratos.create') }}" class="btn btn-primary btn-sm text-xs flex-1 xl:flex-initial justify-center shrink-0" title="Criar Novo Contrato">
-                        + Contrato
-                    </a>
-                    @endpermissao
-                </div>
             </form>
+
+            <div class="flex flex-wrap items-center justify-end gap-2 pt-2 border-t" style="border-color: var(--color-surface-800);">
+                @if (request()->hasAny(['busca', 'status', 'tipo_vigencia', 'cliente_id']))
+                    <a href="{{ route('contratos.index') }}" class="btn btn-outline btn-sm py-2 px-2.5 text-xs shrink-0" title="Limpar filtros">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        <span>Limpar filtros</span>
+                    </a>
+                @endif
+                @permissao('contratos.deletar')
+                <a href="{{ route('contratos.lixeira') }}" class="btn btn-outline btn-sm py-2 px-2.5 text-xs shrink-0 flex items-center gap-1.5 {{ ($totais['lixeira'] ?? 0) > 0 ? 'text-rose-400 border-rose-500/40 hover:bg-rose-500/10' : '' }}" title="Ver Lixeira de Propostas e Contratos">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    <span>Lixeira</span>
+                    @if(($totais['lixeira'] ?? 0) > 0)
+                        <span class="badge badge-danger text-[10px] !px-1.5 !py-0.2">{{ $totais['lixeira'] }}</span>
+                    @endif
+                </a>
+                @endpermissao
+                @permissao('contratos.criar')
+                <a href="{{ route('contratos.create', ['tipo' => 'proposta']) }}" class="btn btn-secondary btn-sm text-amber-400 text-xs shrink-0" title="Criar Nova Proposta Comercial">
+                    + Proposta
+                </a>
+                <a href="{{ route('contratos.create') }}" class="btn btn-primary btn-sm text-xs justify-center shrink-0" title="Criar Novo Contrato">
+                    + Contrato
+                </a>
+                @endpermissao
+            </div>
         </div>
 
         {{-- Tabela de Contratos --}}

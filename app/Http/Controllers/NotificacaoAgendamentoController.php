@@ -18,6 +18,10 @@ class NotificacaoAgendamentoController extends Controller
      */
     public function pendentes(Request $request): JsonResponse
     {
+        if ($request->hasSession()) {
+            $request->session()->reflash();
+        }
+
         $user = $request->user();
 
         if ($user && ! $user->temPermissao('notificacoes.ver')) {

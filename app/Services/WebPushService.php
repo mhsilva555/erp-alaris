@@ -56,11 +56,17 @@ class WebPushService
             }
 
             if ($notificacao->user_id) {
-                return (int) $notificacao->user_id === (int) $user->id;
-            }
+                if ((int) $notificacao->user_id !== (int) $user->id) {
+                    return false;
+                }
 
-            if ($user->isAdmin() || ! $user->isTecnico()) {
-                return true;
+                if ($user->isAdmin()) {
+                    return true;
+                }
+
+                $permissaoTipo = NotificacaoAgendamento::permissaoNecessariaPorTipo((string) $notificacao->tipo_evento);
+
+                return $permissaoTipo === null || $user->temPermissao($permissaoTipo);
             }
 
             return $notificacao->pertenceAoUsuario($user);

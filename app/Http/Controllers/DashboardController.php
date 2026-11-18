@@ -91,6 +91,10 @@ class DashboardController extends Controller
 
     public function notificacoes(Request $request)
     {
+        if ($request->hasSession()) {
+            $request->session()->reflash();
+        }
+
         $user = $request->user();
 
         // Se o usuário não tiver permissão para ver notificações, retorna conjunto vazio

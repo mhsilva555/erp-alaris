@@ -666,8 +666,8 @@
                                         @php $statusRec = $vis->statusRecebimento(); @endphp
                                         @if ($statusRec === 'contrato')
                                             <span class="badge badge-info text-[10px] py-0.5 px-2 inline-flex items-center gap-1"
-                                                title="Receita faturada via mensalidade única do contrato">
-                                                Mensalidade CTR
+                                                title="Receita faturada diretamente no contrato">
+                                                {{ $vis->contrato?->ehAtendimentoUnico() ? 'Pontual CTR' : 'Mensalidade CTR' }}
                                             </span>
                                         @elseif ($statusRec === 'pago')
                                             <span

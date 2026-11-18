@@ -1,9 +1,11 @@
 <?php
 
 use App\Models\NotificacaoAgendamento;
+use App\Models\Perfil;
 use App\Models\PushSubscription;
 use App\Models\User;
 use App\Services\WebPushService;
+use Database\Seeders\PerfilPermissaoSeeder;
 
 beforeEach(function () {
     // Nunca dispara requisições reais aos serviços de push durante os testes
@@ -91,4 +93,71 @@ test('sem chaves VAPID o envio e ignorado e o polling continua como fallback', f
 
     expect(app(WebPushService::class)->enviarNotificacao($notif))->toBe(0);
     expect($notif->fresh()->enviada_so)->toBeFalse();
+});
+
+test('logout remove inscricao push do dispositivo para nao emitir notificacoes sem autenticacao', function () {
+    $user = User::factory()->create(['role' => User::ROLE_ADMIN]);
+    $sub = inscricaoFake($user, 'logout-device');
+
+    $this->actingAs($user)->post(route('logout'), [
+        'push_endpoint' => $sub->endpoint,
+    ])->assertRedirect(route('login'));
+
+    expect(PushSubscription::where('endpoint', $sub->endpoint)->exists())->toBeFalse();
+});
+
+test('somente administradores recebem todas as notificacoes e demais usuarios respeitam permissoes', function () {
+    $this->seed(PerfilPermissaoSeeder::class);
+
+    $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+
+    // Perfil com permissão apenas para notificações e comodatos (sem clientes/follow-up nem visitas)
+    $perfilComodato = Perfil::create(['nome' => 'Gestor Comodato', 'slug' => 'gestor_comodato']);
+    $perfilComodato->sincronizarPermissoes(['notificacoes.ver', 'comodatos.ver']);
+    $userComodato = User::factory()->create([
+        'role' => 'gestor_comodato',
+        'perfil_id' => $perfilComodato->id,
+    ]);
+
+    // Perfil financeiro estrito (sem permissão de visitas, comodatos ou clientes)
+    $perfilFinanceiro = Perfil::create(['nome' => 'Somente Financeiro', 'slug' => 'somente_financeiro']);
+    $perfilFinanceiro->sincronizarPermissoes(['notificacoes.ver', 'financeiro.ver']);
+    $userFinanceiro = User::factory()->create([
+        'role' => 'somente_financeiro',
+        'perfil_id' => $perfilFinanceiro->id,
+    ]);
+
+    inscricaoFake($admin, 'admin');
+    inscricaoFake($userComodato, 'comodato');
+    inscricaoFake($userFinanceiro, 'fin');
+
+    $notifComodato = NotificacaoAgendamento::withoutEvents(fn () => NotificacaoAgendamento::create([
+        'tipo_evento' => 'comodato', 'evento_id' => 1, 'titulo' => 'Comodato', 'mensagem' => 'Reposição',
+        'user_id' => null, 'data_evento' => now(),
+    ]));
+
+    $notifFollowup = NotificacaoAgendamento::withoutEvents(fn () => NotificacaoAgendamento::create([
+        'tipo_evento' => 'followup', 'evento_id' => 2, 'titulo' => 'Follow-up', 'mensagem' => 'Retornar',
+        'user_id' => null, 'data_evento' => now(),
+    ]));
+
+    $notifVisita = NotificacaoAgendamento::withoutEvents(fn () => NotificacaoAgendamento::create([
+        'tipo_evento' => 'visita', 'evento_id' => 3, 'titulo' => 'Visita', 'mensagem' => 'OS',
+        'user_id' => null, 'data_evento' => now(),
+    ]));
+
+    $service = app(WebPushService::class);
+
+    // Push: admin recebe tudo; gestor_comodato recebe só comodato; financeiro não recebe nenhum dos três
+    expect($service->destinatarios($notifComodato)->pluck('id')->all())
+        ->toEqualCanonicalizing([$admin->id, $userComodato->id]);
+    expect($service->destinatarios($notifFollowup)->pluck('id')->all())
+        ->toBe([$admin->id]);
+    expect($service->destinatarios($notifVisita)->pluck('id')->all())
+        ->toBe([$admin->id]);
+
+    // Escopo da central/polling espelha exatamente a mesma regra
+    expect(NotificacaoAgendamento::paraUsuario($admin)->count())->toBe(3);
+    expect(NotificacaoAgendamento::paraUsuario($userComodato)->pluck('id')->all())->toBe([$notifComodato->id]);
+    expect(NotificacaoAgendamento::paraUsuario($userFinanceiro)->count())->toBe(0);
 });

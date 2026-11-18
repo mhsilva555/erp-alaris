@@ -9,6 +9,7 @@ use App\Models\ContratoItem;
 use App\Models\Equipamento;
 use App\Models\EquipamentoComodato;
 use App\Models\MeioPagamento;
+use App\Models\MovimentacaoFinanceira;
 use App\Models\Produto;
 use App\Models\UnidadeEmpresa;
 use App\Models\Visita;
@@ -561,7 +562,13 @@ class ContratoController extends Controller
         $temVisitasExecutadas = $contrato->visitas()->whereIn('status', [Visita::STATUS_CONCLUIDA, Visita::STATUS_EM_ANDAMENTO])->exists();
         if ($temVisitasExecutadas) {
             return redirect()->route('contratos.show', $contrato)
-                ->with('erro', 'Não é possível mover para a lixeira um contrato que já possui ordens de serviço executadas ou em andamento. Utilize a opção de Cancelamento ou Encerramento para preservar o histórico contábil.');
+                ->with('erro', "Este contrato ({$contrato->numero}) não pode ser excluído/movido para a lixeira porque existem ordens de serviço executadas ou em andamento vinculadas a ele. Utilize a opção de Cancelamento ou Encerramento para preservar o histórico.");
+        }
+
+        // Se possui movimentações financeiras já liquidadas/pagas, não permite mover para a lixeira
+        if ($contrato->movimentacoes()->where('status', MovimentacaoFinanceira::STATUS_PAGO)->exists()) {
+            return redirect()->route('contratos.show', $contrato)
+                ->with('erro', "Este contrato ({$contrato->numero}) não pode ser excluído/movido para a lixeira porque possui faturamento(s) já liquidado(s) no Financeiro. Utilize o Cancelamento ou Encerramento.");
         }
 
         DB::transaction(function () use ($contrato) {

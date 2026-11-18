@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Cliente;
 use App\Support\MascaraHelper;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
 class ClienteController extends Controller
@@ -186,7 +187,23 @@ class ClienteController extends Controller
 
     public function destroy(Cliente $cliente)
     {
-        $cliente->delete();
+        if ($cliente->contratos()->withTrashed()->exists()) {
+            return back()->with('erro', "O cliente '{$cliente->nome}' não pode ser excluído porque possui contrato(s) ou proposta(s) comercial(is) vinculada(s).");
+        }
+
+        if ($cliente->visitas()->exists()) {
+            return back()->with('erro', "O cliente '{$cliente->nome}' não pode ser excluído porque possui ordem(ns) de serviço ou visita(s) vinculada(s).");
+        }
+
+        if ($cliente->comodatos()->exists()) {
+            return back()->with('erro', "O cliente '{$cliente->nome}' não pode ser excluído porque possui equipamento(s) em comodato instalado(s).");
+        }
+
+        try {
+            $cliente->delete();
+        } catch (QueryException $e) {
+            return back()->with('erro', "O cliente '{$cliente->nome}' não pode ser excluído porque possui registros vinculados.");
+        }
 
         return redirect()->route('clientes.index')
             ->with('sucesso', 'Cliente removido com sucesso.');

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Tecnico;
 use App\Support\MascaraHelper;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
 class TecnicoController extends Controller
@@ -91,7 +92,19 @@ class TecnicoController extends Controller
 
     public function destroy(Tecnico $tecnico)
     {
-        $tecnico->delete();
+        if ($tecnico->visitas()->exists()) {
+            return back()->with('erro', "O técnico '{$tecnico->nome}' não pode ser excluído porque possui ordem(ns) de serviço ou visita(s) vinculada(s).");
+        }
+
+        if ($tecnico->user()->exists()) {
+            return back()->with('erro', "O técnico '{$tecnico->nome}' não pode ser excluído porque possui um usuário de acesso vinculado.");
+        }
+
+        try {
+            $tecnico->delete();
+        } catch (QueryException $e) {
+            return back()->with('erro', "O técnico '{$tecnico->nome}' não pode ser excluído porque possui registros vinculados.");
+        }
 
         return redirect()->route('tecnicos.index')
             ->with('sucesso', 'Técnico removido com sucesso.');

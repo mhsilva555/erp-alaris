@@ -8,6 +8,7 @@ use App\Models\MovimentacaoFinanceira;
 use App\Models\Visita;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -87,8 +88,16 @@ class FinanceiroController extends Controller
             ->where('valor_total', '>', 0)
             ->whereDate('data_inicio', '<=', $fimMes)
             ->where(function ($q) use ($inicioMes) {
-                $q->whereNull('data_fim')
-                    ->orWhereDate('data_fim', '>=', $inicioMes);
+                $q->where(function ($sub) use ($inicioMes) {
+                    $sub->where('periodicidade', '!=', Contrato::PERIODICIDADE_UNICO)
+                        ->where(function ($vig) use ($inicioMes) {
+                            $vig->whereNull('data_fim')
+                                ->orWhereDate('data_fim', '>=', $inicioMes);
+                        });
+                })->orWhere(function ($sub) use ($inicioMes) {
+                    $sub->where('periodicidade', Contrato::PERIODICIDADE_UNICO)
+                        ->whereDate('data_inicio', '>=', $inicioMes);
+                });
             })
             ->get();
 
@@ -193,7 +202,21 @@ class FinanceiroController extends Controller
 
     public function destroy(MovimentacaoFinanceira $movimentacao)
     {
-        $movimentacao->delete();
+        $movimentacao->loadMissing(['contrato', 'visita']);
+
+        if ($movimentacao->contrato_id !== null && $movimentacao->contrato?->estaAtivo()) {
+            return back()->with('erro', "Este faturamento não pode ser excluído diretamente porque está vinculado ao contrato ativo {$movimentacao->contrato->numero}. Cancele, suspenda ou edite o contrato para ajustar a cobrança.");
+        }
+
+        if ($movimentacao->visita_id !== null && $movimentacao->visita && $movimentacao->visita->status === Visita::STATUS_CONCLUIDA) {
+            return back()->with('erro', "Este lançamento não pode ser excluído diretamente porque está vinculado à Ordem de Serviço #{$movimentacao->visita_id} (Concluída). Cancele ou edite a O.S. para ajustar o financeiro.");
+        }
+
+        try {
+            $movimentacao->delete();
+        } catch (QueryException $e) {
+            return back()->with('erro', 'Este lançamento financeiro não pode ser excluído porque possui registros vinculados a ele.');
+        }
 
         return back()->with('sucesso', 'Movimentação removida com sucesso.');
     }
@@ -220,7 +243,10 @@ class FinanceiroController extends Controller
             abort(403, 'Acesso não autorizado para excluir movimentações financeiras.');
         }
 
-        DB::transaction(function () use ($acao, $ids) {
+        $excluidos = 0;
+        $bloqueados = 0;
+
+        DB::transaction(function () use ($acao, $ids, &$excluidos, &$bloqueados) {
             if ($acao === 'liquidar') {
                 $movs = MovimentacaoFinanceira::whereIn('id', $ids)->get();
                 foreach ($movs as $mov) {
@@ -235,14 +261,37 @@ class FinanceiroController extends Controller
                     'status' => 'pendente',
                 ]);
             } elseif ($acao === 'excluir') {
-                MovimentacaoFinanceira::whereIn('id', $ids)->delete();
+                $movs = MovimentacaoFinanceira::with(['contrato', 'visita'])->whereIn('id', $ids)->get();
+                foreach ($movs as $mov) {
+                    $vinculoContratoAtivo = $mov->contrato_id !== null && $mov->contrato?->estaAtivo();
+                    $vinculoOsConcluida = $mov->visita_id !== null && $mov->visita && $mov->visita->status === Visita::STATUS_CONCLUIDA;
+
+                    if ($vinculoContratoAtivo || $vinculoOsConcluida) {
+                        $bloqueados++;
+
+                        continue;
+                    }
+
+                    $mov->delete();
+                    $excluidos++;
+                }
             }
         });
+
+        if ($acao === 'excluir') {
+            if ($excluidos === 0 && $bloqueados > 0) {
+                return back()->with('erro', 'Nenhum lançamento pôde ser excluído porque estão vinculados a contratos ativos ou ordens de serviço concluídas.');
+            }
+            if ($bloqueados > 0) {
+                return back()->with('alerta', "{$excluidos} lançamento(s) excluído(s). {$bloqueados} lançamento(s) mantido(s) por vínculo com contrato ativo ou O.S. concluída.");
+            }
+
+            return back()->with('sucesso', "{$excluidos} lançamento(s) excluído(s) com sucesso.");
+        }
 
         $mensagens = [
             'liquidar' => count($ids).' lançamento(s) liquidado(s) com sucesso.',
             'reabrir' => count($ids).' lançamento(s) reaberto(s) com sucesso.',
-            'excluir' => count($ids).' lançamento(s) excluído(s) com sucesso.',
         ];
 
         return back()->with('sucesso', $mensagens[$acao] ?? 'Ação em massa executada com sucesso.');
@@ -334,18 +383,28 @@ class FinanceiroController extends Controller
         $custoOperacionalVisitas = $custoProdutos + $custoMaoDeObra + $custoDeslocamento + $gastosAdicionais;
         $lucroBrutoVisitas = $faturamentoVisitas - ($custoOperacionalVisitas + $valorImpostos);
 
-        // Contratos ativos no período sob modelo de mensalidade fixa / preço fechado
+        // Contratos ativos no período sob modelo de mensalidade fixa / preço fechado ou atendimento único pontual
         $contratosAtivos = Contrato::with('cliente')
             ->where('status', Contrato::STATUS_ATIVO)
-            ->whereIn('modelo_cobranca', [
-                Contrato::MODELO_MENSAL,
-                Contrato::MODELO_FIXO_ANUAL,
-                Contrato::MODELO_FECHAMENTO_PERIODO,
-            ])
+            ->where(function ($q) {
+                $q->whereIn('modelo_cobranca', [
+                    Contrato::MODELO_MENSAL,
+                    Contrato::MODELO_FIXO_ANUAL,
+                    Contrato::MODELO_FECHAMENTO_PERIODO,
+                ])->orWhere('periodicidade', Contrato::PERIODICIDADE_UNICO);
+            })
             ->whereDate('data_inicio', '<=', $fim->toDateString())
             ->where(function ($q) use ($inicio) {
-                $q->whereNull('data_fim')
-                    ->orWhereDate('data_fim', '>=', $inicio->toDateString());
+                $q->where(function ($sub) use ($inicio) {
+                    $sub->where('periodicidade', '!=', Contrato::PERIODICIDADE_UNICO)
+                        ->where(function ($vig) use ($inicio) {
+                            $vig->whereNull('data_fim')
+                                ->orWhereDate('data_fim', '>=', $inicio->toDateString());
+                        });
+                })->orWhere(function ($sub) use ($inicio) {
+                    $sub->where('periodicidade', Contrato::PERIODICIDADE_UNICO)
+                        ->whereDate('data_inicio', '>=', $inicio->toDateString());
+                });
             })
             ->get();
 

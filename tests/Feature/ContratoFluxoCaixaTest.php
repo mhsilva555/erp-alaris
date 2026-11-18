@@ -232,3 +232,100 @@ test('suspensao ou cancelamento do contrato remove receitas pendentes futuras se
     // A movimentação pendente foi removida
     expect(MovimentacaoFinanceira::find($movPendente->id))->toBeNull();
 });
+
+test('contrato de atendimento unico pontual lanca receita sem titulo de mensalidade e nao duplica na finalizacao da os', function () {
+    $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+
+    $cliente = Cliente::create([
+        'nome' => 'Empresa do Flávio',
+        'cidade' => 'Imperatriz',
+        'estado' => 'MA',
+    ]);
+
+    $tecnico = Tecnico::create([
+        'nome' => 'Técnico Teste',
+        'valor_diaria_padrao' => 50.00,
+        'ativo' => true,
+    ]);
+
+    // Cria contrato pontual (atendimento_unico) com modelo por_visita
+    $responseContrato = $this->actingAs($admin)->post(route('contratos.store'), [
+        'numero' => 'CTR-2026-0002',
+        'cliente_id' => $cliente->id,
+        'titulo' => 'Dedetização Pontual',
+        'status' => Contrato::STATUS_ATIVO,
+        'tipo_vigencia' => Contrato::VIGENCIA_INDETERMINADO,
+        'data_inicio' => now()->startOfMonth()->toDateString(),
+        'periodicidade' => Contrato::PERIODICIDADE_UNICO,
+        'tipo_servico' => 'controle_pragas',
+        'modelo_cobranca' => Contrato::MODELO_POR_VISITA,
+        'itens' => [
+            [
+                'descricao' => 'Aplicação Pontual',
+                'tipo_servico' => 'controle_pragas',
+                'quantidade' => 1,
+                'valor_unitario' => '200,00',
+            ],
+        ],
+    ]);
+
+    $responseContrato->assertSessionHasNoErrors();
+    $contrato = Contrato::where('numero', 'CTR-2026-0002')->firstOrFail();
+
+    // Deve ter criado apenas 1 receita no contrato com título pontual (sem "Mensalidade")
+    $movContrato = MovimentacaoFinanceira::where('contrato_id', $contrato->id)
+        ->where('tipo', MovimentacaoFinanceira::TIPO_RECEITA)
+        ->get();
+
+    expect($movContrato)->toHaveCount(1);
+    expect((float) $movContrato->first()->valor)->toBe(200.00);
+    expect($movContrato->first()->categoria)->toBe('servico_pontual_contrato');
+    expect($movContrato->first()->descricao)->toBe('Serviço Pontual Contrato #CTR-2026-0002 — Empresa do Flávio');
+    expect($movContrato->first()->descricao)->not->toContain('Mensalidade');
+
+    // Não deve gerar nova receita no mês seguinte
+    Contrato::sincronizarContratosAtivosNoMes(now()->addMonth()->format('Y-m'));
+    expect(MovimentacaoFinanceira::where('contrato_id', $contrato->id)->count())->toBe(1);
+
+    // Cria a OS vinculada ao contrato pontual e finaliza
+    $responseOs = $this->actingAs($admin)->post(route('visitas.store'), [
+        'cliente_id' => $cliente->id,
+        'contrato_id' => $contrato->id,
+        'tecnico_id' => $tecnico->id,
+        'data_hora' => now()->format('Y-m-d 10:00:00'),
+        'status' => Visita::STATUS_AGENDADA,
+        'tipo_visita' => Visita::TIPO_VISITA_EXECUCAO,
+        'tipo_servico' => 'controle_pragas',
+        'valor_cobrado' => '200,00',
+        'custo_mao_de_obra' => '50,00',
+    ]);
+
+    $responseOs->assertSessionHasNoErrors();
+    $visita = Visita::where('contrato_id', $contrato->id)->firstOrFail();
+    expect((float) $visita->valor_cobrado)->toBe(0.0);
+
+    // Finaliza a OS via endpoint dedicado
+    $responseFinalizar = $this->actingAs($admin)->post(route('visitas.finalizar', $visita), [
+        'observacoes' => 'Serviço pontual concluído.',
+    ]);
+    $responseFinalizar->assertSessionHasNoErrors();
+
+    // A OS NÃO deve gerar movimentação de receita duplicada
+    expect(MovimentacaoFinanceira::where('visita_id', $visita->id)->where('tipo', MovimentacaoFinanceira::TIPO_RECEITA)->count())->toBe(0);
+    // Apenas a despesa de diária do técnico deve existir para a OS
+    $despesaOs = MovimentacaoFinanceira::where('visita_id', $visita->id)->where('tipo', MovimentacaoFinanceira::TIPO_DESPESA)->first();
+    expect($despesaOs)->not->toBeNull();
+    expect((float) $despesaOs->valor)->toBe(50.00);
+
+    // No Fluxo de Caixa, aparece "Serviço Pontual Contrato" e NÃO "Mensalidade", com saldo previsto +150,00 (200 - 50)
+    $fluxo = $this->actingAs($admin)->get(route('financeiro.fluxo', ['mes' => now()->format('Y-m')]));
+    $fluxo->assertOk();
+    $fluxo->assertSee('Serviço Pontual Contrato #CTR-2026-0002');
+    $fluxo->assertDontSee('Mensalidade Contrato #CTR-2026-0002');
+    $fluxo->assertSee('150,00');
+
+    // No DRE, o faturamento total é 200,00 (sem duplicidade) e o badge da OS não exibe "Mensalidade"
+    $dre = $this->actingAs($admin)->get(route('financeiro.relatorio', ['mes' => now()->format('Y-m')]));
+    $dre->assertOk();
+    $dre->assertSee('Pontual CTR');
+});

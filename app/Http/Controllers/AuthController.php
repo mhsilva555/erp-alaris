@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PushSubscription;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -52,6 +53,15 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        if ($user = $request->user()) {
+            $endpoint = $request->input('push_endpoint');
+            if (is_string($endpoint) && $endpoint !== '') {
+                PushSubscription::where('user_id', $user->id)
+                    ->where('endpoint', $endpoint)
+                    ->delete();
+            }
+        }
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

@@ -410,6 +410,20 @@ class Contrato extends Model
         return round($this->valorLiquidoDisponivel() - $this->custoTotalVisitasNoPeriodo($inicio, $fim), 2);
     }
 
+    public function ehAtendimentoUnico(): bool
+    {
+        return $this->periodicidade === self::PERIODICIDADE_UNICO;
+    }
+
+    public function cobrancaCentralizada(): bool
+    {
+        return $this->ehAtendimentoUnico() || in_array($this->modelo_cobranca, [
+            self::MODELO_MENSAL,
+            self::MODELO_FIXO_ANUAL,
+            self::MODELO_FECHAMENTO_PERIODO,
+        ], true);
+    }
+
     public function sincronizarMovimentacaoMes(string|Carbon $mes): ?MovimentacaoFinanceira
     {
         if (! $this->estaAtivo() || (float) $this->valor_total <= 0) {
@@ -428,6 +442,11 @@ class Contrato extends Model
             return null;
         }
 
+        // Contratos de Atendimento Único / Pontual são faturados apenas no mês de início (não recorrem mensalmente)
+        if ($this->ehAtendimentoUnico() && $this->data_inicio && ! $this->data_inicio->copy()->startOfMonth()->equalTo($inicioMes)) {
+            return null;
+        }
+
         // Se tem data de término e o mês é posterior ao término, não gera
         if ($this->tipo_vigencia === self::VIGENCIA_DETERMINADO && $this->data_fim && $this->data_fim->lt($inicioMes)) {
             return null;
@@ -439,7 +458,10 @@ class Contrato extends Model
         $dataCompetencia = $inicioMes->toDateString();
 
         $this->loadMissing('cliente');
-        $descricao = "Mensalidade Contrato #{$this->numero}".($this->cliente ? " — {$this->cliente->nome}" : '');
+        $ehPontual = $this->ehAtendimentoUnico();
+        $categoria = $ehPontual ? 'servico_pontual_contrato' : 'mensalidade_contrato';
+        $prefixoDescricao = $ehPontual ? 'Serviço Pontual Contrato' : 'Mensalidade Contrato';
+        $descricao = "{$prefixoDescricao} #{$this->numero}".($this->cliente ? " — {$this->cliente->nome}" : '');
 
         $mov = MovimentacaoFinanceira::where('contrato_id', $this->id)
             ->whereBetween('data_competencia', [$inicioMes->toDateString(), $fimMes->toDateString()])
@@ -448,6 +470,7 @@ class Contrato extends Model
         if ($mov) {
             if ($mov->status === MovimentacaoFinanceira::STATUS_PENDENTE) {
                 $mov->valor = (float) $this->valor_total;
+                $mov->categoria = $categoria;
                 $mov->descricao = $descricao;
                 $mov->data_vencimento = $dataVencimento;
                 $mov->cliente_id = $this->cliente_id;
@@ -461,7 +484,7 @@ class Contrato extends Model
             'contrato_id' => $this->id,
             'cliente_id' => $this->cliente_id,
             'tipo' => MovimentacaoFinanceira::TIPO_RECEITA,
-            'categoria' => 'mensalidade_contrato',
+            'categoria' => $categoria,
             'descricao' => $descricao,
             'valor' => (float) $this->valor_total,
             'data_competencia' => $dataCompetencia,

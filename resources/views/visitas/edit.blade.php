@@ -248,11 +248,7 @@
                 {{-- Formação de Preço e Custos (Aba Financeira) --}}
                 @permissao('visitas.acessar_dados')
                     @php
-                        $ehContratoMensalEdit = $visita->contrato && in_array($visita->contrato->modelo_cobranca, [
-                            \App\Models\Contrato::MODELO_MENSAL,
-                            \App\Models\Contrato::MODELO_FIXO_ANUAL,
-                            \App\Models\Contrato::MODELO_FECHAMENTO_PERIODO,
-                        ]);
+                        $ehContratoMensalEdit = $visita->contrato && $visita->contrato->cobrancaCentralizada();
                     @endphp
                     <div class="pt-4 border-t" style="border-color: var(--color-surface-800);">
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
@@ -263,7 +259,7 @@
                                     <svg class="w-3.5 h-3.5 text-sky-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    <span>Atendimento Incluso no Contrato <strong>{{ $visita->contrato->numero }}</strong> (Faturamento via Mensalidade)</span>
+                                    <span>Atendimento Incluso no Contrato <strong>{{ $visita->contrato->numero }}</strong> ({{ $visita->contrato->ehAtendimentoUnico() ? 'Faturamento via Contrato Pontual' : 'Faturamento via Mensalidade' }})</span>
                                 </div>
                             @endif
                         </div>

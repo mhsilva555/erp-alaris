@@ -16,14 +16,10 @@
                         $contratoVinculado = $contratos->firstWhere('id', $ctrId);
                     }
 
-                    $ehMensalidadeFixa = $contratoVinculado && in_array($contratoVinculado->modelo_cobranca, [
-                        \App\Models\Contrato::MODELO_MENSAL,
-                        \App\Models\Contrato::MODELO_FIXO_ANUAL,
-                        \App\Models\Contrato::MODELO_FECHAMENTO_PERIODO,
-                    ]);
+                    $ehMensalidadeFixa = $contratoVinculado && $contratoVinculado->cobrancaCentralizada();
 
                     $valorCobradoInicial = '0.00';
-                    if ($contratoVinculado && $contratoVinculado->modelo_cobranca === \App\Models\Contrato::MODELO_POR_VISITA) {
+                    if ($contratoVinculado && ! $contratoVinculado->cobrancaCentralizada() && $contratoVinculado->modelo_cobranca === \App\Models\Contrato::MODELO_POR_VISITA) {
                         $valorCobradoInicial = number_format((float) $contratoVinculado->valor_total, 2, '.', '');
                     }
 
@@ -229,6 +225,7 @@
                                         <option value="{{ $ctr->id }}"
                                             data-valor="{{ number_format((float) $ctr->valor_total, 2, '.', '') }}"
                                             data-modelo="{{ $ctr->modelo_cobranca }}"
+                                            data-periodicidade="{{ $ctr->periodicidade }}"
                                             data-modelo-label="{{ $ctr->modeloCobrancaLabel() }}"
                                             data-numero="{{ $ctr->numero }}"
                                             data-cliente-id="{{ $ctr->cliente_id }}"
@@ -642,6 +639,7 @@
 
             const valor = opt.getAttribute('data-valor');
             const modelo = opt.getAttribute('data-modelo');
+            const periodicidade = opt.getAttribute('data-periodicidade');
             const modeloLabel = opt.getAttribute('data-modelo-label') || 'Mensalidade Fixa';
             const numero = opt.getAttribute('data-numero') || '';
             const clienteId = opt.getAttribute('data-cliente-id');
@@ -660,7 +658,7 @@
             const deslocamentoContrato = opt.getAttribute('data-deslocamento');
 
             if (opt.value && modelo) {
-                const ehMensal = ['mensal', 'fixo_anual', 'fechamento_periodo'].includes(modelo);
+                const ehMensal = periodicidade === 'atendimento_unico' || ['mensal', 'fixo_anual', 'fechamento_periodo'].includes(modelo);
                 if (ehMensal) {
                     if (bannerIncluso) bannerIncluso.classList.remove('hidden');
                     if (badgeIncluso) badgeIncluso.classList.remove('hidden');

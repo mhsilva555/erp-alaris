@@ -243,8 +243,9 @@
                     <p class="text-[10px] truncate" style="color: var(--color-surface-400);">
                         {{ auth()->user()->email ?? 'admin@alaris.com' }}</p>
                 </div>
-                <form method="POST" action="{{ route('logout') }}" class="shrink-0">
+                <form method="POST" action="{{ route('logout') }}" class="shrink-0 js-logout-form">
                     @csrf
+                    <input type="hidden" name="push_endpoint" value="" class="js-logout-push-endpoint">
                     <button type="submit"
                         class="p-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition cursor-pointer"
                         title="Sair do sistema">
@@ -403,8 +404,9 @@
                         <span
                             class="text-xs font-medium text-white hidden sm:inline">{{ auth()->user()->name ?? 'Admin' }}</span>
                     </a>
-                    <form method="POST" action="{{ route('logout') }}" class="hidden sm:inline">
+                    <form method="POST" action="{{ route('logout') }}" class="hidden sm:inline js-logout-form">
                         @csrf
+                        <input type="hidden" name="push_endpoint" value="" class="js-logout-push-endpoint">
                         <button type="submit"
                             class="p-2 rounded-lg transition text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
                             title="Sair do sistema">
@@ -425,6 +427,36 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                 </svg>
                 <span>{{ session('sucesso') }}</span>
+            </div>
+        @endif
+
+        @if (session('erro'))
+            <div class="mx-4 sm:mx-6 lg:mx-6 xl:mx-8 mt-4 alert alert-danger animate-fadeIn">
+                <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{{ session('erro') }}</span>
+            </div>
+        @endif
+
+        @if (session('alerta'))
+            <div class="mx-4 sm:mx-6 lg:mx-6 xl:mx-8 mt-4 alert alert-warning animate-fadeIn">
+                <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>{{ session('alerta') }}</span>
+            </div>
+        @endif
+
+        @if (session('info'))
+            <div class="mx-4 sm:mx-6 lg:mx-6 xl:mx-8 mt-4 alert alert-info animate-fadeIn">
+                <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{{ session('info') }}</span>
             </div>
         @endif
 
