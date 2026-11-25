@@ -24,6 +24,7 @@
                 <form method="GET" action="{{ route('agendamentos.index') }}" class="flex flex-wrap items-center gap-2.5">
                     <input type="hidden" name="modo" id="form-modo-input" value="{{ $modo }}">
                     <input type="hidden" name="tipo" value="{{ $tipoFiltro }}">
+                    <input type="hidden" name="situacao" value="{{ $situacao }}">
                     @if (request('tecnico_id'))
                         <input type="hidden" name="tecnico_id" value="{{ request('tecnico_id') }}">
                     @endif
@@ -50,20 +51,38 @@
                         </button>
                     </div>
 
+                    {{-- Filtro de Situação: Pendentes / Concluídas / Todas --}}
+                    <div class="tab-pills" aria-label="Filtrar por situação da O.S.">
+                        <a href="{{ route('agendamentos.index', array_filter(['mes' => $mes, 'tipo' => $tipoFiltro, 'situacao' => 'pendentes', 'modo' => $modo, 'tecnico_id' => request('tecnico_id')])) }}"
+                            class="tab-pill {{ $situacao === 'pendentes' ? 'active' : '' }} inline-flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full {{ $situacao === 'pendentes' ? 'bg-white' : 'bg-amber-400' }}"></span>
+                            Pendentes ({{ $totaisSituacao['pendentes'] }})
+                        </a>
+                        <a href="{{ route('agendamentos.index', array_filter(['mes' => $mes, 'tipo' => $tipoFiltro, 'situacao' => 'concluidas', 'modo' => $modo, 'tecnico_id' => request('tecnico_id')])) }}"
+                            class="tab-pill {{ $situacao === 'concluidas' ? 'active' : '' }} inline-flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full {{ $situacao === 'concluidas' ? 'bg-white' : 'bg-emerald-400' }}"></span>
+                            Concluídas ({{ $totaisSituacao['concluidas'] }})
+                        </a>
+                        <a href="{{ route('agendamentos.index', array_filter(['mes' => $mes, 'tipo' => $tipoFiltro, 'situacao' => 'todas', 'modo' => $modo, 'tecnico_id' => request('tecnico_id')])) }}"
+                            class="tab-pill {{ $situacao === 'todas' ? 'active' : '' }}">
+                            Todas ({{ $totaisSituacao['todas'] }})
+                        </a>
+                    </div>
+
                     <div class="tab-pills">
-                        <a href="{{ route('agendamentos.index', ['mes' => $mes, 'tipo' => 'todos', 'modo' => $modo]) }}"
+                        <a href="{{ route('agendamentos.index', array_filter(['mes' => $mes, 'tipo' => 'todos', 'situacao' => $situacao, 'modo' => $modo, 'tecnico_id' => request('tecnico_id')])) }}"
                             class="tab-pill {{ $tipoFiltro === 'todos' ? 'active' : '' }}">
                             Todos ({{ $totais['total_geral'] }})
                         </a>
-                        <a href="{{ route('agendamentos.index', ['mes' => $mes, 'tipo' => 'visitas', 'modo' => $modo]) }}"
+                        <a href="{{ route('agendamentos.index', array_filter(['mes' => $mes, 'tipo' => 'visitas', 'situacao' => $situacao, 'modo' => $modo, 'tecnico_id' => request('tecnico_id')])) }}"
                             class="tab-pill {{ $tipoFiltro === 'visitas' ? 'active' : '' }}">
                             Visitas ({{ $totais['total_visitas'] }})
                         </a>
-                        <a href="{{ route('agendamentos.index', ['mes' => $mes, 'tipo' => 'comodatos', 'modo' => $modo]) }}"
+                        <a href="{{ route('agendamentos.index', array_filter(['mes' => $mes, 'tipo' => 'comodatos', 'situacao' => $situacao, 'modo' => $modo, 'tecnico_id' => request('tecnico_id')])) }}"
                             class="tab-pill {{ $tipoFiltro === 'comodatos' ? 'active' : '' }}">
                             Comodatos ({{ $totais['total_comodatos'] }})
                         </a>
-                        <a href="{{ route('agendamentos.index', ['mes' => $mes, 'tipo' => 'followups', 'modo' => $modo]) }}"
+                        <a href="{{ route('agendamentos.index', array_filter(['mes' => $mes, 'tipo' => 'followups', 'situacao' => $situacao, 'modo' => $modo, 'tecnico_id' => request('tecnico_id')])) }}"
                             class="tab-pill {{ $tipoFiltro === 'followups' ? 'active' : '' }}">
                             Retornos ({{ $totais['total_followups'] }})
                         </a>
@@ -122,7 +141,7 @@
                         <div>
                             <span class="stat-label">Total Geral</span>
                             <div class="stat-value text-white">{{ $totais['total_geral'] }}</div>
-                            <div class="stat-helper">No mês selecionado</div>
+                            <div class="stat-helper">{{ $totais['total_pendentes'] }} pendentes • {{ $totais['total_concluidas'] }} concluídas</div>
                         </div>
                         <div class="stat-icon" style="background: rgba(16,185,129,.12); color: var(--color-success);">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -138,7 +157,7 @@
                         <div>
                             <span class="stat-label text-blue-400">Visitas & OS</span>
                             <div class="stat-value text-blue-400">{{ $totais['total_visitas'] }}</div>
-                            <div class="stat-helper">Agendadas ou em rota</div>
+                            <div class="stat-helper">{{ $totais['total_visitas_pendentes'] }} pendentes • {{ $totais['total_visitas_concluidas'] }} concluídas</div>
                         </div>
                         <div class="stat-icon" style="background: rgba(59,130,246,.12); color: var(--color-info);">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,272 +203,147 @@
         </div>
 
         {{-- Visualização em Lista --}}
-        <div id="view-lista" class="{{ $modo === 'calendario' ? 'hidden' : '' }}">
-            @if ($agendaOrdenada->isEmpty())
-                <div class="card empty-state p-12">
-                    <div class="empty-state-icon">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                    </div>
-                    <h3 class="empty-state-title">Nenhum compromisso ou alerta encontrado</h3>
-                    <p class="empty-state-desc">Selecione outro mês ou altere o filtro de categoria acima.</p>
-                </div>
-            @else
-                @php
-                    $gruposPorData = $agendaOrdenada->groupBy(function ($item) {
-                        return $item['data_hora']->format('Y-m-d');
-                    });
-                @endphp
-
-                <div class="space-y-6">
-                    @foreach ($gruposPorData as $dataStr => $itensDoDia)
-                        @php
-                            $dataObj = \Carbon\Carbon::parse($dataStr);
-                            $ehHoje = $dataObj->isToday();
-                            $ehPassado = $dataObj->isPast() && !$ehHoje;
-                        @endphp
-
-                        <div class="card overflow-hidden">
-                            {{-- Date Header --}}
-                            <div class="px-6 py-3.5 flex items-center justify-between"
-                                style="background: {{ $ehHoje ? 'rgba(16,185,129,0.1)' : 'var(--color-surface-900)' }}; border-bottom: 1px solid var(--color-surface-800);">
-                                <div class="flex items-center gap-3">
-                                    <span class="text-sm font-bold {{ $ehHoje ? 'text-emerald-400' : 'text-white' }}">
-                                        {{ ucfirst($dataObj->translatedFormat('l, d \d\e F \d\e Y')) }}
-                                    </span>
-                                    @if ($ehHoje)
-                                        <span class="badge badge-success font-bold">
-                                            Hoje
-                                        </span>
-                                    @elseif($ehPassado)
-                                        <span class="badge badge-neutral">
-                                            Passado
-                                        </span>
-                                    @endif
-                                </div>
-                                <span class="text-xs" style="color: var(--color-surface-400);">
-                                    {{ $itensDoDia->count() }} {{ $itensDoDia->count() === 1 ? 'item' : 'itens' }}
-                                </span>
-                            </div>
-
-                            {{-- Items List --}}
-                            <div class="divide-y" style="border-color: var(--color-border);">
-                                @foreach ($itensDoDia as $item)
-                                    <div class="p-4 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                                        style="border-color: var(--color-border);"
-                                        onmouseover="this.style.background='var(--color-surface-subtle)'"
-                                        onmouseout="this.style.background='transparent'">
-                                        <div class="flex items-start gap-3">
-                                            {{-- Type Icon --}}
-                                            <div
-                                                class="mt-0.5 w-9 h-9 rounded-lg flex items-center justify-center shrink-0
-                                        @if ($item['tipo_item'] === 'visita') badge-info
-                                        @elseif($item['tipo_item'] === 'comodato')
-                                            badge-cyan
-                                        @else
-                                            badge-purple @endif
-                                    ">
-                                                @if ($item['tipo_item'] === 'visita')
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                                    </svg>
-                                                @elseif($item['tipo_item'] === 'comodato')
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                                    </svg>
-                                                @else
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                                    </svg>
-                                                @endif
-                                            </div>
-
-                                            <div>
-                                                <div class="flex items-center gap-2 flex-wrap">
-                                                    <span
-                                                        class="text-xs font-bold uppercase tracking-wider
-                                                @if ($item['tipo_item'] === 'visita') {{ ($item['eh_retorno_preventivo'] ?? false) ? 'text-teal-400' : 'text-blue-400' }}
-                                                @elseif($item['tipo_item'] === 'comodato') text-sky-400
-                                                @else text-purple-400 @endif
-                                            ">
-                                                        @if ($item['tipo_item'] === 'visita')
-                                                            @if ($item['eh_retorno_preventivo'] ?? false)
-                                                                Retorno Preventivo (Reforço)
-                                                            @elseif ($item['eh_contrato_projetado'] ?? false)
-                                                                Atendimento Contratual
-                                                            @elseif ($item['eh_recorrente_projetado'] ?? false)
-                                                                Visita Recorrente (Projetada)
-                                                            @else
-                                                                Ordem de Serviço
-                                                            @endif
-                                                        @elseif($item['tipo_item'] === 'comodato')
-                                                            Reposição de Comodato
-                                                        @else
-                                                            Follow-up CRM
-                                                        @endif
-                                                    </span>
-                                                    <span class="text-xs " style="color: var(--color-surface-400);">
-                                                        {{ $item['data_hora']->format('H:i') }}
-                                                    </span>
-                                                    @if (($item['possui_comodato_vinculado'] ?? false) && $item['tipo_item'] === 'visita')
-                                                        <span class="badge badge-cyan text-[10px] py-0.5 px-1.5">
-                                                            + Comodato Incluso
-                                                        </span>
-                                                    @endif
-                                                </div>
-
-                                                <div class="text-sm font-semibold text-white mt-0.5">
-                                                    {{ $item['titulo'] }}
-                                                </div>
-
-                                                <div class="text-xs mt-0.5" style="color: var(--color-surface-400);">
-                                                    {{ $item['subtitulo'] }} • <span
-                                                        style="color: var(--color-surface-300);">{{ $item['detalhes'] }}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="flex items-center gap-2 sm:self-center ml-12 sm:ml-0">
-                                            @if ($item['eh_retorno_preventivo'] ?? false)
-                                                <span class="badge badge-cyan font-medium flex items-center gap-1">
-                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                                    </svg>
-                                                    Retorno Previsto
-                                                </span>
-                                            @elseif ($item['eh_recorrente_projetado'] ?? false)
-                                                <span class="badge badge-purple font-medium flex items-center gap-1">
-                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                                    </svg>
-                                                    {{ $item['status'] }}
-                                                </span>
-                                            @elseif ($item['status'] === 'Atrasado')
-                                                <span class="badge badge-danger">
-                                                    {{ $item['status'] }}
-                                                </span>
-                                            @elseif ($item['status'] === 'Concluída')
-                                                <span class="badge badge-success">
-                                                    {{ $item['status'] }}
-                                                </span>
-                                            @else
-                                                <span class="badge badge-neutral">
-                                                    {{ $item['status'] }}
-                                                </span>
-                                            @endif
-
-                                            @if (($item['eh_recorrente_projetado'] ?? false) && $item['tipo_item'] === 'visita')
-                                                @permissao('visitas.criar')
-                                                    <a href="{{ $item['url'] }}" class="btn btn-primary btn-sm text-xs">
-                                                        Agendar OS
-                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2" d="M9 5l7 7-7 7" />
-                                                        </svg>
-                                                    </a>
-                                                @endpermissao
-                                            @elseif ($item['tipo_item'] === 'comodato')
-                                                @if (!empty($item['url_os']))
-                                                    @permissao('visitas.criar')
-                                                        <a href="{{ $item['url_os'] }}" class="btn btn-primary btn-sm text-xs" title="Criar Ordem de Serviço vinculada a esta reposição">
-                                                            Agendar OS
-                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
-                                                                viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2" d="M9 5l7 7-7 7" />
-                                                            </svg>
-                                                        </a>
-                                                    @endpermissao
-                                                @endif
-                                                <a href="{{ $item['url'] }}" class="btn btn-secondary btn-sm text-xs" title="Ver detalhes do comodato">
-                                                    Abrir
-                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2" d="M9 5l7 7-7 7" />
-                                                    </svg>
-                                                </a>
-                                            @else
-                                                <a href="{{ $item['url'] }}" class="btn btn-secondary btn-sm text-xs">
-                                                    Abrir
-                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2" d="M9 5l7 7-7 7" />
-                                                    </svg>
-                                                </a>
-                                            @endif
-
-                                            @if (auth()->user() &&
-                                                    (auth()->user()->temPermissao('agendamentos.deletar') ||
-                                                        ($item['tipo_item'] === 'visita' &&
-                                                            $item['model']->tecnico_id === auth()->user()->tecnico_id &&
-                                                            auth()->user()->temPermissao('visitas.deletar'))))
-                                                @if ($item['eh_retorno_preventivo'] ?? false)
-                                                    <form
-                                                        id="delete-agenda-{{ $loop->parent->index }}-{{ $loop->index }}"
-                                                        action="{{ route('agendamentos.destroy', ['tipo' => 'retorno_preventivo', 'id' => $item['model']->id]) }}"
-                                                        method="POST" class="inline">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                    </form>
-                                                    <button type="button"
-                                                        onclick="confirmDelete('delete-agenda-{{ $loop->parent->index }}-{{ $loop->index }}')"
-                                                        class="btn btn-danger-soft btn-sm p-1.5"
-                                                        title="Remover retorno preventivo da agenda">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                        </svg>
-                                                    </button>
-                                                @elseif (!($item['eh_recorrente_projetado'] ?? false) || $item['tipo_item'] === 'comodato')
-                                                    <form
-                                                        id="delete-agenda-{{ $loop->parent->index }}-{{ $loop->index }}"
-                                                        action="{{ route('agendamentos.destroy', ['tipo' => $item['tipo_item'], 'id' => $item['model']->id]) }}"
-                                                        method="POST" class="inline">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                    </form>
-                                                    <button type="button"
-                                                        onclick="confirmDelete('delete-agenda-{{ $loop->parent->index }}-{{ $loop->index }}')"
-                                                        class="btn btn-danger-soft btn-sm p-1.5"
-                                                        title="Remover evento da agenda">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                        </svg>
-                                                    </button>
-                                                @endif
-                                            @endif
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
+        <div id="view-lista" class="{{ $modo === 'calendario' ? 'hidden' : '' }} space-y-6">
+            @if ($situacao === 'pendentes')
+                @if ($agendaPendentes->isEmpty())
+                    <div class="card empty-state p-12">
+                        <div class="empty-state-icon">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
                         </div>
-                    @endforeach
-                </div>
+                        @if ($agendaConcluidas->isNotEmpty())
+                            <h3 class="empty-state-title">Nenhuma pendência neste filtro</h3>
+                            <p class="empty-state-desc">
+                                Todas as {{ $agendaConcluidas->count() }} O.S. deste período já foram concluídas.
+                            </p>
+                            <a href="{{ route('agendamentos.index', array_filter(['mes' => $mes, 'tipo' => $tipoFiltro, 'situacao' => 'concluidas', 'modo' => $modo, 'tecnico_id' => request('tecnico_id')])) }}"
+                                class="btn btn-secondary btn-sm mt-3">
+                                Ver O.S. Concluídas ({{ $agendaConcluidas->count() }})
+                            </a>
+                        @else
+                            <h3 class="empty-state-title">Nenhum compromisso ou alerta encontrado</h3>
+                            <p class="empty-state-desc">Selecione outro mês ou altere o filtro de categoria acima.</p>
+                        @endif
+                    </div>
+                @else
+                    @include('agendamentos._grupos-data', [
+                        'itens' => $agendaPendentes,
+                        'prefixoGrupo' => 'pendentes',
+                        'destaqueConcluida' => false,
+                    ])
+                @endif
+
+                {{-- Seção recolhida de O.S. já concluídas para evitar acúmulo visual --}}
+                @if ($agendaConcluidas->isNotEmpty())
+                    <details class="card overflow-hidden group">
+                        <summary
+                            class="px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 cursor-pointer select-none list-none"
+                            style="background: var(--color-surface-900);">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 badge-success">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="text-sm font-bold text-white flex items-center gap-2 flex-wrap">
+                                        <span>O.S. Já Concluídas no Mês</span>
+                                        <span class="badge badge-success">{{ $agendaConcluidas->count() }}</span>
+                                    </div>
+                                    <p class="text-xs mt-0.5" style="color: var(--color-surface-400);">
+                                        Ocultadas da lista principal para facilitar a visualização das pendências. Clique para expandir.
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0 ml-11 sm:ml-0">
+                                <span class="text-xs font-semibold text-emerald-400">Expandir / Recolher</span>
+                                <svg class="w-4 h-4 transition-transform duration-200 group-open:rotate-180"
+                                    style="color: var(--color-surface-400);" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </summary>
+                        <div class="p-4 sm:p-6 border-t"
+                            style="border-color: var(--color-surface-800); background: var(--color-surface-950);">
+                            @include('agendamentos._grupos-data', [
+                                'itens' => $agendaConcluidas,
+                                'prefixoGrupo' => 'concluidas-colapsadas',
+                                'destaqueConcluida' => true,
+                            ])
+                        </div>
+                    </details>
+                @endif
+            @elseif ($situacao === 'concluidas')
+                @if ($agendaConcluidas->isEmpty())
+                    <div class="card empty-state p-12">
+                        <div class="empty-state-icon">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <h3 class="empty-state-title">Nenhuma O.S. concluída encontrada</h3>
+                        <p class="empty-state-desc">Não há ordens de serviço concluídas para o mês e categoria selecionados.</p>
+                    </div>
+                @else
+                    @include('agendamentos._grupos-data', [
+                        'itens' => $agendaConcluidas,
+                        'prefixoGrupo' => 'concluidas',
+                        'destaqueConcluida' => true,
+                    ])
+                @endif
+            @else
+                @if ($agendaOrdenada->isEmpty())
+                    <div class="card empty-state p-12">
+                        <div class="empty-state-icon">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <h3 class="empty-state-title">Nenhum compromisso ou alerta encontrado</h3>
+                        <p class="empty-state-desc">Selecione outro mês ou altere o filtro de categoria acima.</p>
+                    </div>
+                @else
+                    @if ($agendaPendentes->isNotEmpty())
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between px-1">
+                                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                                    Pendentes e Agendamentos
+                                    <span class="badge badge-info">{{ $agendaPendentes->count() }}</span>
+                                </h3>
+                            </div>
+                            @include('agendamentos._grupos-data', [
+                                'itens' => $agendaPendentes,
+                                'prefixoGrupo' => 'todas-pendentes',
+                                'destaqueConcluida' => false,
+                            ])
+                        </div>
+                    @endif
+
+                    @if ($agendaConcluidas->isNotEmpty())
+                        <div class="space-y-3 pt-2">
+                            <div class="flex items-center justify-between px-1">
+                                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                    O.S. Concluídas
+                                    <span class="badge badge-success">{{ $agendaConcluidas->count() }}</span>
+                                </h3>
+                            </div>
+                            @include('agendamentos._grupos-data', [
+                                'itens' => $agendaConcluidas,
+                                'prefixoGrupo' => 'todas-concluidas',
+                                'destaqueConcluida' => true,
+                            ])
+                        </div>
+                    @endif
+                @endif
             @endif
         </div>
 
@@ -459,12 +353,13 @@
                 {{-- Navegação / Info do Mês & Legenda --}}
                 <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b"
                     style="border-color: var(--color-surface-800); background: var(--color-surface-900);">
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 flex-wrap">
                         <span class="text-base font-bold text-slate-900 dark:text-white capitalize">
                             {{ \Carbon\Carbon::parse($mes . '-01')->translatedFormat('F \d\e Y') }}
                         </span>
                         <span class="badge badge-neutral text-xs">
-                            {{ $totais['total_geral'] }} {{ $totais['total_geral'] === 1 ? 'evento' : 'eventos' }} no mês
+                            {{ $agendaOrdenada->count() }} {{ $agendaOrdenada->count() === 1 ? 'evento exibido' : 'eventos exibidos' }}
+                            ({{ match ($situacao) { 'concluidas' => 'Concluídas', 'todas' => 'Todas', default => 'Pendentes' } }})
                         </span>
                     </div>
 
@@ -541,7 +436,10 @@
                                     <div class="space-y-1.5 flex-1">
                                         @foreach ($itens->take(3) as $ev)
                                             @php
+                                                $evConcluido = ! empty($ev['eh_concluida']);
                                                 $chipClass = match (true) {
+                                                    $evConcluido
+                                                        => 'bg-emerald-50/70 text-emerald-900 border-emerald-200/80 border-l-[3px] border-l-emerald-500 opacity-75 hover:opacity-100 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-200 dark:border-emerald-800/60 dark:border-l-emerald-500 dark:hover:bg-emerald-900/50',
                                                     $ev['eh_retorno_preventivo'] ?? false
                                                         => 'bg-emerald-50 text-emerald-950 border-emerald-200/90 border-l-[3px] border-l-emerald-600 hover:bg-emerald-100 hover:border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-100 dark:border-emerald-800/80 dark:border-l-emerald-500 dark:hover:bg-emerald-900/60',
                                                     $ev['tipo_item'] === 'visita'
@@ -562,16 +460,22 @@
                                                 @if ($urlEv)
                                                     <a href="{{ $urlEv }}"
                                                         class="flex items-center gap-1.5 text-xs px-2 py-1 rounded border shadow-2xs transition truncate {{ $chipClass }}"
-                                                        title="{{ $ev['titulo'] }} ({{ $hora }})">
+                                                        title="{{ $ev['titulo'] }} ({{ $hora }}){{ $evConcluido ? ' — Concluída' : '' }}">
+                                                        @if ($evConcluido)
+                                                            <span class="shrink-0 font-bold text-emerald-600 dark:text-emerald-400">✓</span>
+                                                        @endif
                                                         <span class="font-bold tabular-nums shrink-0 text-[11px] opacity-90">{{ $hora }}</span>
-                                                        <span class="truncate font-medium">{{ $ev['titulo'] }}</span>
+                                                        <span class="truncate font-medium {{ $evConcluido ? 'line-through decoration-emerald-500/50' : '' }}">{{ $ev['titulo'] }}</span>
                                                     </a>
                                                 @else
                                                     <div class="flex items-center gap-1.5 text-xs px-2 py-1 rounded border shadow-2xs transition truncate cursor-pointer {{ $chipClass }}"
                                                         onclick="abrirModalDia('{{ $celula['data_str'] }}', '{{ ucfirst($celula['data']->translatedFormat('l, d \d\e F \d\e Y')) }}')"
-                                                        title="{{ $ev['titulo'] }} ({{ $hora }})">
+                                                        title="{{ $ev['titulo'] }} ({{ $hora }}){{ $evConcluido ? ' — Concluída' : '' }}">
+                                                        @if ($evConcluido)
+                                                            <span class="shrink-0 font-bold text-emerald-600 dark:text-emerald-400">✓</span>
+                                                        @endif
                                                         <span class="font-bold tabular-nums shrink-0 text-[11px] opacity-90">{{ $hora }}</span>
-                                                        <span class="truncate font-medium">{{ $ev['titulo'] }}</span>
+                                                        <span class="truncate font-medium {{ $evConcluido ? 'line-through decoration-emerald-500/50' : '' }}">{{ $ev['titulo'] }}</span>
                                                     </div>
                                                 @endif
                                             </div>
@@ -602,10 +506,10 @@
                 <div class="space-y-3">
                     @foreach ($celula['itens'] as $item)
                         @php
-                            $statusVisita = $item['model']->status ?? null;
+                            $statusVisita = $item['status_visita'] ?? ($item['model']->status ?? null);
                             $badgeClass = match ($statusVisita) {
                                 'concluida' => 'badge-success',
-                                'em_rota' => 'badge-warning',
+                                'em_andamento', 'em_rota' => 'badge-warning',
                                 'agendada' => 'badge-info',
                                 'cancelada' => 'badge-neutral',
                                 default => $item['tipo_item'] === 'comodato' ? 'badge-cyan' : 'badge-purple',

@@ -20,6 +20,10 @@ class AgendamentoController extends Controller
         $user = $request->user();
         $mes = $request->get('mes', now()->format('Y-m'));
         $tipoFiltro = $request->get('tipo', 'todos'); // todos, visitas, comodatos, followups
+        $situacao = $request->get('situacao', 'pendentes'); // pendentes, concluidas, todas
+        if (! in_array($situacao, ['pendentes', 'concluidas', 'todas'], true)) {
+            $situacao = 'pendentes';
+        }
         $tecnicoId = $request->get('tecnico_id');
 
         if ($user && $user->isTecnico()) {
@@ -126,6 +130,7 @@ class AgendamentoController extends Controller
                         'contrato' => $ctr,
                         'eh_recorrente_projetado' => true,
                         'eh_contrato_projetado' => true,
+                        'eh_concluida' => false,
                         'possui_comodato_vinculado' => $temComodato,
                     ]);
                 }
@@ -211,6 +216,7 @@ class AgendamentoController extends Controller
                                 'url' => route('visitas.create', ['cliente_id' => $cli->id, 'data' => $dataHoraItem->toDateString()]),
                                 'model' => $cli,
                                 'eh_recorrente_projetado' => true,
+                                'eh_concluida' => false,
                             ]);
                         }
                     }
@@ -254,6 +260,7 @@ class AgendamentoController extends Controller
                 'model' => $vr,
                 'eh_recorrente_projetado' => true,
                 'eh_retorno_preventivo' => true,
+                'eh_concluida' => false,
             ]);
         }
 
@@ -310,6 +317,7 @@ class AgendamentoController extends Controller
                             ])),
                             'model' => $c,
                             'eh_recorrente_projetado' => ! $ehAnchorOriginal,
+                            'eh_concluida' => false,
                         ]);
                     }
                     $cur->addDays($intervalo);
@@ -333,6 +341,8 @@ class AgendamentoController extends Controller
             $resumoComodatos = $temComodatoContrato
                 ? $v->contrato->comodatos->map(fn (EquipamentoComodato $c) => "{$c->nome_equipamento} ({$c->quantidade} un)")->implode(', ')
                 : null;
+            $ehConcluida = $v->status === Visita::STATUS_CONCLUIDA;
+            $ehAtrasada = $v->status === Visita::STATUS_AGENDADA && $v->data_hora->isPast();
 
             return [
                 'tipo_item' => 'visita',
@@ -341,10 +351,13 @@ class AgendamentoController extends Controller
                 'subtitulo' => $v->tipoServicoLabel().' • '.($v->tecnico?->nome ?? 'Sem técnico').($v->contrato ? " • Contrato: {$v->contrato->numero}" : '').(($v->comodato_id || $temComodatoContrato) ? ' • Reposição de Comodato' : ''),
                 'detalhes' => ($v->area_tratada ? "Área: {$v->area_tratada}" : ($v->tipo_praga ?? 'Monitoramento')).($resumoComodatos ? " • Comodato: {$resumoComodatos}" : ''),
                 'status' => $v->statusLabel(),
+                'status_visita' => $v->status,
                 'url' => route('visitas.show', $v),
                 'model' => $v,
                 'contrato' => $v->contrato,
                 'eh_recorrente_projetado' => false,
+                'eh_concluida' => $ehConcluida,
+                'eh_atrasada' => $ehAtrasada,
                 'possui_comodato_vinculado' => (bool) ($v->comodato_id || $temComodatoContrato),
             ];
         });
@@ -354,12 +367,23 @@ class AgendamentoController extends Controller
             + $itensContratosRecorrentes->filter(fn ($i) => ! empty($i['possui_comodato_vinculado']))->count()
             + $itensVisitas->filter(fn ($i) => ! empty($i['possui_comodato_vinculado']))->count();
 
+        $totalVisitasGeral = $visitas->count() + $itensContratosRecorrentes->count() + $itensVisitasRecorrentes->count() + $itensRetornosPreventivos->count();
+        $totalVisitasConcluidas = $visitas->where('status', Visita::STATUS_CONCLUIDA)->count();
+        $totalVisitasPendentes = max(0, $totalVisitasGeral - $totalVisitasConcluidas);
+        $totalGeral = $totalVisitasGeral + $itensComodatos->count() + $followups->count();
+        $totalConcluidas = $totalVisitasConcluidas;
+        $totalPendentes = max(0, $totalGeral - $totalConcluidas);
+
         // Totais gerais (incluindo ocorrências reais, contratos projetados, legados e retornos)
         $totais = [
-            'total_visitas' => $visitas->count() + $itensContratosRecorrentes->count() + $itensVisitasRecorrentes->count() + $itensRetornosPreventivos->count(),
+            'total_visitas' => $totalVisitasGeral,
+            'total_visitas_pendentes' => $totalVisitasPendentes,
+            'total_visitas_concluidas' => $totalVisitasConcluidas,
             'total_comodatos' => $totalComodatosContabilizados,
             'total_followups' => $followups->count(),
-            'total_geral' => $visitas->count() + $itensContratosRecorrentes->count() + $itensVisitasRecorrentes->count() + $itensRetornosPreventivos->count() + $itensComodatos->count() + $followups->count(),
+            'total_geral' => $totalGeral,
+            'total_pendentes' => $totalPendentes,
+            'total_concluidas' => $totalConcluidas,
         ];
 
         $itensFollowups = $followups->map(fn (Cliente $cli) => [
@@ -372,6 +396,7 @@ class AgendamentoController extends Controller
             'url' => route('clientes.show', $cli),
             'model' => $cli,
             'eh_recorrente_projetado' => false,
+            'eh_concluida' => false,
         ]);
 
         // Filtrar de acordo com o filtro selecionado
@@ -393,7 +418,29 @@ class AgendamentoController extends Controller
             $agenda = $agenda->concat($itensFollowups);
         }
 
-        $agendaOrdenada = $agenda->sortBy('data_hora')->values();
+        // Separação clara entre itens pendentes e O.S. já concluídas
+        $agendaPendentes = $agenda->filter(fn ($item) => empty($item['eh_concluida']))
+            ->sortBy('data_hora')
+            ->values();
+
+        $agendaConcluidas = $agenda->filter(fn ($item) => ! empty($item['eh_concluida']))
+            ->sortByDesc('data_hora')
+            ->values();
+
+        $totaisSituacao = [
+            'pendentes' => $agendaPendentes->count(),
+            'concluidas' => $agendaConcluidas->count(),
+            'todas' => $agenda->count(),
+        ];
+
+        $agendaOrdenada = match ($situacao) {
+            'concluidas' => $agendaConcluidas,
+            'todas' => $agenda->sortBy(fn ($item) => [
+                empty($item['eh_concluida']) ? 0 : 1,
+                $item['data_hora']->timestamp,
+            ])->values(),
+            default => $agendaPendentes,
+        };
         $tecnicos = Tecnico::where('ativo', true)->orderBy('nome')->get();
 
         $modo = $request->get('modo', 'lista');
@@ -432,9 +479,13 @@ class AgendamentoController extends Controller
             'dataInicio',
             'dataFim',
             'tipoFiltro',
+            'situacao',
             'modo',
             'totais',
+            'totaisSituacao',
             'agendaOrdenada',
+            'agendaPendentes',
+            'agendaConcluidas',
             'gradeCalendario',
             'visitas',
             'comodatos',

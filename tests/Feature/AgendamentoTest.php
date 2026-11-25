@@ -486,3 +486,86 @@ test('administrador nao visualiza ordem de servico vinculada a comodato na agend
     $resTecnico->assertSee('Reposição de Comodato');
     $resTecnico->assertSee('OS #'.$visitaAvulsa->id);
 });
+
+test('agenda unificada separa O.S concluidas das pendentes por situacao e prioriza pendencias', function () {
+    $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+    $tecnico = Tecnico::create(['nome' => 'Técnico Separação', 'ativo' => true]);
+    $cliente = Cliente::create([
+        'nome' => 'Condomínio Horizonte',
+        'cidade' => 'Campinas',
+        'estado' => 'SP',
+    ]);
+
+    $osConcluida = Visita::create([
+        'cliente_id' => $cliente->id,
+        'tecnico_id' => $tecnico->id,
+        'data_hora' => '2026-10-05 09:00:00',
+        'status' => Visita::STATUS_CONCLUIDA,
+        'tipo_visita' => Visita::TIPO_VISITA_EXECUCAO,
+        'tipo_servico' => Visita::TIPO_SERVICO_CONTROLE_PRAGAS,
+    ]);
+
+    $osAgendada = Visita::create([
+        'cliente_id' => $cliente->id,
+        'tecnico_id' => $tecnico->id,
+        'data_hora' => '2026-10-20 14:00:00',
+        'status' => Visita::STATUS_AGENDADA,
+        'tipo_visita' => Visita::TIPO_VISITA_EXECUCAO,
+        'tipo_servico' => Visita::TIPO_SERVICO_CONTROLE_PRAGAS,
+    ]);
+
+    $osEmAndamento = Visita::create([
+        'cliente_id' => $cliente->id,
+        'tecnico_id' => $tecnico->id,
+        'data_hora' => '2026-10-18 10:00:00',
+        'status' => Visita::STATUS_EM_ANDAMENTO,
+        'tipo_visita' => Visita::TIPO_VISITA_EXECUCAO,
+        'tipo_servico' => Visita::TIPO_SERVICO_CONTROLE_PRAGAS,
+    ]);
+
+    // 1. Modo padrão (situacao = pendentes): apenas pendentes na lista principal e calendário; concluídas ficam na seção recolhida
+    $resPendentes = $this->actingAs($admin)->get(route('agendamentos.index', ['mes' => '2026-10']));
+    $resPendentes->assertOk();
+    expect($resPendentes->viewData('situacao'))->toBe('pendentes');
+    expect($resPendentes->viewData('agendaOrdenada')->pluck('model.id')->all())
+        ->toBe([$osEmAndamento->id, $osAgendada->id]);
+    expect($resPendentes->viewData('agendaConcluidas')->pluck('model.id')->all())
+        ->toBe([$osConcluida->id]);
+    expect($resPendentes->viewData('totaisSituacao'))->toBe([
+        'pendentes' => 2,
+        'concluidas' => 1,
+        'todas' => 3,
+    ]);
+    $resPendentes->assertSee('O.S. Já Concluídas no Mês');
+
+    // No calendário em modo pendentes, a OS concluída do dia 05 não ocupa espaço da grade
+    $resCalPendentes = $this->actingAs($admin)->get(route('agendamentos.index', ['mes' => '2026-10', 'modo' => 'calendario']));
+    $resCalPendentes->assertOk();
+    $idsNaGrade = collect($resCalPendentes->viewData('gradeCalendario'))
+        ->flatMap(fn ($celula) => $celula['itens']->pluck('model.id'));
+    expect($idsNaGrade->all())->toContain($osAgendada->id, $osEmAndamento->id);
+    expect($idsNaGrade->all())->not->toContain($osConcluida->id);
+
+    // 2. Filtro situacao = concluidas: exibe somente as O.S. já concluídas
+    $resConcluidas = $this->actingAs($admin)->get(route('agendamentos.index', [
+        'mes' => '2026-10',
+        'situacao' => 'concluidas',
+    ]));
+    $resConcluidas->assertOk();
+    expect($resConcluidas->viewData('agendaOrdenada')->pluck('model.id')->all())
+        ->toBe([$osConcluida->id]);
+    $resConcluidas->assertSee("OS #{$osConcluida->id}");
+    $resConcluidas->assertDontSee("OS #{$osAgendada->id}");
+    $resConcluidas->assertDontSee("OS #{$osEmAndamento->id}");
+
+    // 3. Filtro situacao = todas: separa visualmente Pendentes e Agendamentos de O.S. Concluídas
+    $resTodas = $this->actingAs($admin)->get(route('agendamentos.index', [
+        'mes' => '2026-10',
+        'situacao' => 'todas',
+    ]));
+    $resTodas->assertOk();
+    expect($resTodas->viewData('agendaOrdenada')->pluck('model.id')->all())
+        ->toBe([$osEmAndamento->id, $osAgendada->id, $osConcluida->id]);
+    $resTodas->assertSee('Pendentes e Agendamentos');
+    $resTodas->assertSee('O.S. Concluídas');
+});
